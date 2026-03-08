@@ -12,6 +12,7 @@ interface MarketAsset {
   isPositive: boolean
   tradingViewSymbol: string
   isMarketOpen?: boolean
+  rawPrice?: number
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -21,13 +22,40 @@ function AssetCard({
   isSelected,
   onClick,
   isLoading,
+  previousPrice,
 }: {
   asset: MarketAsset
   isSelected: boolean
   onClick: () => void
   isLoading?: boolean
+  previousPrice?: number
 }) {
+  const [flashColor, setFlashColor] = useState<"green" | "red" | null>(null)
   const isMarketClosed = asset.change === "Market Closed"
+
+  // Determine flash color based on price change
+  useEffect(() => {
+    if (previousPrice !== undefined && asset.rawPrice !== undefined && previousPrice !== asset.rawPrice) {
+      if (asset.rawPrice > previousPrice) {
+        setFlashColor("green")
+      } else if (asset.rawPrice < previousPrice) {
+        setFlashColor("red")
+      }
+      
+      // Remove flash after animation
+      const timer = setTimeout(() => {
+        setFlashColor(null)
+      }, 600)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [asset.rawPrice, previousPrice])
+
+  const priceColorClass = flashColor === "green" 
+    ? "text-green-400 transition-colors duration-300" 
+    : flashColor === "red" 
+    ? "text-red-400 transition-colors duration-300" 
+    : "text-foreground transition-colors duration-300"
 
   return (
     <button
@@ -46,7 +74,7 @@ function AssetCard({
         {isLoading ? (
           <div className="w-16 h-5 bg-muted/50 rounded animate-pulse" />
         ) : (
-          <span className="text-base font-bold text-foreground">{asset.price}</span>
+          <span className={`text-base font-bold ${priceColorClass}`}>{asset.price}</span>
         )}
         {isLoading ? (
           <div className="w-12 h-4 bg-muted/50 rounded animate-pulse mt-1" />
@@ -152,6 +180,7 @@ function MarketSection({
   isLoading,
   isLive,
   onRefresh,
+  previousPrices,
 }: {
   title: string
   assets: MarketAsset[]
@@ -160,6 +189,7 @@ function MarketSection({
   isLoading: boolean
   isLive: boolean
   onRefresh?: () => void
+  previousPrices?: Record<string, number>
 }) {
   return (
     <div className="mb-8">
@@ -190,6 +220,7 @@ function MarketSection({
             isSelected={selectedAsset.tradingViewSymbol === asset.tradingViewSymbol}
             onClick={() => onSelectAsset(asset)}
             isLoading={isLoading}
+            previousPrice={previousPrices?.[asset.symbol]}
           />
         ))}
       </div>
@@ -199,30 +230,35 @@ function MarketSection({
 
 // Default fallback data
 const defaultForexData: MarketAsset[] = [
-  { symbol: "EURUSD", name: "Euro / US Dollar", price: "1.0850", change: "+0.08%", isPositive: true, tradingViewSymbol: "FX:EURUSD" },
-  { symbol: "XAUUSD", name: "Gold / US Dollar", price: "2,650.00", change: "+0.32%", isPositive: true, tradingViewSymbol: "OANDA:XAUUSD" },
-  { symbol: "XAGUSD", name: "Silver / US Dollar", price: "31.25", change: "-0.15%", isPositive: false, tradingViewSymbol: "OANDA:XAGUSD" },
+  { symbol: "EURUSD", name: "Euro / US Dollar", price: "1.0850", change: "+0.08%", isPositive: true, tradingViewSymbol: "FX:EURUSD", rawPrice: 1.0850 },
+  { symbol: "XAUUSD", name: "Gold / US Dollar", price: "2,650.00", change: "+0.32%", isPositive: true, tradingViewSymbol: "OANDA:XAUUSD", rawPrice: 2650.00 },
+  { symbol: "XAGUSD", name: "Silver / US Dollar", price: "31.25", change: "-0.15%", isPositive: false, tradingViewSymbol: "OANDA:XAGUSD", rawPrice: 31.25 },
 ]
 
 const defaultCryptoData: MarketAsset[] = [
-  { symbol: "BTC", name: "Bitcoin", price: "97,500.00", change: "+2.34%", isPositive: true, tradingViewSymbol: "BINANCE:BTCUSDT" },
-  { symbol: "ETH", name: "Ethereum", price: "3,650.00", change: "+1.87%", isPositive: true, tradingViewSymbol: "BINANCE:ETHUSDT" },
-  { symbol: "SOL", name: "Solana", price: "195.50", change: "+3.25%", isPositive: true, tradingViewSymbol: "BINANCE:SOLUSDT" },
+  { symbol: "BTC", name: "Bitcoin", price: "97,500.00", change: "+2.34%", isPositive: true, tradingViewSymbol: "BINANCE:BTCUSDT", rawPrice: 97500.00 },
+  { symbol: "ETH", name: "Ethereum", price: "3,650.00", change: "+1.87%", isPositive: true, tradingViewSymbol: "BINANCE:ETHUSDT", rawPrice: 3650.00 },
+  { symbol: "SOL", name: "Solana", price: "195.50", change: "+3.25%", isPositive: true, tradingViewSymbol: "BINANCE:SOLUSDT", rawPrice: 195.50 },
 ]
 
 const defaultIndianData: MarketAsset[] = [
-  { symbol: "NIFTY50", name: "NIFTY 50", price: "24,850.00", change: "+0.45%", isPositive: true, tradingViewSymbol: "NSE:NIFTY" },
-  { symbol: "BANKNIFTY", name: "BANK NIFTY", price: "53,200.00", change: "+0.62%", isPositive: true, tradingViewSymbol: "NSE:BANKNIFTY" },
+  { symbol: "NIFTY50", name: "NIFTY 50", price: "24,850.00", change: "+0.45%", isPositive: true, tradingViewSymbol: "NSE:NIFTY", rawPrice: 24850.00 },
+  { symbol: "BANKNIFTY", name: "BANK NIFTY", price: "53,200.00", change: "+0.62%", isPositive: true, tradingViewSymbol: "NSE:BANKNIFTY", rawPrice: 53200.00 },
 ]
 
 export function MarketOverview() {
   const [selectedAsset, setSelectedAsset] = useState<MarketAsset>(defaultCryptoData[0])
+  
+  // Track previous prices for flash animation
+  const [prevCryptoPrices, setPrevCryptoPrices] = useState<Record<string, number>>({})
+  const [prevForexPrices, setPrevForexPrices] = useState<Record<string, number>>({})
+  const [prevIndianPrices, setPrevIndianPrices] = useState<Record<string, number>>({})
 
   // Fetch real-time crypto data
   const { data: cryptoResponse, isLoading: cryptoLoading, mutate: refreshCrypto } = useSWR(
     "/api/market/crypto",
     fetcher,
-    { refreshInterval: 15000, revalidateOnFocus: true }
+    { refreshInterval: 5000, revalidateOnFocus: true }
   )
 
   // Fetch forex data
@@ -243,6 +279,63 @@ export function MarketOverview() {
   const forexData = forexResponse?.data || defaultForexData
   const indianData = indianResponse?.data || defaultIndianData
 
+  // Update previous prices when data changes
+  useEffect(() => {
+    if (cryptoResponse?.data) {
+      const newPrices: Record<string, number> = {}
+      cryptoData.forEach((asset: MarketAsset) => {
+        if (asset.rawPrice) {
+          newPrices[asset.symbol] = prevCryptoPrices[asset.symbol] || asset.rawPrice
+        }
+      })
+      
+      // Delay updating previous prices to allow flash animation
+      const timer = setTimeout(() => {
+        const currentPrices: Record<string, number> = {}
+        cryptoData.forEach((asset: MarketAsset) => {
+          if (asset.rawPrice) {
+            currentPrices[asset.symbol] = asset.rawPrice
+          }
+        })
+        setPrevCryptoPrices(currentPrices)
+      }, 700)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [cryptoResponse?.data])
+
+  useEffect(() => {
+    if (forexResponse?.data) {
+      const timer = setTimeout(() => {
+        const currentPrices: Record<string, number> = {}
+        forexData.forEach((asset: MarketAsset) => {
+          if (asset.rawPrice) {
+            currentPrices[asset.symbol] = asset.rawPrice
+          }
+        })
+        setPrevForexPrices(currentPrices)
+      }, 700)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [forexResponse?.data])
+
+  useEffect(() => {
+    if (indianResponse?.data) {
+      const timer = setTimeout(() => {
+        const currentPrices: Record<string, number> = {}
+        indianData.forEach((asset: MarketAsset) => {
+          if (asset.rawPrice) {
+            currentPrices[asset.symbol] = asset.rawPrice
+          }
+        })
+        setPrevIndianPrices(currentPrices)
+      }, 700)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [indianResponse?.data])
+
   const handleRefreshAll = useCallback(() => {
     refreshCrypto()
     refreshForex()
@@ -261,6 +354,7 @@ export function MarketOverview() {
           isLoading={cryptoLoading}
           isLive={!cryptoLoading && !!cryptoResponse?.data}
           onRefresh={refreshCrypto}
+          previousPrices={prevCryptoPrices}
         />
 
         {/* Forex & Commodities Section */}
@@ -272,6 +366,7 @@ export function MarketOverview() {
           isLoading={forexLoading}
           isLive={!forexLoading && !!forexResponse?.data}
           onRefresh={refreshForex}
+          previousPrices={prevForexPrices}
         />
 
         {/* Indian Market Section */}
@@ -283,6 +378,7 @@ export function MarketOverview() {
           isLoading={indianLoading}
           isLive={!indianLoading && indianResponse?.isMarketOpen}
           onRefresh={refreshIndian}
+          previousPrices={prevIndianPrices}
         />
 
         {/* TradingView Chart */}

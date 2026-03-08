@@ -77,6 +77,7 @@ async function fetchNSEData(): Promise<IndianMarketAsset[] | null> {
               change: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
               isPositive: change >= 0,
               tradingViewSymbol: index.tradingView,
+              rawPrice: currentPrice,
               isMarketOpen,
             })
           }
@@ -104,6 +105,7 @@ async function getFallbackData(): Promise<IndianMarketAsset[]> {
       change: isMarketOpen ? "+0.45%" : "Market Closed",
       isPositive: true,
       tradingViewSymbol: "NSE:NIFTY",
+      rawPrice: 24850.00,
       isMarketOpen,
     },
     {
@@ -113,6 +115,7 @@ async function getFallbackData(): Promise<IndianMarketAsset[]> {
       change: isMarketOpen ? "+0.62%" : "Market Closed",
       isPositive: true,
       tradingViewSymbol: "NSE:BANKNIFTY",
+      rawPrice: 53200.00,
       isMarketOpen,
     },
   ]

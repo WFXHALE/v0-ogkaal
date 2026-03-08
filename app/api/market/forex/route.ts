@@ -43,6 +43,7 @@ async function fetchExchangeRateData(): Promise<ForexAsset[] | null> {
               change: "+0.00%", // exchangerate.host doesn't provide change data
               isPositive: true,
               tradingViewSymbol: asset.tradingView,
+              rawPrice: price,
             })
           }
         }
@@ -69,27 +70,32 @@ async function fetchFallbackForexData(): Promise<ForexAsset[]> {
   return FOREX_SYMBOLS.map((asset) => {
     // Reasonable market estimates based on recent data
     let price: string
+    let rawPrice: number
     let change: string
     let isPositive: boolean
 
     switch (asset.symbol) {
       case "EURUSD":
         price = "1.0850"
+        rawPrice = 1.0850
         change = isWeekend ? "Market Closed" : "+0.08%"
         isPositive = true
         break
       case "XAUUSD":
         price = "2,650.00"
+        rawPrice = 2650.00
         change = isWeekend ? "Market Closed" : "+0.32%"
         isPositive = true
         break
       case "XAGUSD":
         price = "31.25"
+        rawPrice = 31.25
         change = isWeekend ? "Market Closed" : "-0.15%"
         isPositive = false
         break
       default:
         price = "0.00"
+        rawPrice = 0
         change = "N/A"
         isPositive = true
     }
@@ -101,6 +107,7 @@ async function fetchFallbackForexData(): Promise<ForexAsset[]> {
       change,
       isPositive,
       tradingViewSymbol: asset.tradingView,
+      rawPrice,
       isWeekend,
     }
   })

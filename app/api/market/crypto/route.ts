@@ -45,6 +45,7 @@ async function fetchBinanceData() {
         change: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
         isPositive: change >= 0,
         tradingViewSymbol: `BINANCE:${crypto.binanceSymbol}`,
+        rawPrice: price,
       }
     })
   } catch {
@@ -78,6 +79,7 @@ async function fetchCoinGeckoData() {
         change: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
         isPositive: change >= 0,
         tradingViewSymbol: `BINANCE:${crypto.binanceSymbol}`,
+        rawPrice: price,
       }
     })
   } catch {
