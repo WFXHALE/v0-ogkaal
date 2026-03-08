@@ -3,7 +3,6 @@ import { HeroSection } from "@/components/hero-section"
 import { MarketOverview } from "@/components/market-overview"
 import { VipCommunitySection } from "@/components/vip-community-section"
 import { SocialMediaSection } from "@/components/social-media-section"
-import { ContactSection } from "@/components/contact-section"
 
 export default function Home() {
   return (
@@ -14,7 +13,6 @@ export default function Home() {
         <MarketOverview />
         <VipCommunitySection />
         <SocialMediaSection />
-        <ContactSection />
       </main>
     </div>
   )
