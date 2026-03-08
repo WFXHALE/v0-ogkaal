@@ -3,6 +3,8 @@
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { TradingCalculators } from "@/components/trading-calculators"
+import { ConsistencyRuleCalculator } from "@/components/consistency-rule-calculator"
+import { MarketFundamentals } from "@/components/market-fundamentals"
 import { useState, useEffect } from "react"
 import { 
   TrendingUp, TrendingDown, Plus, X, LogOut, User, 
@@ -604,6 +606,12 @@ export default function FundedToolsPage() {
 
           {/* Trading Calculators */}
           <TradingCalculators />
+
+          {/* Consistency Rule Calculator */}
+          <ConsistencyRuleCalculator />
+
+          {/* Market Fundamentals & Economic Calendar */}
+          <MarketFundamentals />
 
           {/* Consistency Tracker */}
           {fundedAccount && (
