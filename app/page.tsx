@@ -1,6 +1,7 @@
 import { Header } from "@/components/header"
 import { HeroSection } from "@/components/hero-section"
 import { MarketOverview } from "@/components/market-overview"
+import { VipCommunitySection } from "@/components/vip-community-section"
 import { SocialMediaSection } from "@/components/social-media-section"
 
 export default function Home() {
@@ -10,6 +11,7 @@ export default function Home() {
       <main>
         <HeroSection />
         <MarketOverview />
+        <VipCommunitySection />
         <SocialMediaSection />
       </main>
     </div>
