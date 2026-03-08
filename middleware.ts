@@ -1,30 +1,40 @@
-// middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-import { Request, Response, NextFunction } from 'express';
+export function middleware(request: NextRequest) {
+  // Get the pathname of the request
+  const { pathname } = request.nextUrl
 
-// Middleware to protect routes
-export const protectRoutes = (req: Request, res: Response, next: NextFunction) => {
-    // Check for authentication token in headers
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Unauthorized access. Token is missing.' });
-    }
+  // Add your route protection logic here
+  // Example: Check for authentication token in cookies or headers
+  const token = request.cookies.get('auth-token')?.value || 
+                request.headers.get('authorization')?.split(' ')[1]
 
-    // TODO: Add authentication logic using the token
-    // If valid token, proceed to the next middleware
-    // Otherwise, respond with an error
+  // Define protected routes that require authentication
+  const protectedRoutes = ['/dashboard', '/profile', '/settings']
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
 
-    next();
-};
+  // If accessing a protected route without a token, redirect to login
+  if (isProtectedRoute && !token) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('from', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
 
-// Middleware to check user authentication
-export const checkUserAuth = (req: Request, res: Response, next: NextFunction) => {
-    // Implement your authentication logic here
-    // Example: Check the user’s role or permissions
-    const user = req.user; // Assume req.user is populated after authentication
-    if (!user || !user.isAuthenticated) {
-        return res.status(403).json({ message: 'Access forbidden. You do not have permission.' });
-    }
+  // Continue to the next middleware or route handler
+  return NextResponse.next()
+}
 
-    next();
-};
+// Configure which routes the middleware should run on
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+}
