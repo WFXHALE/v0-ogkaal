@@ -2,6 +2,7 @@ import { Header } from "@/components/header"
 import { HeroSection } from "@/components/hero-section"
 import { MarketOverview } from "@/components/market-overview"
 import { VipCommunitySection } from "@/components/vip-community-section"
+import { ContactSection } from "@/components/contact-section"
 import { SocialMediaSection } from "@/components/social-media-section"
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
         <HeroSection />
         <MarketOverview />
         <VipCommunitySection />
+        <ContactSection />
         <SocialMediaSection />
       </main>
     </div>
