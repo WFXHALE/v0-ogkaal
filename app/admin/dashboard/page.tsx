@@ -56,16 +56,16 @@ export default function AdminDashboardPage() {
   }, [])
 
   const checkAuth = () => {
-    if (!isSessionValid()) {
-      router.push("/admin/login")
-      return
-    }
-
+    // The middleware handles auth via cookies, but we also check localStorage
+    // for the client session. If no session, middleware will redirect.
     const session = getSession()
     if (session) {
       setAdminEmail(session.email)
+      setIsAuthenticated(true)
+    } else {
+      // Trust middleware to protect this route, just show loading
+      setIsAuthenticated(true)
     }
-    setIsAuthenticated(true)
     setIsLoading(false)
   }
 
@@ -122,7 +122,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = async () => {
     await logout()
-    router.push("/admin/login")
+    window.location.href = "/admin/login"
   }
 
   const updateStatus = (id: string, status: "pending" | "completed") => {

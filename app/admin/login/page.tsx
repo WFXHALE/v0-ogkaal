@@ -82,12 +82,11 @@ export default function AdminLoginPage() {
     }
 
     if (result.success) {
-      router.push("/admin/dashboard")
+      window.location.href = "/admin/dashboard"
     } else {
       setError(result.error || "Login failed")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   const handlePhoneOTPRequest = async (e: React.FormEvent) => {
@@ -136,12 +135,12 @@ export default function AdminLoginPage() {
         : await verify2FA(identifier, otp)
 
     if (result.success) {
-      router.push("/admin/dashboard")
+      // Use window.location for a full page reload to ensure cookie is read by middleware
+      window.location.href = "/admin/dashboard"
     } else {
       setError(result.error || "Verification failed")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   const handleForgotPasswordRequest = async (e: React.FormEvent) => {
