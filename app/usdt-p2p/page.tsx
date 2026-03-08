@@ -44,7 +44,9 @@ interface FormData {
 }
 
 export default function UsdtP2PPage() {
+  const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
   const [step, setStep] = useState(0) // 0 = info, 1-4 = form steps
+  const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -86,6 +88,16 @@ export default function UsdtP2PPage() {
   const canProceedStep2 = formData.panNumber && formData.aadhaarNumber && formData.panCard && formData.aadhaarCard && formData.selfie
   const canProceedStep3 = formData.walletAddress && formData.network && formData.usdtAmount
 
+  // Sell USDT pricing tiers
+  const getSellRate = (amount: number): number => {
+    if (amount < 50) return 100
+    return 95
+  }
+
+  const sellAmount = Number(sellUsdtAmount) || 0
+  const sellRate = getSellRate(sellAmount)
+  const sellTotalINR = sellAmount * sellRate
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -107,61 +119,208 @@ export default function UsdtP2PPage() {
               </p>
             </div>
 
-            {/* Rate Display */}
-            <div className="max-w-2xl mx-auto mb-12">
-              <div className="p-6 rounded-2xl bg-card border border-border">
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">Live USDT Rates</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Internet USDT Rate</p>
-                    <p className="text-2xl font-bold text-foreground">₹91</p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
-                    <p className="text-sm text-primary mb-1">Our P2P Rate</p>
-                    <p className="text-2xl font-bold text-primary">₹93 – ₹94</p>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-secondary/30 border border-border">
-                  <p className="text-sm text-muted-foreground text-center mb-3">
-                    Our rates include tax, transaction cost, and margin.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-primary">
-                    <span className="text-sm font-medium">Minimum Order:</span>
-                    <span className="font-bold">50 USDT</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-200">
-                      If someone buys below 50 USDT, the rate increases to <strong>₹115 – ₹120 per USDT</strong> due to taxes and transaction fees.
-                    </p>
-                  </div>
-                </div>
+            {/* Buy/Sell Tabs */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <div className="flex rounded-xl bg-secondary p-1">
+                <button
+                  onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
+                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                    activeTab === "buy"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Buy USDT
+                </button>
+                <button
+                  onClick={() => { setActiveTab("sell"); setStep(0); setIsComplete(false); }}
+                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                    activeTab === "sell"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Sell USDT
+                </button>
               </div>
             </div>
 
-            {/* CTA Button or Form */}
-            {step === 0 && !isComplete && (
-              <div className="text-center">
-                <Button
-                  onClick={() => setStep(1)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
-                >
-                  Buy USDT Now
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
+            {/* Buy USDT Section */}
+            {activeTab === "buy" && (
+              <>
+                {/* Rate Display */}
+                <div className="max-w-2xl mx-auto mb-12">
+                  <div className="p-6 rounded-2xl bg-card border border-border">
+                    <div className="flex items-center justify-center gap-2 mb-6">
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold text-foreground">Live USDT Buy Rates</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <div className="p-4 rounded-xl bg-secondary/50 text-center">
+                        <p className="text-sm text-muted-foreground mb-1">Internet USDT Rate</p>
+                        <p className="text-2xl font-bold text-foreground">₹91</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
+                        <p className="text-sm text-primary mb-1">Our P2P Rate</p>
+                        <p className="text-2xl font-bold text-primary">₹93 – ₹94</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-secondary/30 border border-border">
+                      <p className="text-sm text-muted-foreground text-center mb-3">
+                        Our rates include tax, transaction cost, and margin.
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-primary">
+                        <span className="text-sm font-medium">Minimum Order:</span>
+                        <span className="font-bold">50 USDT</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-amber-200">
+                          If someone buys below 50 USDT, the rate increases to <strong>₹115 – ₹120 per USDT</strong> due to taxes and transaction fees.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA Button or Form */}
+                {step === 0 && !isComplete && (
+                  <div className="text-center">
+                    <Button
+                      onClick={() => setStep(1)}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
+                    >
+                      Buy USDT Now
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Sell USDT Section */}
+            {activeTab === "sell" && (
+              <div className="max-w-2xl mx-auto">
+                <div className="p-6 rounded-2xl bg-card border border-border">
+                  <div className="flex items-center justify-center gap-2 mb-6">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Sell USDT</h3>
+                  </div>
+
+                  {/* Pricing Tiers Display */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 rounded-xl border text-center transition-colors ${
+                      sellAmount > 0 && sellAmount < 50 
+                        ? "bg-primary/10 border-primary/50" 
+                        : "bg-secondary/50 border-border"
+                    }`}>
+                      <p className="text-sm text-muted-foreground mb-1">Below 50 USDT</p>
+                      <p className={`text-2xl font-bold ${
+                        sellAmount > 0 && sellAmount < 50 ? "text-primary" : "text-foreground"
+                      }`}>₹100 <span className="text-sm font-normal">per USDT</span></p>
+                    </div>
+                    <div className={`p-4 rounded-xl border text-center transition-colors ${
+                      sellAmount >= 50 
+                        ? "bg-primary/10 border-primary/50" 
+                        : "bg-secondary/50 border-border"
+                    }`}>
+                      <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
+                      <p className={`text-2xl font-bold ${
+                        sellAmount >= 50 ? "text-primary" : "text-foreground"
+                      }`}>₹95 <span className="text-sm font-normal">per USDT</span></p>
+                    </div>
+                  </div>
+
+                  {/* USDT Amount Input */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-foreground mb-2">Enter USDT Amount</label>
+                    <input
+                      type="number"
+                      value={sellUsdtAmount}
+                      onChange={(e) => setSellUsdtAmount(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg"
+                      placeholder="Enter amount of USDT to sell"
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Rate Message */}
+                  {sellAmount > 0 && (
+                    <div className={`p-4 rounded-xl mb-6 ${
+                      sellAmount < 50 
+                        ? "bg-amber-500/10 border border-amber-500/30" 
+                        : "bg-green-500/10 border border-green-500/30"
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        {sellAmount < 50 ? (
+                          <>
+                            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-sm text-amber-200">
+                              Small trade rate will apply because the amount is below 50 USDT.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                            <p className="text-sm text-green-200">
+                              Standard market rate will apply for 50 USDT or above.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Calculation Results */}
+                  {sellAmount > 0 && (
+                    <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 mb-6">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">USDT Amount:</span>
+                          <span className="text-foreground font-medium">{sellAmount} USDT</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Applicable Rate:</span>
+                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-3 border-t border-border">
+                          <span className="font-semibold text-foreground">Total INR Amount:</span>
+                          <span className="text-2xl font-bold text-primary">₹{sellTotalINR.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Transparency Note */}
+                  <div className="p-4 rounded-xl bg-secondary/30 border border-border mb-6">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Smaller trades may have a slightly higher rate due to transaction fees, GST, and processing costs.
+                    </p>
+                  </div>
+
+                  {/* Contact Button */}
+                  <div className="text-center">
+                    <Button
+                      asChild
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
+                    >
+                      <a href={TELEGRAM_LINK} target="_blank" rel="noopener noreferrer">
+                        Contact to Sell USDT
+                        <ExternalLink className="w-5 h-5 ml-2" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Multi-Step Form */}
-            {step > 0 && !isComplete && (
+            {/* Multi-Step Form (Buy) */}
+            {activeTab === "buy" && step > 0 && !isComplete && (
               <div className="max-w-2xl mx-auto">
                 {/* Progress Steps */}
                 <div className="flex items-center justify-between mb-8">
@@ -657,8 +816,8 @@ export default function UsdtP2PPage() {
               </div>
             )}
 
-            {/* Success State */}
-            {isComplete && (
+            {/* Success State (Buy) */}
+            {activeTab === "buy" && isComplete && (
               <div className="max-w-lg mx-auto text-center">
                 <div className="p-8 rounded-2xl bg-card border border-border">
                   <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6">
