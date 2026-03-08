@@ -7,7 +7,7 @@ import { SocialMediaSection } from "@/components/social-media-section"
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background dark">
+    <div className="min-h-screen bg-background">
       <Header />
       <main>
         <HeroSection />
