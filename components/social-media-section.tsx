@@ -1,53 +1,56 @@
 "use client"
 
+import Link from "next/link"
 import { Youtube, Send, Instagram } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 const socialPlatforms = [
   {
-    name: "YouTube",
-    icon: Youtube,
-    followers: "125K+",
-    username: "@OGKaalTrader",
-    color: "bg-red-600",
-    hoverColor: "hover:bg-red-700",
+    name: "Instagram",
+    icon: Instagram,
+    username: "@ogkaaltrader",
+    url: "https://www.instagram.com/ogkaaltrader",
+    color: "bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400",
+    hoverGlow: "hover:shadow-pink-500/20",
   },
   {
     name: "Telegram",
     icon: Send,
-    followers: "50K+",
-    username: "@OGKaalTrader",
+    username: "@OgKaalTrading",
+    url: "https://t.me/OgKaalTrading",
     color: "bg-sky-500",
-    hoverColor: "hover:bg-sky-600",
+    hoverGlow: "hover:shadow-sky-500/20",
   },
   {
-    name: "Instagram",
-    icon: Instagram,
-    followers: "85K+",
-    username: "@OGKaalTrader",
-    color: "bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400",
-    hoverColor: "hover:opacity-90",
+    name: "YouTube",
+    icon: Youtube,
+    username: "@ogkaaltrader",
+    url: "https://youtube.com/@ogkaaltrader",
+    color: "bg-red-600",
+    hoverGlow: "hover:shadow-red-500/20",
   },
 ]
 
 export function SocialMediaSection() {
   return (
-    <section className="py-16 px-4">
+    <section className="py-16 sm:py-20 px-4 border-t border-border/50">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground mb-3">
-            Join Our <span className="text-primary">Community</span>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+            Connect With <span className="text-primary">OG KAAL TRADER</span>
           </h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Connect with thousands of traders and stay updated with the latest market insights
+          <p className="text-muted-foreground max-w-lg mx-auto text-balance">
+            Stay updated with the latest market insights, trade setups, and community discussions
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {socialPlatforms.map((platform) => (
-            <div
+            <Link
               key={platform.name}
-              className="group relative bg-card border border-border/50 rounded-xl p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+              href={platform.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`group relative bg-card border border-border/50 rounded-xl p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-xl ${platform.hoverGlow}`}
             >
               <div className="flex flex-col items-center text-center">
                 <div
@@ -56,28 +59,21 @@ export function SocialMediaSection() {
                   <platform.icon className="w-8 h-8 text-white" />
                 </div>
 
-                <h3 className="text-xl font-semibold text-foreground mb-1">
+                <h3 className="text-xl font-semibold text-foreground mb-2">
                   {platform.name}
                 </h3>
 
-                <p className="text-2xl font-bold text-primary mb-1">
-                  {platform.followers}
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">Followers</p>
-
-                <p className="text-sm text-muted-foreground mb-5">
+                <p className="text-sm text-muted-foreground mb-4">
                   {platform.username}
                 </p>
 
-                <Button
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
-                >
+                <div className="w-full py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm transition-all group-hover:bg-primary group-hover:text-primary-foreground">
                   Follow
-                </Button>
+                </div>
               </div>
 
               <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            </div>
+            </Link>
           ))}
         </div>
       </div>

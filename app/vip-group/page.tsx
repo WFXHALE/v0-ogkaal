@@ -1,33 +1,12 @@
+"use client"
+
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
-import { Check, Crown, Shield, TrendingUp, Users, AlertCircle } from "lucide-react"
+import { XmPartnerPopup, useXmPartnerPopup } from "@/components/xm-partner-popup"
+import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
+import { useState } from "react"
 
-const pricingOptions = [
-  {
-    title: "XM Partner Account",
-    price: "$25",
-    description: "For new XM users",
-    requirements: "User must open an XM account using the provided referral link.",
-    highlight: true,
-    cta: "Open XM Account",
-  },
-  {
-    title: "XM Existing User",
-    price: "$20",
-    description: "For current XM traders",
-    requirements: "For users already trading with XM.",
-    highlight: false,
-    cta: "Join VIP Group",
-  },
-  {
-    title: "Funded Account Traders",
-    price: "$50",
-    description: "Without XM account",
-    requirements: "For traders using funded accounts or other brokers.",
-    highlight: false,
-    cta: "Join VIP Group",
-  },
-]
+const PARTNER_CODE = "XV3F9"
 
 const vipFeatures = [
   "Real-time trade alerts",
@@ -39,6 +18,45 @@ const vipFeatures = [
 ]
 
 export default function VipGroupPage() {
+  const { isOpen, openPopup, closePopup } = useXmPartnerPopup()
+  const [copiedCode, setCopiedCode] = useState(false)
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(PARTNER_CODE)
+    setCopiedCode(true)
+    setTimeout(() => setCopiedCode(false), 2000)
+  }
+
+  const pricingOptions = [
+    {
+      title: "XM Partner Account",
+      price: "$25",
+      description: "For new XM users",
+      requirements: "User must open an XM account using the provided referral link.",
+      highlight: true,
+      cta: "Open XM Account",
+      onClick: openPopup,
+    },
+    {
+      title: "XM Existing User",
+      price: "$20",
+      description: "For current XM traders",
+      requirements: "For users already trading with XM.",
+      highlight: false,
+      cta: "Join VIP Group",
+      onClick: openPopup,
+    },
+    {
+      title: "Funded Account Traders",
+      price: "$50",
+      description: "Without XM account",
+      requirements: "For traders using funded accounts or other brokers.",
+      highlight: false,
+      cta: "Join VIP Group",
+      onClick: openPopup,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -68,8 +86,34 @@ export default function VipGroupPage() {
           </div>
         </section>
 
+        {/* Partner Code Banner */}
+        <section className="py-6 bg-primary/10 border-y border-primary/30">
+          <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <p className="text-foreground font-medium text-center sm:text-left">
+              Use Partner Code to qualify for VIP access:
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="px-4 py-2 bg-card rounded-lg border border-primary/50">
+                <span className="font-mono font-bold text-primary text-xl">{PARTNER_CODE}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyCode}
+                className="border-primary/50 hover:bg-primary/10"
+              >
+                {copiedCode ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </section>
+
         {/* Pricing Section */}
-        <section className="py-16 sm:py-20 border-t border-border/50">
+        <section className="py-16 sm:py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
@@ -99,10 +143,16 @@ export default function VipGroupPage() {
                     <p className="text-sm text-muted-foreground mb-4">{option.description}</p>
                     <div className="text-4xl font-bold text-primary">{option.price}</div>
                   </div>
-                  <p className="text-sm text-muted-foreground text-center mb-6 min-h-[40px]">
+                  <p className="text-sm text-muted-foreground text-center mb-4 min-h-[40px]">
                     {option.requirements}
                   </p>
+                  {option.highlight && (
+                    <p className="text-xs text-primary text-center mb-4 font-medium">
+                      Use Partner Code: {PARTNER_CODE}
+                    </p>
+                  )}
                   <Button
+                    onClick={option.onClick}
                     className={`w-full font-bold ${
                       option.highlight
                         ? "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -207,20 +257,34 @@ export default function VipGroupPage() {
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-6">
               Join the <span className="text-primary">Elite Traders</span>
             </h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground mb-4 max-w-2xl mx-auto">
               Take your trading to the next level with VIP access to exclusive trade alerts and community support.
             </p>
+            <p className="text-primary font-medium mb-8">
+              Use Partner Code: <span className="font-mono font-bold text-lg">{PARTNER_CODE}</span>
+            </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6">
+              <Button 
+                size="lg" 
+                onClick={openPopup}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
+              >
                 Open XM Account
               </Button>
-              <Button size="lg" variant="outline" className="border-primary/50 text-foreground hover:bg-primary/10 font-bold text-lg px-8 py-6">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                onClick={openPopup}
+                className="border-primary/50 text-foreground hover:bg-primary/10 font-bold text-lg px-8 py-6"
+              >
                 Join VIP Group
               </Button>
             </div>
           </div>
         </section>
       </main>
+
+      <XmPartnerPopup isOpen={isOpen} onClose={closePopup} />
     </div>
   )
 }
