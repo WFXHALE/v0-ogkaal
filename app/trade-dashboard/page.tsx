@@ -195,6 +195,7 @@ export default function TradeDashboardPage() {
     serverName: "",
   })
   const [connectionError, setConnectionError] = useState("")
+  const [mounted, setMounted] = useState(false)
   
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
@@ -215,6 +216,31 @@ export default function TradeDashboardPage() {
     result: "open" as "win" | "loss" | "open",
     notes: "",
   })
+
+  // Set mounted state for client-side rendering
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Helper function to format date consistently
+  const formatDate = (dateString: string) => {
+    if (!mounted) return ""
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+  }
+
+  const getCurrentDate = () => {
+    if (!mounted) return ""
+    return new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+  }
 
   // Check if account is connected on load
   useEffect(() => {
@@ -947,7 +973,7 @@ export default function TradeDashboardPage() {
                     {filteredHistory.map((trade) => (
                       <tr key={trade.id} className="border-b border-border/50 hover:bg-secondary/20">
                         <td className="py-3 px-4 text-muted-foreground text-sm">
-                          {new Date(trade.date).toLocaleDateString()}
+                          {formatDate(trade.date)}
                         </td>
                         <td className="py-3 px-4 font-medium text-foreground">{trade.pair}</td>
                         <td className="py-3 px-4">
@@ -1050,7 +1076,7 @@ export default function TradeDashboardPage() {
                   {stats.dailyPL >= 0 ? "+" : ""}${stats.dailyPL}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {new Date().toLocaleDateString()}
+                  {getCurrentDate()}
                 </p>
               </div>
             </div>
