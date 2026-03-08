@@ -3,6 +3,7 @@
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { VipAccessFlow, useVipAccessFlow } from "@/components/vip-access-flow"
+import { FundedAccountFlow, useFundedAccountFlow } from "@/components/funded-account-flow"
 import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
 import { useState } from "react"
 
@@ -19,6 +20,7 @@ const vipFeatures = [
 
 export default function VipGroupPage() {
   const { isOpen, initialUserType, openFlow, closeFlow } = useVipAccessFlow()
+  const { isOpen: isFundedOpen, openFlow: openFundedFlow, closeFlow: closeFundedFlow } = useFundedAccountFlow()
   const [copiedCode, setCopiedCode] = useState(false)
 
   const handleCopyCode = () => {
@@ -52,8 +54,8 @@ export default function VipGroupPage() {
       description: "Without XM account",
       requirements: "For traders using funded accounts or other brokers.",
       highlight: false,
-      cta: "Join VIP Group",
-      onClick: () => openFlow(),
+      cta: "Request Funded Access",
+      onClick: openFundedFlow,
     },
   ]
 
@@ -298,6 +300,12 @@ export default function VipGroupPage() {
         isOpen={isOpen} 
         onClose={closeFlow} 
         initialUserType={initialUserType}
+      />
+
+      {/* Funded Account Flow Modal */}
+      <FundedAccountFlow
+        isOpen={isFundedOpen}
+        onClose={closeFundedFlow}
       />
     </div>
   )
