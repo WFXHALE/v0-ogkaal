@@ -20,6 +20,12 @@ import {
   Wallet,
   Target,
   PieChart,
+  Link2,
+  Monitor,
+  AlertTriangle,
+  Check,
+  RefreshCw,
+  Shield,
 } from "lucide-react"
 
 // Types
@@ -42,10 +48,23 @@ interface Trade {
 interface AccountInfo {
   balance: number
   equity: number
+  floatingPL: number
+  marginLevel: number
+  freeMargin: number
   broker: string
   platform: string
   accountType: string
-  accountSize: number
+  accountId: string
+  serverName: string
+  isConnected: boolean
+  isManualMode: boolean
+}
+
+interface ConnectionSettings {
+  platform: "MT5" | "MT4" | "Other"
+  accountId: string
+  investorPassword: string
+  serverName: string
 }
 
 // Sample data
@@ -154,11 +173,29 @@ export default function TradeDashboardPage() {
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({
     balance: 10000,
     equity: 10125,
+    floatingPL: 125,
+    marginLevel: 5000,
+    freeMargin: 9500,
     broker: "XM",
     platform: "MT5",
     accountType: "Funded",
-    accountSize: 10000,
+    accountId: "",
+    serverName: "",
+    isConnected: false,
+    isManualMode: false,
   })
+  
+  // Connection popup state
+  const [showConnectionPopup, setShowConnectionPopup] = useState(false)
+  const [connectionStep, setConnectionStep] = useState<"choose" | "connect" | "connecting" | "success">("choose")
+  const [connectionSettings, setConnectionSettings] = useState<ConnectionSettings>({
+    platform: "MT5",
+    accountId: "",
+    investorPassword: "",
+    serverName: "",
+  })
+  const [connectionError, setConnectionError] = useState("")
+  
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
   const [filterPair, setFilterPair] = useState("")
@@ -179,11 +216,21 @@ export default function TradeDashboardPage() {
     notes: "",
   })
 
-  // Load data from localStorage
+  // Check if account is connected on load
   useEffect(() => {
+    const savedAccount = localStorage.getItem("og_account_info")
     const savedOpenTrades = localStorage.getItem("og_open_trades")
     const savedHistory = localStorage.getItem("og_trade_history")
-    const savedAccount = localStorage.getItem("og_account_info")
+    
+    if (savedAccount) {
+      const account = JSON.parse(savedAccount)
+      setAccountInfo(account)
+      if (!account.isConnected && !account.isManualMode) {
+        setShowConnectionPopup(true)
+      }
+    } else {
+      setShowConnectionPopup(true)
+    }
 
     if (savedOpenTrades) {
       setOpenTrades(JSON.parse(savedOpenTrades))
@@ -196,10 +243,6 @@ export default function TradeDashboardPage() {
     } else {
       setTradeHistory(SAMPLE_HISTORY)
     }
-
-    if (savedAccount) {
-      setAccountInfo(JSON.parse(savedAccount))
-    }
   }, [])
 
   // Save to localStorage
@@ -207,9 +250,55 @@ export default function TradeDashboardPage() {
     if (openTrades.length > 0 || tradeHistory.length > 0) {
       localStorage.setItem("og_open_trades", JSON.stringify(openTrades))
       localStorage.setItem("og_trade_history", JSON.stringify(tradeHistory))
-      localStorage.setItem("og_account_info", JSON.stringify(accountInfo))
     }
+    localStorage.setItem("og_account_info", JSON.stringify(accountInfo))
   }, [openTrades, tradeHistory, accountInfo])
+
+  // Handle manual mode selection
+  const handleManualMode = () => {
+    setAccountInfo({
+      ...accountInfo,
+      isManualMode: true,
+      isConnected: false,
+    })
+    setShowConnectionPopup(false)
+  }
+
+  // Handle broker connection attempt
+  const handleConnectBroker = async () => {
+    if (!connectionSettings.accountId || !connectionSettings.investorPassword || !connectionSettings.serverName) {
+      setConnectionError("Please fill in all fields")
+      return
+    }
+
+    setConnectionError("")
+    setConnectionStep("connecting")
+
+    // Simulate connection attempt
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // For demo, we'll show success but note that real MT4/MT5 connection requires a backend
+    setConnectionStep("success")
+    setAccountInfo({
+      ...accountInfo,
+      platform: connectionSettings.platform,
+      accountId: connectionSettings.accountId,
+      serverName: connectionSettings.serverName,
+      isConnected: true,
+      isManualMode: false,
+      // Simulated account data
+      balance: 25000,
+      equity: 25350,
+      floatingPL: 350,
+      marginLevel: 8500,
+      freeMargin: 24000,
+    })
+
+    setTimeout(() => {
+      setShowConnectionPopup(false)
+      setConnectionStep("choose")
+    }, 2000)
+  }
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -226,9 +315,26 @@ export default function TradeDashboardPage() {
     return { totalTrades, winRate, totalPL, floatingPL, dailyPL }
   }, [tradeHistory, openTrades])
 
+  // Risk statistics
+  const riskStats = useMemo(() => {
+    const totalRiskExposure = openTrades.reduce((sum, t) => {
+      const riskPerTrade = Math.abs(t.entryPrice - t.stopLoss) * t.lotSize * 10000
+      return sum + riskPerTrade
+    }, 0)
+    
+    const avgRiskPerTrade = openTrades.length > 0 
+      ? (totalRiskExposure / openTrades.length).toFixed(2) 
+      : "0"
+
+    return {
+      totalRiskExposure: totalRiskExposure.toFixed(2),
+      numberOfOpenTrades: openTrades.length,
+      avgRiskPerTrade,
+    }
+  }, [openTrades])
+
   // Performance data for charts
   const performanceData = useMemo(() => {
-    // Profit over time
     const profitByDate: { [key: string]: number } = {}
     let cumulative = 0
     tradeHistory
@@ -238,13 +344,11 @@ export default function TradeDashboardPage() {
         profitByDate[trade.date] = cumulative
       })
 
-    // Most traded pairs
     const pairCounts: { [key: string]: number } = {}
     tradeHistory.forEach((trade) => {
       pairCounts[trade.pair] = (pairCounts[trade.pair] || 0) + 1
     })
 
-    // Session performance (simplified - based on hour)
     const sessionPL = { asia: 0, london: 0, newyork: 0 }
     tradeHistory.forEach((trade) => {
       const hour = new Date(trade.date).getHours()
@@ -367,6 +471,198 @@ export default function TradeDashboardPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
+      {/* Account Connection Popup */}
+      {showConnectionPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Link2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Connect Trading Account</h2>
+                  <p className="text-sm text-muted-foreground">Link your broker for automatic tracking</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {connectionStep === "choose" && (
+                <div className="space-y-4">
+                  <p className="text-muted-foreground text-sm mb-6">
+                    Choose how you want to track your trades:
+                  </p>
+
+                  {/* Option 1: Connect Broker */}
+                  <button
+                    onClick={() => setConnectionStep("connect")}
+                    className="w-full p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Monitor className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-1">Connect Broker Account</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Connect your MT4/MT5 account for automatic trade tracking and real-time data
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-500">Recommended</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Manual Mode */}
+                  <button
+                    onClick={handleManualMode}
+                    className="w-full p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors">
+                        <Edit2 className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-1">Manual Mode</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Add and manage your trades manually without connecting a broker
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {connectionStep === "connect" && (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setConnectionStep("choose")}
+                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4"
+                  >
+                    <ChevronDown className="w-4 h-4 rotate-90" />
+                    Back
+                  </button>
+
+                  {/* Platform Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Broker Platform
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["MT5", "MT4", "Other"] as const).map((platform) => (
+                        <button
+                          key={platform}
+                          onClick={() => setConnectionSettings({ ...connectionSettings, platform })}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                            connectionSettings.platform === platform
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border hover:border-primary/50 text-foreground"
+                          }`}
+                        >
+                          {platform}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Account ID
+                    </label>
+                    <input
+                      type="text"
+                      value={connectionSettings.accountId}
+                      onChange={(e) => setConnectionSettings({ ...connectionSettings, accountId: e.target.value })}
+                      placeholder="Enter your trading account ID"
+                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  {/* Investor Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Investor Password (Read-Only)
+                    </label>
+                    <input
+                      type="password"
+                      value={connectionSettings.investorPassword}
+                      onChange={(e) => setConnectionSettings({ ...connectionSettings, investorPassword: e.target.value })}
+                      placeholder="Enter investor password"
+                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      Read-only access - we cannot execute trades
+                    </p>
+                  </div>
+
+                  {/* Server Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Server Name
+                    </label>
+                    <input
+                      type="text"
+                      value={connectionSettings.serverName}
+                      onChange={(e) => setConnectionSettings({ ...connectionSettings, serverName: e.target.value })}
+                      placeholder="e.g., XMGlobal-MT5"
+                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  {connectionError && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-500 text-sm">
+                      <AlertTriangle className="w-4 h-4" />
+                      {connectionError}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleConnectBroker}
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold py-6"
+                  >
+                    Connect Account
+                  </Button>
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    By connecting, you agree to our terms of service
+                  </p>
+                </div>
+              )}
+
+              {connectionStep === "connecting" && (
+                <div className="py-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Connecting to Broker</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Please wait while we establish a connection...
+                  </p>
+                </div>
+              )}
+
+              {connectionStep === "success" && (
+                <div className="py-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Check className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Connected Successfully!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your trading account has been linked. Loading your data...
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Page Header */}
@@ -377,21 +673,52 @@ export default function TradeDashboardPage() {
                 Monitor your trading activity and performance
               </p>
             </div>
-            <Button
-              onClick={() => setShowAddTrade(true)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Trade
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* Connection Status */}
+              <button
+                onClick={() => setShowConnectionPopup(true)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
+                  accountInfo.isConnected
+                    ? "border-green-500/30 bg-green-500/10 text-green-500"
+                    : accountInfo.isManualMode
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {accountInfo.isConnected ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Connected to {accountInfo.platform}
+                  </>
+                ) : accountInfo.isManualMode ? (
+                  <>
+                    <Edit2 className="w-4 h-4" />
+                    Manual Mode
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4" />
+                    Connect Account
+                  </>
+                )}
+              </button>
+              
+              <Button
+                onClick={() => setShowAddTrade(true)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Trade
+              </Button>
+            </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {/* Account Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-card border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <Wallet className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">Balance</span>
+                <span className="text-xs text-muted-foreground">Account Balance</span>
               </div>
               <p className="text-xl font-bold text-foreground">
                 ${accountInfo.balance.toLocaleString()}
@@ -415,40 +742,30 @@ export default function TradeDashboardPage() {
               </div>
               <p
                 className={`text-xl font-bold ${
-                  stats.floatingPL >= 0 ? "text-green-500" : "text-red-500"
+                  accountInfo.floatingPL >= 0 ? "text-green-500" : "text-red-500"
                 }`}
               >
-                {stats.floatingPL >= 0 ? "+" : ""}${stats.floatingPL}
+                {accountInfo.floatingPL >= 0 ? "+" : ""}${accountInfo.floatingPL}
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-card border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <BarChart3 className="w-4 h-4 text-purple-500" />
-                <span className="text-xs text-muted-foreground">Total Trades</span>
+                <span className="text-xs text-muted-foreground">Margin Level</span>
               </div>
-              <p className="text-xl font-bold text-foreground">{stats.totalTrades}</p>
+              <p className="text-xl font-bold text-foreground">
+                {accountInfo.marginLevel.toLocaleString()}%
+              </p>
             </div>
 
             <div className="p-4 rounded-xl bg-card border border-border">
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">Win Rate</span>
+                <Shield className="w-4 h-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Free Margin</span>
               </div>
-              <p className="text-xl font-bold text-foreground">{stats.winRate}%</p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-                <span className="text-xs text-muted-foreground">Daily P/L</span>
-              </div>
-              <p
-                className={`text-xl font-bold ${
-                  stats.dailyPL >= 0 ? "text-green-500" : "text-red-500"
-                }`}
-              >
-                {stats.dailyPL >= 0 ? "+" : ""}${stats.dailyPL}
+              <p className="text-xl font-bold text-foreground">
+                ${accountInfo.freeMargin.toLocaleString()}
               </p>
             </div>
           </div>
@@ -466,234 +783,118 @@ export default function TradeDashboardPage() {
             {openTrades.length === 0 ? (
               <div className="p-8 rounded-xl bg-card border border-border text-center">
                 <p className="text-muted-foreground">No open trades</p>
+                <Button
+                  onClick={() => setShowAddTrade(true)}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Trade
+                </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Pair
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Type
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Entry
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        SL
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        TP
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Current
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        P/L
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Duration
-                      </th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openTrades.map((trade) => (
-                      <tr key={trade.id} className="border-b border-border/50 hover:bg-card/50">
-                        <td className="py-3 px-4 font-medium text-foreground">{trade.pair}</td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              trade.type === "buy"
-                                ? "bg-green-500/10 text-green-500"
-                                : "bg-red-500/10 text-red-500"
+              <div className="rounded-xl bg-card border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/30">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Pair</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Lot Size</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Entry</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">SL</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">TP</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Current</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">P/L</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openTrades.map((trade) => (
+                        <tr key={trade.id} className="border-b border-border/50 hover:bg-secondary/20">
+                          <td className="py-3 px-4 font-medium text-foreground">{trade.pair}</td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                trade.type === "buy"
+                                  ? "bg-green-500/10 text-green-500"
+                                  : "bg-red-500/10 text-red-500"
+                              }`}
+                            >
+                              {trade.type.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-foreground">{trade.lotSize}</td>
+                          <td className="py-3 px-4 text-foreground">{trade.entryPrice}</td>
+                          <td className="py-3 px-4 text-red-500">{trade.stopLoss}</td>
+                          <td className="py-3 px-4 text-green-500">{trade.takeProfit}</td>
+                          <td className="py-3 px-4 text-foreground">{trade.currentPrice}</td>
+                          <td
+                            className={`py-3 px-4 font-medium ${
+                              (trade.profitLoss || 0) >= 0 ? "text-green-500" : "text-red-500"
                             }`}
                           >
-                            {trade.type.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-foreground">{trade.entryPrice}</td>
-                        <td className="py-3 px-4 text-red-500">{trade.stopLoss}</td>
-                        <td className="py-3 px-4 text-green-500">{trade.takeProfit}</td>
-                        <td className="py-3 px-4 text-foreground">{trade.currentPrice}</td>
-                        <td
-                          className={`py-3 px-4 font-medium ${
-                            (trade.profitLoss || 0) >= 0 ? "text-green-500" : "text-red-500"
-                          }`}
-                        >
-                          {(trade.profitLoss || 0) >= 0 ? "+" : ""}${trade.profitLoss}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {getTradeTime(trade.date)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => {
-                                const exitPrice = prompt("Enter exit price:")
-                                if (exitPrice) {
-                                  handleCloseTrade(trade, parseFloat(exitPrice))
-                                }
-                              }}
-                            >
-                              Close
-                            </Button>
-                            <button
-                              onClick={() => handleDeleteTrade(trade.id, true)}
-                              className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            {(trade.profitLoss || 0) >= 0 ? "+" : ""}${trade.profitLoss}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const exitPrice = prompt("Enter exit price:")
+                                  if (exitPrice) {
+                                    handleCloseTrade(trade, parseFloat(exitPrice))
+                                  }
+                                }}
+                              >
+                                Close
+                              </Button>
+                              <button
+                                onClick={() => handleDeleteTrade(trade.id, true)}
+                                className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Performance Analytics */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {/* Profit Over Time */}
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                Profit Trend
-              </h3>
-              <div className="h-24 flex items-end gap-1">
-                {Object.entries(performanceData.profitByDate)
-                  .slice(-7)
-                  .map(([date, value], i) => {
-                    const maxVal = Math.max(
-                      ...Object.values(performanceData.profitByDate).map(Math.abs)
-                    )
-                    const height = maxVal > 0 ? (Math.abs(value) / maxVal) * 100 : 0
-                    return (
-                      <div
-                        key={date}
-                        className={`flex-1 rounded-t ${
-                          value >= 0 ? "bg-green-500" : "bg-red-500"
-                        }`}
-                        style={{ height: `${Math.max(height, 10)}%` }}
-                        title={`${date}: $${value}`}
-                      />
-                    )
-                  })}
-              </div>
-              <p className="text-lg font-bold text-foreground mt-2">
-                ${stats.totalPL >= 0 ? "+" : ""}
-                {stats.totalPL}
-              </p>
-            </div>
-
-            {/* Win/Loss Ratio */}
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-primary" />
-                Win vs Loss
-              </h3>
-              <div className="flex items-center gap-4">
-                <div className="relative w-20 h-20">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="35"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      fill="none"
-                      className="text-red-500/30"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="35"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      fill="none"
-                      strokeDasharray={`${parseFloat(stats.winRate) * 2.2} 220`}
-                      className="text-green-500"
-                    />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-foreground">
-                    {stats.winRate}%
-                  </span>
+          {/* Risk Information */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              Risk Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-4 h-4 text-orange-500" />
+                  <span className="text-xs text-muted-foreground">Total Risk Exposure</span>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500" />
-                    <span className="text-sm text-muted-foreground">Wins</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-red-500" />
-                    <span className="text-sm text-muted-foreground">Losses</span>
-                  </div>
+                <p className="text-xl font-bold text-foreground">${riskStats.totalRiskExposure}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">Number of Open Trades</span>
                 </div>
+                <p className="text-xl font-bold text-foreground">{riskStats.numberOfOpenTrades}</p>
               </div>
-            </div>
-
-            {/* Most Traded Pairs */}
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                Top Pairs
-              </h3>
-              <div className="space-y-2">
-                {Object.entries(performanceData.pairCounts)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 3)
-                  .map(([pair, count]) => {
-                    const maxCount = Math.max(...Object.values(performanceData.pairCounts))
-                    const width = (count / maxCount) * 100
-                    return (
-                      <div key={pair} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-foreground">{pair}</span>
-                          <span className="text-muted-foreground">{count} trades</span>
-                        </div>
-                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full"
-                            style={{ width: `${width}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-
-            {/* Session Performance */}
-            <div className="p-4 rounded-xl bg-card border border-border">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
-                Session P/L
-              </h3>
-              <div className="space-y-2">
-                {Object.entries(performanceData.sessionPL).map(([session, pl]) => (
-                  <div key={session} className="flex items-center justify-between">
-                    <span className="text-sm capitalize text-foreground">{session}</span>
-                    <span
-                      className={`text-sm font-medium ${
-                        pl >= 0 ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {pl >= 0 ? "+" : ""}${pl}
-                    </span>
-                  </div>
-                ))}
+              <div className="p-4 rounded-xl bg-card border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Average Risk Per Trade</span>
+                </div>
+                <p className="text-xl font-bold text-foreground">${riskStats.avgRiskPerTrade}</p>
               </div>
             </div>
           </div>
@@ -705,89 +906,47 @@ export default function TradeDashboardPage() {
                 <Clock className="w-5 h-5 text-primary" />
                 Trade History
               </h2>
-
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <select
-                    value={filterPair}
-                    onChange={(e) => setFilterPair(e.target.value)}
-                    className="appearance-none pl-3 pr-8 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">All Pairs</option>
-                    {PAIRS.map((pair) => (
-                      <option key={pair} value={pair}>
-                        {pair}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
-
-                <div className="relative">
-                  <select
-                    value={filterResult}
-                    onChange={(e) => setFilterResult(e.target.value as "" | "win" | "loss")}
-                    className="appearance-none pl-3 pr-8 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">All Results</option>
-                    <option value="win">Wins</option>
-                    <option value="loss">Losses</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
-
-                <button
-                  onClick={() => {
-                    setSortOrder(sortOrder === "desc" ? "asc" : "desc")
-                  }}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground hover:bg-secondary/80"
+              <div className="flex items-center gap-2">
+                <select
+                  value={filterPair}
+                  onChange={(e) => setFilterPair(e.target.value)}
+                  className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm"
                 >
-                  <ArrowUpDown className="w-4 h-4" />
-                  {sortBy === "date" ? "Date" : "P/L"}
-                </button>
+                  <option value="">All Pairs</option>
+                  {PAIRS.map((pair) => (
+                    <option key={pair} value={pair}>{pair}</option>
+                  ))}
+                </select>
+                <select
+                  value={filterResult}
+                  onChange={(e) => setFilterResult(e.target.value as "" | "win" | "loss")}
+                  className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm"
+                >
+                  <option value="">All Results</option>
+                  <option value="win">Wins</option>
+                  <option value="loss">Losses</option>
+                </select>
               </div>
             </div>
 
-            {filteredHistory.length === 0 ? (
-              <div className="p-8 rounded-xl bg-card border border-border text-center">
-                <p className="text-muted-foreground">No trades found</p>
-              </div>
-            ) : (
+            <div className="rounded-xl bg-card border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Pair
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Type
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Entry
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Exit
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        P/L
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Result
-                      </th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Actions
-                      </th>
+                    <tr className="border-b border-border bg-secondary/30">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Pair</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Entry</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Exit</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">P/L</th>
+                      <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredHistory.map((trade) => (
-                      <tr key={trade.id} className="border-b border-border/50 hover:bg-card/50">
-                        <td className="py-3 px-4 text-muted-foreground">
+                      <tr key={trade.id} className="border-b border-border/50 hover:bg-secondary/20">
+                        <td className="py-3 px-4 text-muted-foreground text-sm">
                           {new Date(trade.date).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4 font-medium text-foreground">{trade.pair}</td>
@@ -811,17 +970,6 @@ export default function TradeDashboardPage() {
                         >
                           {(trade.profitLoss || 0) >= 0 ? "+" : ""}${trade.profitLoss}
                         </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              trade.result === "win"
-                                ? "bg-green-500/10 text-green-500"
-                                : "bg-red-500/10 text-red-500"
-                            }`}
-                          >
-                            {trade.result?.toUpperCase()}
-                          </span>
-                        </td>
                         <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => handleDeleteTrade(trade.id, false)}
@@ -835,33 +983,75 @@ export default function TradeDashboardPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Account Information */}
-          <div className="p-6 rounded-xl bg-card border border-border">
-            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-primary" />
-              Account Information
-            </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm text-muted-foreground">Account Size</label>
-                <p className="text-lg font-medium text-foreground">
-                  ${accountInfo.accountSize.toLocaleString()}
+          {/* Performance Analytics */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Win Rate Breakdown */}
+            <div className="p-4 rounded-xl bg-card border border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-primary" />
+                Win vs Loss
+              </h3>
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-500">
+                    {tradeHistory.filter((t) => t.result === "win").length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Wins</p>
+                </div>
+                <div className="w-px h-12 bg-border" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-500">
+                    {tradeHistory.filter((t) => t.result === "loss").length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Losses</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Win Rate */}
+            <div className="p-4 rounded-xl bg-card border border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                Win Rate
+              </h3>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-primary">{stats.winRate}%</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.totalTrades} total trades
                 </p>
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Broker</label>
-                <p className="text-lg font-medium text-foreground">{accountInfo.broker}</p>
+            </div>
+
+            {/* Total P/L */}
+            <div className="p-4 rounded-xl bg-card border border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-primary" />
+                Total P/L
+              </h3>
+              <div className="text-center">
+                <p className={`text-3xl font-bold ${stats.totalPL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {stats.totalPL >= 0 ? "+" : ""}${stats.totalPL}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">All time</p>
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Platform</label>
-                <p className="text-lg font-medium text-foreground">{accountInfo.platform}</p>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Account Type</label>
-                <p className="text-lg font-medium text-foreground">{accountInfo.accountType}</p>
+            </div>
+
+            {/* Daily P/L */}
+            <div className="p-4 rounded-xl bg-card border border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                Today&apos;s P/L
+              </h3>
+              <div className="text-center">
+                <p className={`text-3xl font-bold ${stats.dailyPL >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {stats.dailyPL >= 0 ? "+" : ""}${stats.dailyPL}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {new Date().toLocaleDateString()}
+                </p>
               </div>
             </div>
           </div>
@@ -872,159 +1062,168 @@ export default function TradeDashboardPage() {
       {showAddTrade && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowAddTrade(false)} />
-          <div className="relative w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl p-6">
-            <button
-              onClick={() => setShowAddTrade(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary text-muted-foreground"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="relative w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground">Add New Trade</h3>
+              <button
+                onClick={() => setShowAddTrade(false)}
+                className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-6">Add New Trade</h2>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Pair
-                  </label>
-                  <select
-                    value={newTrade.pair}
-                    onChange={(e) => setNewTrade({ ...newTrade, pair: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Trade Status */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Trade Status</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setNewTrade({ ...newTrade, result: "open" })}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      newTrade.result === "open"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-foreground"
+                    }`}
                   >
-                    {PAIRS.map((pair) => (
-                      <option key={pair} value={pair}>
-                        {pair}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={newTrade.type}
-                    onChange={(e) =>
-                      setNewTrade({ ...newTrade, type: e.target.value as "buy" | "sell" })
-                    }
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    Open Trade
+                  </button>
+                  <button
+                    onClick={() => setNewTrade({ ...newTrade, result: "win" })}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      newTrade.result !== "open"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-foreground"
+                    }`}
                   >
-                    <option value="buy">BUY</option>
-                    <option value="sell">SELL</option>
-                  </select>
+                    Closed Trade
+                  </button>
                 </div>
               </div>
 
+              {/* Pair Selection */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Pair</label>
+                <select
+                  value={newTrade.pair}
+                  onChange={(e) => setNewTrade({ ...newTrade, pair: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
+                >
+                  {PAIRS.map((pair) => (
+                    <option key={pair} value={pair}>{pair}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Trade Type */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setNewTrade({ ...newTrade, type: "buy" })}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      newTrade.type === "buy"
+                        ? "border-green-500 bg-green-500/10 text-green-500"
+                        : "border-border text-foreground"
+                    }`}
+                  >
+                    BUY
+                  </button>
+                  <button
+                    onClick={() => setNewTrade({ ...newTrade, type: "sell" })}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      newTrade.type === "sell"
+                        ? "border-red-500 bg-red-500/10 text-red-500"
+                        : "border-border text-foreground"
+                    }`}
+                  >
+                    SELL
+                  </button>
+                </div>
+              </div>
+
+              {/* Price Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Entry Price
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Entry Price</label>
                   <input
                     type="number"
-                    step="any"
+                    step="0.00001"
                     value={newTrade.entryPrice}
                     onChange={(e) => setNewTrade({ ...newTrade, entryPrice: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="1.0850"
+                    placeholder="0.00000"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Lot Size
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Lot Size</label>
                   <input
                     type="number"
                     step="0.01"
                     value={newTrade.lotSize}
                     onChange={(e) => setNewTrade({ ...newTrade, lotSize: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="0.1"
+                    placeholder="0.10"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Stop Loss
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Stop Loss</label>
                   <input
                     type="number"
-                    step="any"
+                    step="0.00001"
                     value={newTrade.stopLoss}
                     onChange={(e) => setNewTrade({ ...newTrade, stopLoss: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="1.0800"
+                    placeholder="0.00000"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Take Profit
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Take Profit</label>
                   <input
                     type="number"
-                    step="any"
+                    step="0.00001"
                     value={newTrade.takeProfit}
                     onChange={(e) => setNewTrade({ ...newTrade, takeProfit: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="1.0950"
+                    placeholder="0.00000"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Trade Status
-                </label>
-                <select
-                  value={newTrade.result}
-                  onChange={(e) =>
-                    setNewTrade({ ...newTrade, result: e.target.value as "open" | "win" | "loss" })
-                  }
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="open">Open Trade</option>
-                  <option value="win">Closed - Win</option>
-                  <option value="loss">Closed - Loss</option>
-                </select>
-              </div>
-
+              {/* Exit Price (for closed trades) */}
               {newTrade.result !== "open" && (
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">
-                    Exit Price
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Exit Price</label>
                   <input
                     type="number"
-                    step="any"
+                    step="0.00001"
                     value={newTrade.exitPrice}
                     onChange={(e) => setNewTrade({ ...newTrade, exitPrice: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="1.0900"
+                    placeholder="0.00000"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                   />
                 </div>
               )}
 
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Notes (Optional)
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Notes (Optional)</label>
                 <textarea
                   value={newTrade.notes}
                   onChange={(e) => setNewTrade({ ...newTrade, notes: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  rows={2}
                   placeholder="Trade notes..."
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground resize-none"
                 />
               </div>
 
               <Button
                 onClick={handleAddTrade}
                 disabled={!newTrade.entryPrice || !newTrade.stopLoss || !newTrade.takeProfit}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold py-6"
               >
                 Add Trade
               </Button>
