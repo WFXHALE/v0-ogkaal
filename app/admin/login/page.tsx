@@ -47,6 +47,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [devOTP, setDevOTP] = useState("")
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,7 +70,12 @@ export default function AdminLoginPage() {
     const result = await loginAdmin(identifier, password)
 
     if (result.requires2FA) {
-      setSuccess("Password verified. Check server console for OTP.")
+      if (result.devOTP) {
+        setDevOTP(result.devOTP)
+        setSuccess(`Development OTP: ${result.devOTP}`)
+      } else {
+        setSuccess("Password verified. OTP sent.")
+      }
       setView("otp")
       setIsLoading(false)
       return
@@ -99,7 +105,12 @@ export default function AdminLoginPage() {
     const result = await sendPhoneOTP(identifier)
 
     if (result.success) {
-      setSuccess("OTP sent. Check server console for the code.")
+      if (result.devOTP) {
+        setDevOTP(result.devOTP)
+        setSuccess(`Development OTP: ${result.devOTP}`)
+      } else {
+        setSuccess("OTP sent.")
+      }
       setView("otp")
     } else {
       setError(result.error || "Failed to send OTP")
@@ -148,7 +159,12 @@ export default function AdminLoginPage() {
     const result = await requestPasswordReset(identifier)
 
     if (result.success) {
-      setSuccess("OTP sent to your email. Check server console for the code.")
+      if (result.devOTP) {
+        setDevOTP(result.devOTP)
+        setSuccess(`Development OTP: ${result.devOTP}`)
+      } else {
+        setSuccess("OTP sent to your email.")
+      }
       setView("reset-otp")
     } else {
       setError(result.error || "Failed to send reset OTP")
@@ -223,6 +239,7 @@ export default function AdminLoginPage() {
     setNewPassword("")
     setConfirmPassword("")
     setResetToken("")
+    setDevOTP("")
   }
 
   const getIdentifierIcon = () => {
@@ -428,9 +445,12 @@ export default function AdminLoginPage() {
                 {isLoading ? "Verifying..." : "Verify OTP"}
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                Check server console for OTP (development mode)
-              </p>
+              {devOTP && (
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+                  <p className="text-xs text-amber-400 mb-1">Development Mode</p>
+                  <p className="text-lg font-mono font-bold text-amber-300 tracking-widest">{devOTP}</p>
+                </div>
+              )}
             </form>
           )}
 

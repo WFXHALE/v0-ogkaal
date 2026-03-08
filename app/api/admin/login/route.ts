@@ -39,10 +39,13 @@ export async function POST(request: Request) {
         const newOTP = generateOTP()
         storeOTP(identifier, newOTP)
 
+        // In development, return OTP in response for easy testing
+        const isDev = process.env.NODE_ENV !== 'production'
         return NextResponse.json({
           success: true,
-          message: 'OTP sent (check server console in development)',
+          message: isDev ? `Development OTP: ${newOTP}` : 'OTP sent',
           requiresOTP: true,
+          ...(isDev && { devOTP: newOTP }),
         })
       }
 
@@ -96,10 +99,13 @@ export async function POST(request: Request) {
       const newOTP = generateOTP()
       storeOTP(identifier, newOTP)
 
+      // In development, return OTP in response for easy testing
+      const isDev = process.env.NODE_ENV !== 'production'
       return NextResponse.json({
         success: true,
-        message: 'Password verified. OTP sent (check server console in development)',
+        message: isDev ? `Development OTP: ${newOTP}` : 'Password verified. OTP sent.',
         requiresOTP: true,
+        ...(isDev && { devOTP: newOTP }),
       })
     }
 

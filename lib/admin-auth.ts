@@ -35,6 +35,25 @@ export function isAdminPhone(phone: string): boolean {
   return normalizedPhone === adminPhone || phone === admin.phone
 }
 
+// Check if email matches admin email
+export function isAdminEmail(email: string): boolean {
+  const admin = getAdminCredentials()
+  return email.toLowerCase() === admin.email.toLowerCase()
+}
+
+// Update password (in-memory only, resets on server restart)
+let overridePassword: string | null = null
+export function updatePassword(newPassword: string): void {
+  overridePassword = newPassword
+  console.log('[ADMIN AUTH] Password updated (in-memory only)')
+}
+
+// Get the current password (checks override first)
+export function getCurrentPassword(): string {
+  if (overridePassword) return overridePassword
+  return getAdminCredentials().password
+}
+
 // Generate a 6-digit OTP
 export function generateOTP(): string {
   const otp = Math.floor(100000 + Math.random() * 900000).toString()
@@ -98,7 +117,7 @@ export async function createAdminAccount(
 export async function loginAdmin(
   identifier: string,
   password: string
-): Promise<{ success: boolean; error?: string; requires2FA?: boolean; loginType?: string }> {
+): Promise<{ success: boolean; error?: string; requires2FA?: boolean; loginType?: string; devOTP?: string }> {
   try {
     const response = await fetch('/api/admin/login', {
       method: 'POST',
@@ -113,7 +132,7 @@ export async function loginAdmin(
     }
 
     if (data.requiresOTP) {
-      return { success: true, requires2FA: true }
+      return { success: true, requires2FA: true, devOTP: data.devOTP }
     }
 
     // Create client session
@@ -152,7 +171,7 @@ export async function verify2FA(
 // Phone OTP login - request OTP
 export async function sendPhoneOTP(
   phone: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; devOTP?: string }> {
   try {
     const response = await fetch('/api/admin/login', {
       method: 'POST',
@@ -166,7 +185,7 @@ export async function sendPhoneOTP(
       return { success: false, error: data.error || 'Failed to send OTP' }
     }
 
-    return { success: true }
+    return { success: true, devOTP: data.devOTP }
   } catch {
     return { success: false, error: 'Network error' }
   }
@@ -200,7 +219,7 @@ export async function verifyPhoneOTP(
 // Forgot password - request OTP
 export async function requestPasswordReset(
   email: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; devOTP?: string }> {
   try {
     const response = await fetch('/api/admin/forgot-password', {
       method: 'POST',
@@ -214,7 +233,7 @@ export async function requestPasswordReset(
       return { success: false, error: data.error || 'Failed to send OTP' }
     }
 
-    return { success: true }
+    return { success: true, devOTP: data.devOTP }
   } catch {
     return { success: false, error: 'Network error' }
   }
