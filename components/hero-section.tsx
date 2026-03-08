@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Play } from "lucide-react"
+import Link from "next/link"
 
 export function HeroSection() {
   return (
@@ -12,44 +13,53 @@ export function HeroSection() {
       <div className="relative max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-sm text-primary font-medium">Live Trading Community</span>
+          <span className="text-sm text-primary font-medium">SMC & ICT Trading Mentor</span>
         </div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight text-balance">
           OG <span className="text-primary">KAAL</span> TRADER
         </h1>
 
-        <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          Master the markets with <span className="text-foreground font-medium">Smart Money Concepts</span> and 
-          proven <span className="text-foreground font-medium">ICT trading strategies</span>. 
-          Join thousands of profitable traders who have transformed their trading journey.
+        <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed text-balance">
+          Professional trading mentor specializing in <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span> and 
+          <span className="text-foreground font-medium"> ICT trading strategies</span>. 
+          Join our live mentorship programs designed for beginner and advanced traders to transform their trading journey.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12">
-            Get Started
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-          <Button size="lg" variant="outline" className="border-border hover:bg-secondary font-semibold px-8 h-12">
-            <Play className="w-5 h-5 mr-2" />
-            Watch Demo
-          </Button>
+          <Link href="/mentorship">
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12">
+              Start Mentorship
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
+          <Link href="/vip-group">
+            <Button size="lg" variant="outline" className="border-border hover:bg-secondary font-semibold px-8 h-12">
+              <Play className="w-5 h-5 mr-2" />
+              Join VIP Group
+            </Button>
+          </Link>
         </div>
 
-        <div className="flex items-center justify-center gap-8 mt-12 pt-8 border-t border-border/50">
+        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 mt-12 pt-8 border-t border-border/50">
           <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">10K+</p>
-            <p className="text-sm text-muted-foreground">Active Traders</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary">11,000+</p>
+            <p className="text-sm text-muted-foreground">Pips Captured (Q4 2025)</p>
           </div>
-          <div className="w-px h-12 bg-border" />
+          <div className="hidden sm:block w-px h-12 bg-border" />
           <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">95%</p>
-            <p className="text-sm text-muted-foreground">Success Rate</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary">100+</p>
+            <p className="text-sm text-muted-foreground">Traders Trained</p>
           </div>
-          <div className="w-px h-12 bg-border" />
+          <div className="hidden sm:block w-px h-12 bg-border" />
           <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">24/7</p>
-            <p className="text-sm text-muted-foreground">Support</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary">Live</p>
+            <p className="text-sm text-muted-foreground">VIP Signals Group</p>
+          </div>
+          <div className="hidden sm:block w-px h-12 bg-border" />
+          <div className="text-center">
+            <p className="text-2xl sm:text-3xl font-bold text-primary">Daily</p>
+            <p className="text-sm text-muted-foreground">Market Analysis</p>
           </div>
         </div>
       </div>

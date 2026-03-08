@@ -7,12 +7,13 @@ import { Logo } from "@/components/logo"
 import { Menu, X } from "lucide-react"
 
 const navItems = [
+  { label: "Home", href: "/", isHome: true },
   { label: "Mentorship", href: "/mentorship" },
   { label: "VIP Group", href: "/vip-group" },
   { label: "Indicators", href: "#indicators" },
   { label: "Funded Tools", href: "#funded" },
   { label: "Books", href: "#books" },
-  { label: "Testimonials", href: "#testimonials" },
+  { label: "Test Models", href: "#test-models" },
   { label: "Contact", href: "#contact" },
 ]
 
@@ -32,7 +33,11 @@ export function Header() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className={`px-3 py-2 text-sm transition-colors ${
+                  item.isHome
+                    ? "font-bold text-primary bg-primary/10 rounded-md hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
                 {item.label}
               </Link>
@@ -60,7 +65,11 @@ export function Header() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className={`px-3 py-2 text-sm transition-colors ${
+                    item.isHome
+                      ? "font-bold text-primary bg-primary/10 rounded-md"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.label}
