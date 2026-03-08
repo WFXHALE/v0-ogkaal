@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { TrendingUp, TrendingDown } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react"
+import useSWR from "swr"
 
 interface MarketAsset {
   symbol: string
@@ -10,71 +11,24 @@ interface MarketAsset {
   change: string
   isPositive: boolean
   tradingViewSymbol: string
+  isMarketOpen?: boolean
 }
 
-const forexData: MarketAsset[] = [
-  {
-    symbol: "EURUSD",
-    name: "Euro / US Dollar",
-    price: "1.0847",
-    change: "+0.12%",
-    isPositive: true,
-    tradingViewSymbol: "FX:EURUSD",
-  },
-  {
-    symbol: "GBPUSD",
-    name: "British Pound / US Dollar",
-    price: "1.2654",
-    change: "-0.08%",
-    isPositive: false,
-    tradingViewSymbol: "FX:GBPUSD",
-  },
-  {
-    symbol: "XAUUSD",
-    name: "Gold / US Dollar",
-    price: "2,342.50",
-    change: "+0.45%",
-    isPositive: true,
-    tradingViewSymbol: "OANDA:XAUUSD",
-  },
-]
-
-const cryptoData: MarketAsset[] = [
-  {
-    symbol: "BTC",
-    name: "Bitcoin",
-    price: "67,245.00",
-    change: "+2.34%",
-    isPositive: true,
-    tradingViewSymbol: "BINANCE:BTCUSDT",
-  },
-  {
-    symbol: "ETH",
-    name: "Ethereum",
-    price: "3,456.78",
-    change: "+1.87%",
-    isPositive: true,
-    tradingViewSymbol: "BINANCE:ETHUSDT",
-  },
-  {
-    symbol: "SOL",
-    name: "Solana",
-    price: "142.35",
-    change: "-0.54%",
-    isPositive: false,
-    tradingViewSymbol: "BINANCE:SOLUSDT",
-  },
-]
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 function AssetCard({
   asset,
   isSelected,
   onClick,
+  isLoading,
 }: {
   asset: MarketAsset
   isSelected: boolean
   onClick: () => void
+  isLoading?: boolean
 }) {
+  const isMarketClosed = asset.change === "Market Closed"
+
   return (
     <button
       onClick={onClick}
@@ -89,15 +43,25 @@ function AssetCard({
         <span className="text-xs text-muted-foreground">{asset.name}</span>
       </div>
       <div className="flex flex-col items-end">
-        <span className="text-base font-bold text-foreground">{asset.price}</span>
-        <div className={`flex items-center gap-1 ${asset.isPositive ? "text-green-500" : "text-red-500"}`}>
-          {asset.isPositive ? (
-            <TrendingUp className="w-3 h-3" />
-          ) : (
-            <TrendingDown className="w-3 h-3" />
-          )}
-          <span className="text-xs font-medium">{asset.change}</span>
-        </div>
+        {isLoading ? (
+          <div className="w-16 h-5 bg-muted/50 rounded animate-pulse" />
+        ) : (
+          <span className="text-base font-bold text-foreground">{asset.price}</span>
+        )}
+        {isLoading ? (
+          <div className="w-12 h-4 bg-muted/50 rounded animate-pulse mt-1" />
+        ) : isMarketClosed ? (
+          <span className="text-xs text-muted-foreground">{asset.change}</span>
+        ) : (
+          <div className={`flex items-center gap-1 ${asset.isPositive ? "text-green-500" : "text-red-500"}`}>
+            {asset.isPositive ? (
+              <TrendingUp className="w-3 h-3" />
+            ) : (
+              <TrendingDown className="w-3 h-3" />
+            )}
+            <span className="text-xs font-medium">{asset.change}</span>
+          </div>
+        )}
       </div>
     </button>
   )
@@ -111,7 +75,7 @@ function TradingViewChart({ symbol }: { symbol: string }) {
     if (!containerRef.current) return
 
     setIsLoading(true)
-    
+
     // Clear existing content
     containerRef.current.innerHTML = ""
 
@@ -180,63 +144,163 @@ function TradingViewChart({ symbol }: { symbol: string }) {
   )
 }
 
+function MarketSection({
+  title,
+  assets,
+  selectedAsset,
+  onSelectAsset,
+  isLoading,
+  isLive,
+  onRefresh,
+}: {
+  title: string
+  assets: MarketAsset[]
+  selectedAsset: MarketAsset
+  onSelectAsset: (asset: MarketAsset) => void
+  isLoading: boolean
+  isLive: boolean
+  onRefresh?: () => void
+}) {
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        <div className="flex items-center gap-3">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="p-1.5 rounded-lg hover:bg-secondary/70 transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
+            <span className="text-sm text-muted-foreground">{isLive ? "Live" : "Delayed"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {assets.map((asset) => (
+          <AssetCard
+            key={asset.symbol}
+            asset={asset}
+            isSelected={selectedAsset.tradingViewSymbol === asset.tradingViewSymbol}
+            onClick={() => onSelectAsset(asset)}
+            isLoading={isLoading}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Default fallback data
+const defaultForexData: MarketAsset[] = [
+  { symbol: "EURUSD", name: "Euro / US Dollar", price: "1.0850", change: "+0.08%", isPositive: true, tradingViewSymbol: "FX:EURUSD" },
+  { symbol: "XAUUSD", name: "Gold / US Dollar", price: "2,650.00", change: "+0.32%", isPositive: true, tradingViewSymbol: "OANDA:XAUUSD" },
+  { symbol: "XAGUSD", name: "Silver / US Dollar", price: "31.25", change: "-0.15%", isPositive: false, tradingViewSymbol: "OANDA:XAGUSD" },
+]
+
+const defaultCryptoData: MarketAsset[] = [
+  { symbol: "BTC", name: "Bitcoin", price: "97,500.00", change: "+2.34%", isPositive: true, tradingViewSymbol: "BINANCE:BTCUSDT" },
+  { symbol: "ETH", name: "Ethereum", price: "3,650.00", change: "+1.87%", isPositive: true, tradingViewSymbol: "BINANCE:ETHUSDT" },
+  { symbol: "SOL", name: "Solana", price: "195.50", change: "+3.25%", isPositive: true, tradingViewSymbol: "BINANCE:SOLUSDT" },
+]
+
+const defaultIndianData: MarketAsset[] = [
+  { symbol: "NIFTY50", name: "NIFTY 50", price: "24,850.00", change: "+0.45%", isPositive: true, tradingViewSymbol: "NSE:NIFTY" },
+  { symbol: "BANKNIFTY", name: "BANK NIFTY", price: "53,200.00", change: "+0.62%", isPositive: true, tradingViewSymbol: "NSE:BANKNIFTY" },
+]
+
 export function MarketOverview() {
-  const [selectedAsset, setSelectedAsset] = useState<MarketAsset>(forexData[0])
+  const [selectedAsset, setSelectedAsset] = useState<MarketAsset>(defaultCryptoData[0])
+
+  // Fetch real-time crypto data
+  const { data: cryptoResponse, isLoading: cryptoLoading, mutate: refreshCrypto } = useSWR(
+    "/api/market/crypto",
+    fetcher,
+    { refreshInterval: 15000, revalidateOnFocus: true }
+  )
+
+  // Fetch forex data
+  const { data: forexResponse, isLoading: forexLoading, mutate: refreshForex } = useSWR(
+    "/api/market/forex",
+    fetcher,
+    { refreshInterval: 60000, revalidateOnFocus: true }
+  )
+
+  // Fetch Indian market data
+  const { data: indianResponse, isLoading: indianLoading, mutate: refreshIndian } = useSWR(
+    "/api/market/indian",
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true }
+  )
+
+  const cryptoData = cryptoResponse?.data || defaultCryptoData
+  const forexData = forexResponse?.data || defaultForexData
+  const indianData = indianResponse?.data || defaultIndianData
+
+  const handleRefreshAll = useCallback(() => {
+    refreshCrypto()
+    refreshForex()
+    refreshIndian()
+  }, [refreshCrypto, refreshForex, refreshIndian])
 
   return (
     <section className="py-12 px-4 border-y border-border/50 bg-card/50">
       <div className="max-w-6xl mx-auto">
-        {/* Forex & Commodities Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Forex & Commodities</h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm text-muted-foreground">Live</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {forexData.map((asset) => (
-              <AssetCard
-                key={asset.symbol}
-                asset={asset}
-                isSelected={selectedAsset.tradingViewSymbol === asset.tradingViewSymbol}
-                onClick={() => setSelectedAsset(asset)}
-              />
-            ))}
-          </div>
-        </div>
-
         {/* Crypto Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Crypto Market</h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm text-muted-foreground">Live</span>
-            </div>
-          </div>
+        <MarketSection
+          title="Crypto Market"
+          assets={cryptoData}
+          selectedAsset={selectedAsset}
+          onSelectAsset={setSelectedAsset}
+          isLoading={cryptoLoading}
+          isLive={!cryptoLoading && !!cryptoResponse?.data}
+          onRefresh={refreshCrypto}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {cryptoData.map((asset) => (
-              <AssetCard
-                key={asset.symbol}
-                asset={asset}
-                isSelected={selectedAsset.tradingViewSymbol === asset.tradingViewSymbol}
-                onClick={() => setSelectedAsset(asset)}
-              />
-            ))}
-          </div>
-        </div>
+        {/* Forex & Commodities Section */}
+        <MarketSection
+          title="Forex & Commodities"
+          assets={forexData}
+          selectedAsset={selectedAsset}
+          onSelectAsset={setSelectedAsset}
+          isLoading={forexLoading}
+          isLive={!forexLoading && !!forexResponse?.data}
+          onRefresh={refreshForex}
+        />
+
+        {/* Indian Market Section */}
+        <MarketSection
+          title="Indian Market"
+          assets={indianData}
+          selectedAsset={selectedAsset}
+          onSelectAsset={setSelectedAsset}
+          isLoading={indianLoading}
+          isLive={!indianLoading && indianResponse?.isMarketOpen}
+          onRefresh={refreshIndian}
+        />
 
         {/* TradingView Chart */}
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Chart</h2>
-            <span className="px-3 py-1 text-xs font-medium bg-primary/20 text-primary rounded-full">
-              {selectedAsset.symbol}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-foreground">Chart</h2>
+              <span className="px-3 py-1 text-xs font-medium bg-primary/20 text-primary rounded-full">
+                {selectedAsset.symbol}
+              </span>
+            </div>
+            <button
+              onClick={handleRefreshAll}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-lg transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Refresh All
+            </button>
           </div>
           <TradingViewChart symbol={selectedAsset.tradingViewSymbol} />
         </div>
