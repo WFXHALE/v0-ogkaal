@@ -1,5 +1,5 @@
-// Admin authentication using environment variables
-// Client-side session management with localStorage
+// Admin authentication library
+// Contains both server-side and client-side functions
 
 const SESSION_STORAGE_KEY = "og_admin_session"
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -9,6 +9,72 @@ export interface AdminSession {
   loginTime: string
   expiresAt: string
 }
+
+// ============================================
+// SERVER-SIDE FUNCTIONS (for API routes)
+// ============================================
+
+// In-memory OTP storage (in production, use Redis or database)
+const otpStore: Map<string, { otp: string; expiresAt: number }> = new Map()
+
+// Get admin credentials from environment variables
+export function getAdminCredentials() {
+  return {
+    email: process.env.ADMIN_EMAIL || '',
+    username: process.env.ADMIN_USERNAME || '',
+    phone: process.env.ADMIN_PHONE || '',
+    password: process.env.ADMIN_PASSWORD || '',
+  }
+}
+
+// Check if phone matches admin phone
+export function isAdminPhone(phone: string): boolean {
+  const admin = getAdminCredentials()
+  const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '')
+  const adminPhone = admin.phone.replace(/[\s\-\(\)]/g, '')
+  return normalizedPhone === adminPhone || phone === admin.phone
+}
+
+// Generate a 6-digit OTP
+export function generateOTP(): string {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString()
+  console.log('[ADMIN AUTH] Generated OTP:', otp)
+  return otp
+}
+
+// Store OTP with expiration (5 minutes)
+export function storeOTP(identifier: string, otp: string): void {
+  otpStore.set(identifier.toLowerCase(), {
+    otp,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+// Verify OTP
+export function verifyOTP(identifier: string, otp: string): boolean {
+  const stored = otpStore.get(identifier.toLowerCase())
+  if (!stored) return false
+  
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(identifier.toLowerCase())
+    return false
+  }
+  
+  if (stored.otp !== otp) return false
+  
+  // OTP is valid, delete it
+  otpStore.delete(identifier.toLowerCase())
+  return true
+}
+
+// Generate a simple session token
+export function generateSessionToken(): string {
+  return `admin_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+}
+
+// ============================================
+// CLIENT-SIDE FUNCTIONS (for components)
+// ============================================
 
 // Admin account always exists when using env-based auth
 export function adminExists(): boolean {
@@ -203,7 +269,10 @@ export async function resetPassword(
   }
 }
 
-// Session Management
+// ============================================
+// SESSION MANAGEMENT (Client-side)
+// ============================================
+
 function createSession(identifier: string): void {
   if (typeof window === 'undefined') return
 
