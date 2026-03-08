@@ -3,10 +3,11 @@
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { XmPartnerPopup, useXmPartnerPopup } from "@/components/xm-partner-popup"
-import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
-import { useState } from "react"
+import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy, Play, X } from "lucide-react"
+import { useState, useRef } from "react"
 
 const PARTNER_CODE = "XV3F9"
+const VIDEO_URL = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vdo-sMvKHoLiu3PNzEk4loSCszeBN71561.MP4"
 
 const vipFeatures = [
   "Real-time trade alerts",
@@ -20,11 +21,24 @@ const vipFeatures = [
 export default function VipGroupPage() {
   const { isOpen, openPopup, closePopup } = useXmPartnerPopup()
   const [copiedCode, setCopiedCode] = useState(false)
+  const [showExistingUserForm, setShowExistingUserForm] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(PARTNER_CODE)
     setCopiedCode(true)
     setTimeout(() => setCopiedCode(false), 2000)
+  }
+
+  const handleExistingUserClick = () => {
+    setShowExistingUserForm(true)
+  }
+
+  const closeExistingUserForm = () => {
+    setShowExistingUserForm(false)
+    if (videoRef.current) {
+      videoRef.current.pause()
+    }
   }
 
   const pricingOptions = [
@@ -44,7 +58,7 @@ export default function VipGroupPage() {
       requirements: "For users already trading with XM.",
       highlight: false,
       cta: "Join VIP Group",
-      onClick: openPopup,
+      onClick: handleExistingUserClick,
     },
     {
       title: "Funded Account Traders",
@@ -283,6 +297,107 @@ export default function VipGroupPage() {
           </div>
         </section>
       </main>
+
+      {/* XM Existing User Video Tutorial Modal */}
+      {showExistingUserForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={closeExistingUserForm}
+          />
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-card rounded-2xl border border-border shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={closeExistingUserForm}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-secondary/80 hover:bg-secondary flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5 text-foreground" />
+            </button>
+
+            <div className="p-6 sm:p-8">
+              {/* Title */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-4">
+                  <Play className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">Video Tutorial</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+                  Watch This Video Before Submitting Your XM Account
+                </h2>
+                <p className="text-muted-foreground">
+                  Learn how to open an XM account and use the partner code correctly
+                </p>
+              </div>
+
+              {/* Video Player */}
+              <div className="relative rounded-xl overflow-hidden bg-black mb-8">
+                <video
+                  ref={videoRef}
+                  className="w-full aspect-video"
+                  controls
+                  playsInline
+                  preload="metadata"
+                >
+                  <source src={VIDEO_URL} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+
+              {/* Partner Code Reminder */}
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 mb-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-center sm:text-left">
+                    <p className="text-sm text-muted-foreground mb-1">Remember to use Partner Code:</p>
+                    <p className="font-mono font-bold text-2xl text-primary">{PARTNER_CODE}</p>
+                  </div>
+                  <Button
+                    onClick={handleCopyCode}
+                    variant="outline"
+                    className="border-primary/50 hover:bg-primary/10"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Verification Info */}
+              <div className="text-center">
+                <p className="text-muted-foreground mb-4">
+                  After watching the video and setting up your XM account with our partner code, proceed to join the VIP group.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <Button
+                    onClick={() => {
+                      closeExistingUserForm()
+                      openPopup()
+                    }}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-8"
+                  >
+                    Proceed to Join VIP Group - $20
+                  </Button>
+                  <Button
+                    onClick={closeExistingUserForm}
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <XmPartnerPopup isOpen={isOpen} onClose={closePopup} />
     </div>
