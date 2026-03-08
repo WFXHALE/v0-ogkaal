@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { TrendingUp, TrendingDown, RefreshCw, Clock } from "lucide-react"
+import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react"
 import useSWR from "swr"
 
 interface MarketAsset {
@@ -12,15 +12,7 @@ interface MarketAsset {
   isPositive: boolean
   tradingViewSymbol: string
   isMarketOpen?: boolean
-  isMarketClosed?: boolean
   rawPrice?: number
-}
-
-interface ForexResponse {
-  data: MarketAsset[]
-  isMarketClosed: boolean
-  opensAt: string | null
-  opensIn: string | null
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -39,7 +31,9 @@ function AssetCard({
   previousPrice?: number
 }) {
   const [flashColor, setFlashColor] = useState<"green" | "red" | null>(null)
+  const isMarketClosed = asset.change === "Market Closed"
 
+  // Determine flash color based on price change
   useEffect(() => {
     if (previousPrice !== undefined && asset.rawPrice !== undefined && previousPrice !== asset.rawPrice) {
       if (asset.rawPrice > previousPrice) {
@@ -47,21 +41,21 @@ function AssetCard({
       } else if (asset.rawPrice < previousPrice) {
         setFlashColor("red")
       }
-
+      
+      // Remove flash after animation
       const timer = setTimeout(() => {
         setFlashColor(null)
       }, 600)
-
+      
       return () => clearTimeout(timer)
     }
   }, [asset.rawPrice, previousPrice])
 
-  const priceColorClass =
-    flashColor === "green"
-      ? "text-green-400 transition-colors duration-300"
-      : flashColor === "red"
-        ? "text-red-400 transition-colors duration-300"
-        : "text-foreground transition-colors duration-300"
+  const priceColorClass = flashColor === "green" 
+    ? "text-green-400 transition-colors duration-300" 
+    : flashColor === "red" 
+    ? "text-red-400 transition-colors duration-300" 
+    : "text-foreground transition-colors duration-300"
 
   return (
     <button
@@ -84,9 +78,15 @@ function AssetCard({
         )}
         {isLoading ? (
           <div className="w-12 h-4 bg-muted/50 rounded animate-pulse mt-1" />
+        ) : isMarketClosed ? (
+          <span className="text-xs text-muted-foreground">{asset.change}</span>
         ) : (
           <div className={`flex items-center gap-1 ${asset.isPositive ? "text-green-500" : "text-red-500"}`}>
-            {asset.isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {asset.isPositive ? (
+              <TrendingUp className="w-3 h-3" />
+            ) : (
+              <TrendingDown className="w-3 h-3" />
+            )}
             <span className="text-xs font-medium">{asset.change}</span>
           </div>
         )}
@@ -103,8 +103,11 @@ function TradingViewChart({ symbol }: { symbol: string }) {
     if (!containerRef.current) return
 
     setIsLoading(true)
-    containerRef.innerHTML = ""
 
+    // Clear existing content
+    containerRef.current.innerHTML = ""
+
+    // Create widget container
     const widgetContainer = document.createElement("div")
     widgetContainer.className = "tradingview-widget-container"
     widgetContainer.style.height = "100%"
@@ -118,6 +121,7 @@ function TradingViewChart({ symbol }: { symbol: string }) {
 
     containerRef.current.appendChild(widgetContainer)
 
+    // Create and load script
     const script = document.createElement("script")
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
     script.type = "text/javascript"
@@ -168,40 +172,6 @@ function TradingViewChart({ symbol }: { symbol: string }) {
   )
 }
 
-function MarketStatusBadge({
-  isLive,
-  isMarketClosed,
-  opensIn,
-}: {
-  isLive: boolean
-  isMarketClosed?: boolean
-  opensIn?: string | null
-}) {
-  if (isMarketClosed) {
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-500" />
-          <span className="text-sm text-yellow-500 font-medium">Market Closed</span>
-        </div>
-        {opensIn && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span>Opens in: {opensIn}</span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
-      <span className="text-sm text-muted-foreground">{isLive ? "Live" : "Delayed"}</span>
-    </div>
-  )
-}
-
 function MarketSection({
   title,
   assets,
@@ -211,8 +181,6 @@ function MarketSection({
   isLive,
   onRefresh,
   previousPrices,
-  isMarketClosed,
-  opensIn,
 }: {
   title: string
   assets: MarketAsset[]
@@ -222,8 +190,6 @@ function MarketSection({
   isLive: boolean
   onRefresh?: () => void
   previousPrices?: Record<string, number>
-  isMarketClosed?: boolean
-  opensIn?: string | null
 }) {
   return (
     <div className="mb-8">
@@ -239,7 +205,10 @@ function MarketSection({
               <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? "animate-spin" : ""}`} />
             </button>
           )}
-          <MarketStatusBadge isLive={isLive} isMarketClosed={isMarketClosed} opensIn={opensIn} />
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
+            <span className="text-sm text-muted-foreground">{isLive ? "Live" : "Delayed"}</span>
+          </div>
         </div>
       </div>
 
@@ -261,169 +230,66 @@ function MarketSection({
 
 // Default fallback data
 const defaultForexData: MarketAsset[] = [
-  {
-    symbol: "EURUSD",
-    name: "Euro / US Dollar",
-    price: "1.0850",
-    change: "+0.08%",
-    isPositive: true,
-    tradingViewSymbol: "FX:EURUSD",
-    rawPrice: 1.085,
-  },
-  {
-    symbol: "XAUUSD",
-    name: "Gold / US Dollar",
-    price: "2,650.00",
-    change: "+0.32%",
-    isPositive: true,
-    tradingViewSymbol: "OANDA:XAUUSD",
-    rawPrice: 2650.0,
-  },
-  {
-    symbol: "XAGUSD",
-    name: "Silver / US Dollar",
-    price: "31.25",
-    change: "-0.15%",
-    isPositive: false,
-    tradingViewSymbol: "OANDA:XAGUSD",
-    rawPrice: 31.25,
-  },
+  { symbol: "EURUSD", name: "Euro / US Dollar", price: "1.0850", change: "+0.08%", isPositive: true, tradingViewSymbol: "FX:EURUSD", rawPrice: 1.0850 },
+  { symbol: "XAUUSD", name: "Gold / US Dollar", price: "2,650.00", change: "+0.32%", isPositive: true, tradingViewSymbol: "OANDA:XAUUSD", rawPrice: 2650.00 },
+  { symbol: "XAGUSD", name: "Silver / US Dollar", price: "31.25", change: "-0.15%", isPositive: false, tradingViewSymbol: "OANDA:XAGUSD", rawPrice: 31.25 },
 ]
 
 const defaultCryptoData: MarketAsset[] = [
-  {
-    symbol: "BTC",
-    name: "Bitcoin",
-    price: "97,500.00",
-    change: "+2.34%",
-    isPositive: true,
-    tradingViewSymbol: "BINANCE:BTCUSDT",
-    rawPrice: 97500.0,
-  },
-  {
-    symbol: "ETH",
-    name: "Ethereum",
-    price: "3,650.00",
-    change: "+1.87%",
-    isPositive: true,
-    tradingViewSymbol: "BINANCE:ETHUSDT",
-    rawPrice: 3650.0,
-  },
-  {
-    symbol: "SOL",
-    name: "Solana",
-    price: "195.50",
-    change: "+3.25%",
-    isPositive: true,
-    tradingViewSymbol: "BINANCE:SOLUSDT",
-    rawPrice: 195.5,
-  },
+  { symbol: "BTC", name: "Bitcoin", price: "97,500.00", change: "+2.34%", isPositive: true, tradingViewSymbol: "BINANCE:BTCUSDT", rawPrice: 97500.00 },
+  { symbol: "ETH", name: "Ethereum", price: "3,650.00", change: "+1.87%", isPositive: true, tradingViewSymbol: "BINANCE:ETHUSDT", rawPrice: 3650.00 },
+  { symbol: "SOL", name: "Solana", price: "195.50", change: "+3.25%", isPositive: true, tradingViewSymbol: "BINANCE:SOLUSDT", rawPrice: 195.50 },
 ]
 
 const defaultIndianData: MarketAsset[] = [
-  {
-    symbol: "NIFTY50",
-    name: "NIFTY 50",
-    price: "24,850.00",
-    change: "+0.45%",
-    isPositive: true,
-    tradingViewSymbol: "NSE:NIFTY",
-    rawPrice: 24850.0,
-  },
-  {
-    symbol: "BANKNIFTY",
-    name: "BANK NIFTY",
-    price: "53,200.00",
-    change: "+0.62%",
-    isPositive: true,
-    tradingViewSymbol: "NSE:BANKNIFTY",
-    rawPrice: 53200.0,
-  },
+  { symbol: "NIFTY50", name: "NIFTY 50", price: "24,850.00", change: "+0.45%", isPositive: true, tradingViewSymbol: "NSE:NIFTY", rawPrice: 24850.00 },
+  { symbol: "BANKNIFTY", name: "BANK NIFTY", price: "53,200.00", change: "+0.62%", isPositive: true, tradingViewSymbol: "NSE:BANKNIFTY", rawPrice: 53200.00 },
 ]
 
 export function MarketOverview() {
   const [selectedAsset, setSelectedAsset] = useState<MarketAsset>(defaultCryptoData[0])
-
+  
   // Track previous prices for flash animation
   const [prevCryptoPrices, setPrevCryptoPrices] = useState<Record<string, number>>({})
   const [prevForexPrices, setPrevForexPrices] = useState<Record<string, number>>({})
   const [prevIndianPrices, setPrevIndianPrices] = useState<Record<string, number>>({})
 
-  // Countdown timer state for forex
-  const [forexOpensIn, setForexOpensIn] = useState<string | null>(null)
+  // Fetch real-time crypto data
+  const { data: cryptoResponse, isLoading: cryptoLoading, mutate: refreshCrypto } = useSWR(
+    "/api/market/crypto",
+    fetcher,
+    { refreshInterval: 5000, revalidateOnFocus: true }
+  )
 
-  // Fetch real-time crypto data - every 4 seconds
-  const {
-    data: cryptoResponse,
-    isLoading: cryptoLoading,
-    mutate: refreshCrypto,
-  } = useSWR("/api/market/crypto", fetcher, {
-    refreshInterval: 4000,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  })
-
-  // Fetch forex data - every 60 seconds (or when market opens)
-  const {
-    data: forexResponse,
-    isLoading: forexLoading,
-    mutate: refreshForex,
-  } = useSWR<ForexResponse>("/api/market/forex", fetcher, {
-    refreshInterval: 60000,
-    revalidateOnFocus: true,
-  })
+  // Fetch forex data
+  const { data: forexResponse, isLoading: forexLoading, mutate: refreshForex } = useSWR(
+    "/api/market/forex",
+    fetcher,
+    { refreshInterval: 60000, revalidateOnFocus: true }
+  )
 
   // Fetch Indian market data
-  const {
-    data: indianResponse,
-    isLoading: indianLoading,
-    mutate: refreshIndian,
-  } = useSWR("/api/market/indian", fetcher, {
-    refreshInterval: 30000,
-    revalidateOnFocus: true,
-  })
+  const { data: indianResponse, isLoading: indianLoading, mutate: refreshIndian } = useSWR(
+    "/api/market/indian",
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true }
+  )
 
   const cryptoData = cryptoResponse?.data || defaultCryptoData
   const forexData = forexResponse?.data || defaultForexData
   const indianData = indianResponse?.data || defaultIndianData
 
-  // Update countdown timer for forex
-  useEffect(() => {
-    if (forexResponse?.isMarketClosed && forexResponse?.opensAt) {
-      const updateCountdown = () => {
-        const opensAt = new Date(forexResponse.opensAt!)
-        const now = new Date()
-        const diff = opensAt.getTime() - now.getTime()
-
-        if (diff <= 0) {
-          setForexOpensIn(null)
-          refreshForex() // Market should be open now
-          return
-        }
-
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-
-        if (days > 0) {
-          setForexOpensIn(`${days}d ${hours}h ${minutes}m`)
-        } else {
-          setForexOpensIn(`${hours}h ${minutes}m`)
-        }
-      }
-
-      updateCountdown()
-      const interval = setInterval(updateCountdown, 60000) // Update every minute
-
-      return () => clearInterval(interval)
-    } else {
-      setForexOpensIn(null)
-    }
-  }, [forexResponse?.isMarketClosed, forexResponse?.opensAt, refreshForex])
-
-  // Update previous prices when crypto data changes
+  // Update previous prices when data changes
   useEffect(() => {
     if (cryptoResponse?.data) {
+      const newPrices: Record<string, number> = {}
+      cryptoData.forEach((asset: MarketAsset) => {
+        if (asset.rawPrice) {
+          newPrices[asset.symbol] = prevCryptoPrices[asset.symbol] || asset.rawPrice
+        }
+      })
+      
+      // Delay updating previous prices to allow flash animation
       const timer = setTimeout(() => {
         const currentPrices: Record<string, number> = {}
         cryptoData.forEach((asset: MarketAsset) => {
@@ -433,10 +299,10 @@ export function MarketOverview() {
         })
         setPrevCryptoPrices(currentPrices)
       }, 700)
-
+      
       return () => clearTimeout(timer)
     }
-  }, [cryptoResponse?.data, cryptoData])
+  }, [cryptoResponse?.data])
 
   useEffect(() => {
     if (forexResponse?.data) {
@@ -449,10 +315,10 @@ export function MarketOverview() {
         })
         setPrevForexPrices(currentPrices)
       }, 700)
-
+      
       return () => clearTimeout(timer)
     }
-  }, [forexResponse?.data, forexData])
+  }, [forexResponse?.data])
 
   useEffect(() => {
     if (indianResponse?.data) {
@@ -465,10 +331,10 @@ export function MarketOverview() {
         })
         setPrevIndianPrices(currentPrices)
       }, 700)
-
+      
       return () => clearTimeout(timer)
     }
-  }, [indianResponse?.data, indianData])
+  }, [indianResponse?.data])
 
   const handleRefreshAll = useCallback(() => {
     refreshCrypto()
@@ -498,11 +364,9 @@ export function MarketOverview() {
           selectedAsset={selectedAsset}
           onSelectAsset={setSelectedAsset}
           isLoading={forexLoading}
-          isLive={!forexLoading && !!forexResponse?.data && !forexResponse?.isMarketClosed}
+          isLive={!forexLoading && !!forexResponse?.data}
           onRefresh={refreshForex}
           previousPrices={prevForexPrices}
-          isMarketClosed={forexResponse?.isMarketClosed}
-          opensIn={forexOpensIn}
         />
 
         {/* Indian Market Section */}
@@ -515,8 +379,6 @@ export function MarketOverview() {
           isLive={!indianLoading && indianResponse?.isMarketOpen}
           onRefresh={refreshIndian}
           previousPrices={prevIndianPrices}
-          isMarketClosed={!indianResponse?.isMarketOpen && !!indianResponse?.data}
-          opensIn={indianResponse?.opensIn}
         />
 
         {/* TradingView Chart */}
