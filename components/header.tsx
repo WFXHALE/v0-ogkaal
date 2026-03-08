@@ -15,7 +15,7 @@ const navItems = [
   { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
   { label: "Funded Tools", href: "/funded-tools" },
   { label: "Books", href: "#books" },
-  { label: "Contact", href: "#contact" },
+  { label: "Contact Us", href: "/contact" },
 ]
 
 export function Header() {
@@ -48,8 +48,8 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button className="hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
-              Start Trading
+            <Button asChild className="hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+              <Link href="/contact">Contact Us</Link>
             </Button>
 
             <button
@@ -80,8 +80,8 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
-              <Button className="mt-4 sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
-                Start Trading
+              <Button asChild className="mt-4 sm:hidden bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+                <Link href="/contact">Contact Us</Link>
               </Button>
             </nav>
           </div>

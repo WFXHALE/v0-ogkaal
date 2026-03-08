@@ -19,12 +19,13 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
+  Mail,
 } from "lucide-react"
 import { isSessionValid, logout, getSession } from "@/lib/admin-auth"
 
 interface Submission {
   id: string
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "contact" | "other"
   name: string
   email?: string
   telegram?: string
@@ -43,7 +44,7 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [activeTab, setActiveTab] = useState<
-    "all" | "usdt_p2p" | "funded_account" | "mentorship" | "other"
+    "all" | "usdt_p2p" | "funded_account" | "mentorship" | "contact" | "other"
   >("all")
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
   const [mounted, setMounted] = useState(false)
@@ -156,6 +157,8 @@ export default function AdminDashboardPage() {
         return "Funded Account"
       case "mentorship":
         return "Mentorship"
+      case "contact":
+        return "Contact"
       default:
         return "Other"
     }
@@ -169,6 +172,8 @@ export default function AdminDashboardPage() {
         return "bg-blue-500/10 text-blue-400 border-blue-500/30"
       case "mentorship":
         return "bg-amber-500/10 text-amber-400 border-amber-500/30"
+      case "contact":
+        return "bg-purple-500/10 text-purple-400 border-purple-500/30"
       default:
         return "bg-gray-500/10 text-gray-400 border-gray-500/30"
     }
@@ -193,6 +198,7 @@ export default function AdminDashboardPage() {
     usdt: submissions.filter((s) => s.type === "usdt_p2p").length,
     funded: submissions.filter((s) => s.type === "funded_account").length,
     mentorship: submissions.filter((s) => s.type === "mentorship").length,
+    contact: submissions.filter((s) => s.type === "contact").length,
   }
 
   if (isLoading || !isAuthenticated) {
@@ -247,7 +253,7 @@ export default function AdminDashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           <div className="p-4 rounded-xl bg-card border border-border">
             <div className="flex items-center gap-2 mb-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
@@ -290,6 +296,13 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-2xl font-bold text-foreground">{stats.mentorship}</p>
           </div>
+          <div className="p-4 rounded-xl bg-card border border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Mail className="w-4 h-4 text-purple-400" />
+              <span className="text-xs text-muted-foreground">Contact</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{stats.contact}</p>
+          </div>
         </div>
 
         {/* Filters */}
@@ -300,6 +313,7 @@ export default function AdminDashboardPage() {
               { key: "usdt_p2p", label: "USDT P2P" },
               { key: "funded_account", label: "Funded Account" },
               { key: "mentorship", label: "Mentorship" },
+              { key: "contact", label: "Contact" },
               { key: "other", label: "Other" },
             ].map((tab) => (
               <button
