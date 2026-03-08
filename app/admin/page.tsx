@@ -8,6 +8,7 @@ import {
   DollarSign, Users, GraduationCap, FileText, MapPin, Globe,
   ChevronDown, ChevronUp, Filter
 } from "lucide-react"
+import { isSessionValid, logout, getSession } from "@/lib/admin-auth"
 
 interface Submission {
   id: string
@@ -26,6 +27,7 @@ interface Submission {
 export default function AdminDashboardPage() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [adminEmail, setAdminEmail] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [activeTab, setActiveTab] = useState<"all" | "usdt_p2p" | "funded_account" | "mentorship" | "other">("all")
@@ -39,24 +41,16 @@ export default function AdminDashboardPage() {
   }, [])
 
   const checkAuth = () => {
-    const session = localStorage.getItem("og_admin_session")
-    if (!session) {
+    if (!isSessionValid()) {
       router.push("/admin/login")
       return
     }
-
-    try {
-      const sessionData = JSON.parse(session)
-      const expiresAt = new Date(sessionData.expiresAt)
-      if (expiresAt < new Date()) {
-        localStorage.removeItem("og_admin_session")
-        router.push("/admin/login")
-        return
-      }
-      setIsAuthenticated(true)
-    } catch {
-      router.push("/admin/login")
+    
+    const session = getSession()
+    if (session) {
+      setAdminEmail(session.email)
     }
+    setIsAuthenticated(true)
     setIsLoading(false)
   }
 
@@ -112,7 +106,7 @@ export default function AdminDashboardPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("og_admin_session")
+    logout()
     router.push("/admin/login")
   }
 
@@ -201,8 +195,8 @@ export default function AdminDashboardPage() {
                 <Shield className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h1 className="font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-xs text-muted-foreground">OG KAAL TRADER</p>
+<h1 className="font-bold text-foreground">Admin Dashboard</h1>
+  <p className="text-xs text-muted-foreground">{adminEmail || "OG KAAL TRADER"}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
