@@ -2,6 +2,7 @@
 
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
+import { TradingCalculators } from "@/components/trading-calculators"
 import { useState, useEffect } from "react"
 import { 
   TrendingUp, TrendingDown, Plus, X, LogOut, User, 
@@ -600,6 +601,9 @@ export default function FundedToolsPage() {
               <p className="text-2xl font-bold text-foreground">${avgRisk}</p>
             </div>
           </div>
+
+          {/* Trading Calculators */}
+          <TradingCalculators />
 
           {/* Consistency Tracker */}
           {fundedAccount && (
