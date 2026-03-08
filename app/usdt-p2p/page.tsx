@@ -47,6 +47,20 @@ export default function UsdtP2PPage() {
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
   const [step, setStep] = useState(0) // 0 = info, 1-4 = form steps
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
+  
+  // Sell flow state
+  const [sellStep, setSellStep] = useState(0) // 0 = method selection, 1 = kaal form, 2 = success
+  const [sellFormData, setSellFormData] = useState({
+    upiOrBank: "",
+    phone: "",
+    telegram: "",
+    screenshot: null as File | null,
+  })
+  const sellScreenshotRef = useRef<HTMLInputElement>(null)
+
+  const BINANCE_P2P_LINK = "https://www.binance.com/en/p2p"
+  const KAAL_WALLET_ADDRESS = "TRC20: TYourWalletAddressHere"
+
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -89,14 +103,15 @@ export default function UsdtP2PPage() {
   const canProceedStep3 = formData.walletAddress && formData.network && formData.usdtAmount
 
   // Sell USDT pricing tiers
-  const getSellRate = (amount: number): number => {
-    if (amount < 50) return 100
-    return 95
+  const getSellRate = (amount: number): { min: number; max: number } => {
+    if (amount < 50) return { min: 90, max: 90 }
+    return { min: 92, max: 93 }
   }
 
   const sellAmount = Number(sellUsdtAmount) || 0
-  const sellRate = getSellRate(sellAmount)
-  const sellTotalINR = sellAmount * sellRate
+  const sellRateRange = getSellRate(sellAmount)
+  const sellTotalINRMin = sellAmount * sellRateRange.min
+  const sellTotalINRMax = sellAmount * sellRateRange.max
 
   return (
     <div className="min-h-screen bg-background">
@@ -222,7 +237,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">Below 50 USDT</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount > 0 && sellAmount < 50 ? "text-primary" : "text-foreground"
-                      }`}>₹100 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹90 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                     <div className={`p-4 rounded-xl border text-center transition-colors ${
                       sellAmount >= 50 
@@ -232,7 +247,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹95 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹92–₹93 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -286,11 +301,19 @@ export default function UsdtP2PPage() {
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">Applicable Rate:</span>
-                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
+                          <span className="text-foreground font-medium">
+                            {sellRateRange.min === sellRateRange.max 
+                              ? `₹${sellRateRange.min}` 
+                              : `₹${sellRateRange.min}–₹${sellRateRange.max}`} per USDT
+                          </span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
-                          <span className="font-semibold text-foreground">Total INR Amount:</span>
-                          <span className="text-2xl font-bold text-primary">₹{sellTotalINR.toLocaleString()}</span>
+                          <span className="font-semibold text-foreground">Estimated INR:</span>
+                          <span className="text-2xl font-bold text-primary">
+                            {sellTotalINRMin === sellTotalINRMax 
+                              ? `₹${sellTotalINRMin.toLocaleString()}`
+                              : `₹${sellTotalINRMin.toLocaleString()}–₹${sellTotalINRMax.toLocaleString()}`}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -299,22 +322,197 @@ export default function UsdtP2PPage() {
                   {/* Transparency Note */}
                   <div className="p-4 rounded-xl bg-secondary/30 border border-border mb-6">
                     <p className="text-xs text-muted-foreground text-center">
-                      Smaller trades may have a slightly higher rate due to transaction fees, GST, and processing costs.
+                      Smaller trades may have a slightly lower rate due to transaction fees, GST, and processing costs.
                     </p>
                   </div>
 
-                  {/* Contact Button */}
-                  <div className="text-center">
-                    <Button
-                      asChild
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
-                    >
-                      <a href={TELEGRAM_LINK} target="_blank" rel="noopener noreferrer">
-                        Contact to Sell USDT
-                        <ExternalLink className="w-5 h-5 ml-2" />
-                      </a>
-                    </Button>
-                  </div>
+                  {/* Method Selection - Only show if no method selected and not in form/success */}
+                  {sellStep === 0 && (
+                    <div>
+                      <h4 className="text-center text-sm font-medium text-foreground mb-4">Choose Sell Method</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Button
+                          asChild
+                          variant="outline"
+                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
+                        >
+                          <a href={BINANCE_P2P_LINK} target="_blank" rel="noopener noreferrer">
+                            <div className="flex flex-col items-center gap-2">
+                              <ExternalLink className="w-6 h-6 text-primary" />
+                              <span className="font-semibold text-foreground">Binance P2P</span>
+                              <span className="text-xs text-muted-foreground">Sell on Binance</span>
+                            </div>
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setSellStep(1)}
+                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Wallet className="w-6 h-6 text-primary" />
+                            <span className="font-semibold text-foreground">KAAL P2P</span>
+                            <span className="text-xs text-muted-foreground">Direct transfer</span>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KAAL P2P Form */}
+                  {sellStep === 1 && (
+                    <div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setSellStep(0)}
+                        className="mb-4 text-muted-foreground"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to methods
+                      </Button>
+
+                      <h4 className="text-lg font-semibold text-foreground mb-6">KAAL P2P - Sell USDT</h4>
+
+                      {/* Step 1 */}
+                      <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">1</div>
+                          <h5 className="font-semibold text-foreground">Send USDT to this wallet address</h5>
+                        </div>
+                        <div className="p-3 rounded-lg bg-background border border-border">
+                          <p className="text-sm font-mono text-foreground break-all">{KAAL_WALLET_ADDRESS}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">Network: TRC20</p>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">2</div>
+                          <h5 className="font-semibold text-foreground">Upload transaction screenshot</h5>
+                        </div>
+                        <input
+                          type="file"
+                          ref={sellScreenshotRef}
+                          accept="image/*"
+                          onChange={(e) => setSellFormData(prev => ({ ...prev, screenshot: e.target.files?.[0] || null }))}
+                          className="hidden"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => sellScreenshotRef.current?.click()}
+                          className="w-full justify-center border-dashed border-border hover:border-primary/50"
+                        >
+                          {sellFormData.screenshot ? (
+                            <>
+                              <Check className="w-4 h-4 mr-2 text-green-500" />
+                              {sellFormData.screenshot.name}
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Screenshot
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">3</div>
+                          <h5 className="font-semibold text-foreground">Enter your details</h5>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">UPI ID or Bank Account Details</label>
+                            <input
+                              type="text"
+                              value={sellFormData.upiOrBank}
+                              onChange={(e) => setSellFormData(prev => ({ ...prev, upiOrBank: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="e.g., yourname@upi or Account Number + IFSC"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
+                            <input
+                              type="tel"
+                              value={sellFormData.phone}
+                              onChange={(e) => setSellFormData(prev => ({ ...prev, phone: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="Enter your phone number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Telegram Username</label>
+                            <input
+                              type="text"
+                              value={sellFormData.telegram}
+                              onChange={(e) => setSellFormData(prev => ({ ...prev, telegram: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="@yourusername"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Submit Button */}
+                      <Button
+                        onClick={() => setSellStep(2)}
+                        disabled={!sellFormData.screenshot || !sellFormData.upiOrBank || !sellFormData.phone || !sellFormData.telegram}
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6"
+                      >
+                        Submit Sell Request
+                        <Send className="w-5 h-5 ml-2" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Success State */}
+                  {sellStep === 2 && (
+                    <div className="text-center py-8">
+                      <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle className="w-10 h-10 text-green-500" />
+                      </div>
+                      <h4 className="text-2xl font-bold text-foreground mb-3">Request Received!</h4>
+                      <p className="text-muted-foreground mb-6">
+                        Your request has been received.<br />
+                        Payment will be processed within 30 minutes.
+                      </p>
+
+                      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 mb-6">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                          <p className="text-sm text-amber-200 text-left">
+                            If payment is not received within 30 minutes, please contact on Telegram using the link below.
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        asChild
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-8"
+                      >
+                        <a href={TELEGRAM_LINK} target="_blank" rel="noopener noreferrer">
+                          Contact on Telegram
+                          <ExternalLink className="w-5 h-5 ml-2" />
+                        </a>
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setSellStep(0)
+                          setSellFormData({ upiOrBank: "", phone: "", telegram: "", screenshot: null })
+                          setSellUsdtAmount("")
+                        }}
+                        className="mt-4 text-muted-foreground"
+                      >
+                        Start New Request
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
