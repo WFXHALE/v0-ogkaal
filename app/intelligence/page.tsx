@@ -1,161 +1,131 @@
 "use client"
 
 import { Header } from "@/components/header"
-import { useState, useEffect } from "react"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
-  BarChart3, 
-  Activity, 
-  Droplets, 
-  Calendar,
-  Newspaper,
-  RefreshCw,
-  Clock,
-  AlertTriangle,
-  ArrowUp,
-  ArrowDown
-} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import useSWR from "swr"
+import { 
+  TrendingUp, TrendingDown, Minus, RefreshCw, Newspaper, 
+  Calendar, BarChart3, Activity, AlertTriangle, Clock,
+  ArrowUpRight, ArrowDownRight, ExternalLink
+} from "lucide-react"
+import { useState, useEffect } from "react"
 
-// Types
-interface FundamentalNews {
+const fetcher = (url: string) => fetch(url).then(res => res.json())
+
+interface PriceData {
+  symbol: string
+  name: string
+  price: string
+  change: string
+  changePercent: string
+  isPositive: boolean
+}
+
+interface NewsItem {
   id: string
   headline: string
-  asset: string
-  impact: "bullish" | "bearish" | "neutral"
   source: string
   time: string
-}
-
-interface TechnicalBias {
-  pair: string
-  bias: "bullish" | "bearish" | "neutral"
-  timeframe: string
-  strength: number
-  keyLevels: { support: number; resistance: number }
-}
-
-interface VolumeData {
-  pair: string
-  currentVolume: number
-  averageVolume: number
-  volumeChange: number
-  activity: "high" | "medium" | "low"
-}
-
-interface LiquidityZone {
-  pair: string
-  type: "buy" | "sell"
-  priceLevel: number
-  strength: "strong" | "moderate" | "weak"
-  distance: string
+  impact: "bullish" | "bearish" | "neutral"
+  category: string
+  url?: string
 }
 
 interface EconomicEvent {
   id: string
-  time: string
-  currency: string
   event: string
+  country: string
+  date: string
+  time: string
   impact: "high" | "medium" | "low"
   forecast: string
   previous: string
 }
 
+interface VolumeData {
+  symbol: string
+  name: string
+  volume24h: string
+  volumeChange: string
+  isIncreasing: boolean
+  avgVolume: string
+  activity: "Very High" | "High" | "Normal" | "Low"
+}
+
+interface LiquidityZone {
+  id: string
+  pair: string
+  type: "buy" | "sell"
+  priceLevel: string
+  strength: "Strong" | "Medium" | "Weak"
+  volume: string
+}
+
 export default function IntelligencePage() {
-  const [activeTab, setActiveTab] = useState<"fundamentals" | "technical" | "volume" | "liquidity" | "calendar">("fundamentals")
   const [mounted, setMounted] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
   useEffect(() => {
     setMounted(true)
-    setLastUpdated(new Date())
+    setLastRefresh(new Date())
   }, [])
 
-  const formatTime = () => {
-    if (!mounted || !lastUpdated) return ""
-    return lastUpdated.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+  // Fetch data with auto-refresh intervals
+  const { data: pricesData, mutate: mutatePrices, isValidating: pricesLoading } = useSWR(
+    "/api/intelligence/prices",
+    fetcher,
+    { refreshInterval: 15000 }
+  )
+
+  const { data: newsData, mutate: mutateNews, isValidating: newsLoading } = useSWR(
+    "/api/intelligence/news",
+    fetcher,
+    { refreshInterval: 60000 }
+  )
+
+  const { data: calendarData, mutate: mutateCalendar, isValidating: calendarLoading } = useSWR(
+    "/api/intelligence/calendar",
+    fetcher,
+    { refreshInterval: 300000 }
+  )
+
+  const { data: volumeData, mutate: mutateVolume, isValidating: volumeLoading } = useSWR(
+    "/api/intelligence/volume",
+    fetcher,
+    { refreshInterval: 20000 }
+  )
+
+  const { data: liquidityData, mutate: mutateLiquidity, isValidating: liquidityLoading } = useSWR(
+    "/api/intelligence/liquidity",
+    fetcher,
+    { refreshInterval: 30000 }
+  )
+
+  const prices: PriceData[] = pricesData?.data || []
+  const news: NewsItem[] = newsData?.data || []
+  const calendar: EconomicEvent[] = calendarData?.data || []
+  const volume: VolumeData[] = volumeData?.data || []
+  const liquidity: LiquidityZone[] = liquidityData?.data || []
+
+  const handleRefreshAll = () => {
+    mutatePrices()
+    mutateNews()
+    mutateCalendar()
+    mutateVolume()
+    mutateLiquidity()
+    setLastRefresh(new Date())
   }
 
-  // Sample data
-  const fundamentalNews: FundamentalNews[] = [
-    { id: "1", headline: "Fed signals potential rate pause in upcoming meeting", asset: "USD", impact: "bearish", source: "Reuters", time: "2h ago" },
-    { id: "2", headline: "ECB officials hint at continued tightening stance", asset: "EUR", impact: "bullish", source: "Bloomberg", time: "3h ago" },
-    { id: "3", headline: "Gold rallies as inflation concerns persist", asset: "XAU", impact: "bullish", source: "CNBC", time: "4h ago" },
-    { id: "4", headline: "UK GDP growth exceeds expectations", asset: "GBP", impact: "bullish", source: "FT", time: "5h ago" },
-    { id: "5", headline: "Oil prices stable amid OPEC+ supply decisions", asset: "OIL", impact: "neutral", source: "Reuters", time: "6h ago" },
-    { id: "6", headline: "Japanese Yen weakens on BOJ policy outlook", asset: "JPY", impact: "bearish", source: "Nikkei", time: "7h ago" },
-  ]
-
-  const technicalBias: TechnicalBias[] = [
-    { pair: "EUR/USD", bias: "bullish", timeframe: "4H", strength: 75, keyLevels: { support: 1.0820, resistance: 1.0950 } },
-    { pair: "GBP/USD", bias: "bearish", timeframe: "4H", strength: 60, keyLevels: { support: 1.2650, resistance: 1.2780 } },
-    { pair: "XAU/USD", bias: "bullish", timeframe: "Daily", strength: 85, keyLevels: { support: 2620, resistance: 2700 } },
-    { pair: "USD/JPY", bias: "bullish", timeframe: "4H", strength: 65, keyLevels: { support: 149.50, resistance: 151.20 } },
-    { pair: "AUD/USD", bias: "neutral", timeframe: "4H", strength: 50, keyLevels: { support: 0.6520, resistance: 0.6620 } },
-    { pair: "USD/CAD", bias: "bearish", timeframe: "Daily", strength: 55, keyLevels: { support: 1.3580, resistance: 1.3720 } },
-  ]
-
-  const volumeData: VolumeData[] = [
-    { pair: "EUR/USD", currentVolume: 125000, averageVolume: 98000, volumeChange: 27.5, activity: "high" },
-    { pair: "GBP/USD", currentVolume: 85000, averageVolume: 82000, volumeChange: 3.6, activity: "medium" },
-    { pair: "XAU/USD", currentVolume: 210000, averageVolume: 150000, volumeChange: 40, activity: "high" },
-    { pair: "USD/JPY", currentVolume: 95000, averageVolume: 110000, volumeChange: -13.6, activity: "low" },
-    { pair: "BTC/USD", currentVolume: 450000, averageVolume: 380000, volumeChange: 18.4, activity: "high" },
-    { pair: "ETH/USD", currentVolume: 180000, averageVolume: 175000, volumeChange: 2.8, activity: "medium" },
-  ]
-
-  const liquidityZones: LiquidityZone[] = [
-    { pair: "EUR/USD", type: "buy", priceLevel: 1.0800, strength: "strong", distance: "50 pips" },
-    { pair: "EUR/USD", type: "sell", priceLevel: 1.0980, strength: "moderate", distance: "130 pips" },
-    { pair: "GBP/USD", type: "buy", priceLevel: 1.2620, strength: "strong", distance: "80 pips" },
-    { pair: "GBP/USD", type: "sell", priceLevel: 1.2850, strength: "weak", distance: "150 pips" },
-    { pair: "XAU/USD", type: "buy", priceLevel: 2600, strength: "strong", distance: "50 points" },
-    { pair: "XAU/USD", type: "sell", priceLevel: 2720, strength: "moderate", distance: "70 points" },
-    { pair: "USD/JPY", type: "buy", priceLevel: 148.80, strength: "moderate", distance: "120 pips" },
-    { pair: "USD/JPY", type: "sell", priceLevel: 152.00, strength: "strong", distance: "80 pips" },
-  ]
-
-  const economicEvents: EconomicEvent[] = [
-    { id: "1", time: "08:30", currency: "USD", event: "Non-Farm Payrolls", impact: "high", forecast: "180K", previous: "175K" },
-    { id: "2", time: "10:00", currency: "USD", event: "ISM Manufacturing PMI", impact: "high", forecast: "49.5", previous: "48.7" },
-    { id: "3", time: "12:00", currency: "EUR", event: "ECB President Lagarde Speaks", impact: "high", forecast: "-", previous: "-" },
-    { id: "4", time: "14:00", currency: "GBP", event: "BOE Interest Rate Decision", impact: "high", forecast: "5.25%", previous: "5.25%" },
-    { id: "5", time: "15:30", currency: "CAD", event: "Employment Change", impact: "medium", forecast: "25K", previous: "22K" },
-    { id: "6", time: "19:00", currency: "USD", event: "FOMC Meeting Minutes", impact: "high", forecast: "-", previous: "-" },
-  ]
-
-  const tabs = [
-    { id: "fundamentals" as const, label: "Fundamentals", icon: Newspaper },
-    { id: "technical" as const, label: "Technical Overview", icon: BarChart3 },
-    { id: "volume" as const, label: "Volume Activity", icon: Activity },
-    { id: "liquidity" as const, label: "Liquidity Zones", icon: Droplets },
-    { id: "calendar" as const, label: "Economic Calendar", icon: Calendar },
-  ]
-
-  const handleRefresh = () => {
-    setLastUpdated(new Date())
+  const formatLastRefresh = () => {
+    if (!mounted || !lastRefresh) return ""
+    return lastRefresh.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
   }
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case "bullish": return "text-green-500"
-      case "bearish": return "text-red-500"
-      case "high": return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "medium": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-      case "low": return "bg-green-500/20 text-green-400 border-green-500/30"
-      default: return "text-muted-foreground"
-    }
-  }
-
-  const getBiasIcon = (bias: string) => {
-    switch (bias) {
-      case "bullish": return <TrendingUp className="w-5 h-5 text-green-500" />
-      case "bearish": return <TrendingDown className="w-5 h-5 text-red-500" />
-      default: return <Minus className="w-5 h-5 text-yellow-500" />
-    }
-  }
+  const isAnyLoading = pricesLoading || newsLoading || calendarLoading || volumeLoading || liquidityLoading
 
   return (
     <div className="min-h-screen bg-background">
@@ -163,285 +133,381 @@ export default function IntelligencePage() {
       <main className="pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Market Intelligence</h1>
-                <p className="text-muted-foreground mt-1">Quick market insights for informed trading decisions</p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Market Intelligence</h1>
+              <p className="text-muted-foreground mt-1">
+                Real-time market data and analysis
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>Last updated: {formatLastRefresh()}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>Last updated: {formatTime()}</span>
-                </div>
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  size="sm"
-                  className="border-border hover:bg-secondary"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
+              <Button
+                onClick={handleRefreshAll}
+                variant="outline"
+                size="sm"
+                disabled={isAnyLoading}
+                className="border-primary/50"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isAnyLoading ? "animate-spin" : ""}`} />
+                Refresh All
+              </Button>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-2 mb-8 p-1 bg-secondary/50 rounded-xl">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Content */}
-          <div className="space-y-6">
-            {/* Fundamentals */}
-            {activeTab === "fundamentals" && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                  <Newspaper className="w-5 h-5 text-primary" />
-                  Fundamental News
-                </h2>
-                <div className="grid gap-4">
-                  {fundamentalNews.map((news) => (
-                    <div
-                      key={news.id}
-                      className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">{news.headline}</p>
-                          <div className="flex items-center gap-3 mt-2">
-                            <span className="px-2 py-0.5 rounded bg-secondary text-xs font-medium text-foreground">
-                              {news.asset}
-                            </span>
-                            <span className={`text-sm font-medium ${getImpactColor(news.impact)}`}>
-                              {news.impact === "bullish" && <TrendingUp className="w-4 h-4 inline mr-1" />}
-                              {news.impact === "bearish" && <TrendingDown className="w-4 h-4 inline mr-1" />}
-                              {news.impact === "neutral" && <Minus className="w-4 h-4 inline mr-1" />}
-                              {news.impact.charAt(0).toUpperCase() + news.impact.slice(1)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{news.source}</span>
-                          </div>
-                        </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{news.time}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Technical Overview */}
-            {activeTab === "technical" && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                  Technical Overview
-                </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {technicalBias.map((item) => (
-                    <div
-                      key={item.pair}
-                      className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-semibold text-foreground">{item.pair}</span>
-                        <div className="flex items-center gap-2">
-                          {getBiasIcon(item.bias)}
-                          <span className={`text-sm font-medium ${
-                            item.bias === "bullish" ? "text-green-500" : 
-                            item.bias === "bearish" ? "text-red-500" : "text-yellow-500"
-                          }`}>
-                            {item.bias.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Timeframe</span>
-                          <span className="text-foreground">{item.timeframe}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Strength</span>
-                          <span className="text-foreground">{item.strength}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${
-                              item.bias === "bullish" ? "bg-green-500" : 
-                              item.bias === "bearish" ? "bg-red-500" : "bg-yellow-500"
-                            }`}
-                            style={{ width: `${item.strength}%` }}
-                          />
-                        </div>
-                        <div className="pt-2 border-t border-border mt-2">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-green-500">S: {item.keyLevels.support}</span>
-                            <span className="text-red-500">R: {item.keyLevels.resistance}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Volume Activity */}
-            {activeTab === "volume" && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
-                  Volume Activity
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Pair</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Current Volume</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Avg Volume</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Change</th>
-                        <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Activity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {volumeData.map((item) => (
-                        <tr key={item.pair} className="border-b border-border/50 hover:bg-secondary/30">
-                          <td className="py-3 px-4 font-medium text-foreground">{item.pair}</td>
-                          <td className="py-3 px-4 text-right text-foreground">{item.currentVolume.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-right text-muted-foreground">{item.averageVolume.toLocaleString()}</td>
-                          <td className={`py-3 px-4 text-right font-medium ${item.volumeChange >= 0 ? "text-green-500" : "text-red-500"}`}>
-                            {item.volumeChange >= 0 ? <ArrowUp className="w-4 h-4 inline mr-1" /> : <ArrowDown className="w-4 h-4 inline mr-1" />}
-                            {Math.abs(item.volumeChange).toFixed(1)}%
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              item.activity === "high" ? "bg-green-500/20 text-green-400" :
-                              item.activity === "medium" ? "bg-yellow-500/20 text-yellow-400" :
-                              "bg-red-500/20 text-red-400"
-                            }`}>
-                              {item.activity.toUpperCase()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Liquidity Zones */}
-            {activeTab === "liquidity" && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                  <Droplets className="w-5 h-5 text-primary" />
-                  Liquidity Zones
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {liquidityZones.map((zone, index) => (
-                    <div
-                      key={index}
-                      className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-semibold text-foreground">{zone.pair}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          zone.type === "buy" 
-                            ? "bg-green-500/20 text-green-400 border border-green-500/30" 
-                            : "bg-red-500/20 text-red-400 border border-red-500/30"
-                        }`}>
-                          {zone.type.toUpperCase()} ZONE
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Price Level</span>
-                          <span className="font-mono text-foreground">{zone.priceLevel}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Strength</span>
-                          <span className={`font-medium ${
-                            zone.strength === "strong" ? "text-green-500" :
-                            zone.strength === "moderate" ? "text-yellow-500" : "text-red-500"
-                          }`}>
-                            {zone.strength.toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Distance</span>
-                          <span className="text-foreground">{zone.distance}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Economic Calendar */}
-            {activeTab === "calendar" && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  Economic News Calendar
-                </h2>
-                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />
-                  <p className="text-sm text-yellow-400">
-                    High impact events can cause significant market volatility. Trade with caution.
+          {/* Live Prices Grid */}
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Live Prices</h2>
+              {pricesLoading && (
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {prices.length > 0 ? prices.map((item) => (
+                <div
+                  key={item.symbol}
+                  className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">{item.name}</span>
+                    {item.isPositive ? (
+                      <ArrowUpRight className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{item.price}</p>
+                  <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                    {item.change}
                   </p>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Time</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Currency</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
-                        <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Impact</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Forecast</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Previous</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {economicEvents.map((event) => (
-                        <tr key={event.id} className="border-b border-border/50 hover:bg-secondary/30">
-                          <td className="py-3 px-4 font-mono text-foreground">{event.time}</td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded bg-secondary text-xs font-medium text-foreground">
-                              {event.currency}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-foreground">{event.event}</td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getImpactColor(event.impact)}`}>
-                              {event.impact.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right text-foreground">{event.forecast}</td>
-                          <td className="py-3 px-4 text-right text-muted-foreground">{event.previous}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              )) : (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
+                    <div className="h-4 w-16 bg-muted rounded mb-2" />
+                    <div className="h-6 w-24 bg-muted rounded mb-1" />
+                    <div className="h-4 w-12 bg-muted rounded" />
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* TradingView Chart */}
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Technical Analysis</h2>
+            </div>
+            <div className="rounded-xl overflow-hidden border border-border">
+              <iframe
+                src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=BINANCE%3ABTCUSDT&interval=60&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=1a1a2e&studies=%5B%5D&theme=dark&style=1&timezone=exchange&withdateranges=1&showpopupbutton=1&allow_symbol_change=1&watchlist=%5B%22BINANCE%3ABTCUSDT%22%2C%22BINANCE%3AETHUSDT%22%2C%22FX%3AEURUSD%22%2C%22TVC%3AGOLD%22%5D&details=1&hotlist=1&calendar=1"
+                style={{ width: "100%", height: "500px" }}
+                allowFullScreen
+              />
+            </div>
+          </section>
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Market News */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Newspaper className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Market News</h2>
+                {newsLoading && (
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                )}
               </div>
-            )}
+              <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
+                {news.length > 0 ? (
+                  <div className="space-y-4">
+                    {news.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors"
+                      >
+                        <div className={`p-1.5 rounded-full shrink-0 ${
+                          item.impact === "bullish" 
+                            ? "bg-green-500/20" 
+                            : item.impact === "bearish"
+                            ? "bg-red-500/20"
+                            : "bg-muted"
+                        }`}>
+                          {item.impact === "bullish" ? (
+                            <TrendingUp className="w-3 h-3 text-green-500" />
+                          ) : item.impact === "bearish" ? (
+                            <TrendingDown className="w-3 h-3 text-red-500" />
+                          ) : (
+                            <Minus className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground font-medium line-clamp-2">
+                            {item.headline}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">{item.source}</span>
+                            <span className="text-xs text-muted-foreground">-</span>
+                            <span className="text-xs text-muted-foreground">{item.time}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              item.category === "Crypto" ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400"
+                            }`}>
+                              {item.category}
+                            </span>
+                          </div>
+                        </div>
+                        {item.url && (
+                          <a 
+                            href={item.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex gap-3 animate-pulse">
+                        <div className="w-8 h-8 rounded-full bg-muted" />
+                        <div className="flex-1">
+                          <div className="h-4 w-full bg-muted rounded mb-2" />
+                          <div className="h-3 w-24 bg-muted rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Economic Calendar */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Economic Calendar</h2>
+                {calendarLoading && (
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                )}
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
+                {calendar.length > 0 ? (
+                  <div className="space-y-3">
+                    {calendar.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-8 rounded-full ${
+                            event.impact === "high"
+                              ? "bg-red-500"
+                              : event.impact === "medium"
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          }`} />
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{event.event}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="font-semibold">{event.country}</span>
+                              <span>-</span>
+                              <span>{event.date}</span>
+                              <span>{event.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">
+                            F: <span className="text-foreground">{event.forecast}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            P: <span className="text-foreground">{event.previous}</span>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* Volume Activity */}
+          <section className="mt-8">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Volume Activity</h2>
+              {volumeLoading && (
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+            </div>
+            <div className="rounded-xl bg-card border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Asset</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">24h Volume</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Avg Volume</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Change</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {volume.length > 0 ? volume.map((item) => (
+                      <tr key={item.symbol} className="hover:bg-secondary/30">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">{item.symbol}</span>
+                            <span className="text-sm text-muted-foreground">{item.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-foreground">{item.volume24h}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{item.avgVolume}</td>
+                        <td className={`px-4 py-3 font-medium ${item.isIncreasing ? "text-green-500" : "text-red-500"}`}>
+                          {item.volumeChange}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            item.activity === "Very High"
+                              ? "bg-red-500/20 text-red-400"
+                              : item.activity === "High"
+                              ? "bg-primary/20 text-primary"
+                              : item.activity === "Normal"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {item.activity}
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={i}>
+                          <td colSpan={5} className="px-4 py-3">
+                            <div className="h-6 bg-muted rounded animate-pulse" />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          {/* Liquidity Zones */}
+          <section className="mt-8">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Liquidity Zones</h2>
+              {liquidityLoading && (
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Buy Zones */}
+              <div className="p-4 rounded-xl bg-card border border-border">
+                <h3 className="text-lg font-semibold text-green-500 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Buy Zones (Support)
+                </h3>
+                {liquidity.filter(z => z.type === "buy").length > 0 ? (
+                  <div className="space-y-3">
+                    {liquidity.filter(z => z.type === "buy").map((zone) => (
+                      <div
+                        key={zone.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">{zone.pair}</p>
+                          <p className="text-lg font-bold text-green-500">{zone.priceLevel}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            zone.strength === "Strong"
+                              ? "bg-green-500/30 text-green-400"
+                              : zone.strength === "Medium"
+                              ? "bg-yellow-500/30 text-yellow-400"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {zone.strength}
+                          </span>
+                          <p className="text-sm text-muted-foreground mt-1">{zone.volume}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sell Zones */}
+              <div className="p-4 rounded-xl bg-card border border-border">
+                <h3 className="text-lg font-semibold text-red-500 mb-4 flex items-center gap-2">
+                  <TrendingDown className="w-5 h-5" />
+                  Sell Zones (Resistance)
+                </h3>
+                {liquidity.filter(z => z.type === "sell").length > 0 ? (
+                  <div className="space-y-3">
+                    {liquidity.filter(z => z.type === "sell").map((zone) => (
+                      <div
+                        key={zone.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">{zone.pair}</p>
+                          <p className="text-lg font-bold text-red-500">{zone.priceLevel}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            zone.strength === "Strong"
+                              ? "bg-red-500/30 text-red-400"
+                              : zone.strength === "Medium"
+                              ? "bg-yellow-500/30 text-yellow-400"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {zone.strength}
+                          </span>
+                          <p className="text-sm text-muted-foreground mt-1">{zone.volume}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Auto-refresh indicator */}
+          <div className="mt-8 text-center text-sm text-muted-foreground">
+            <p>Data auto-refreshes every 15-60 seconds depending on the section</p>
           </div>
         </div>
       </main>
