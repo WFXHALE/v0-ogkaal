@@ -19,6 +19,7 @@ import {
   Send
 } from "lucide-react"
 import { useState, useRef } from "react"
+import { saveSubmission } from "@/lib/admin-submissions"
 
 const TELEGRAM_LINK = "https://t.me/ogkaaltrader"
 
@@ -92,8 +93,22 @@ export default function UsdtP2PPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Save submission to admin dashboard
+    await saveSubmission({
+      type: "usdt_p2p",
+      name: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      details: {
+        action: "buy",
+        amount: `${formData.usdtAmount} USDT`,
+        paymentMethod: formData.paymentMethod,
+        network: formData.network,
+        walletAddress: formData.walletAddress
+      }
+    })
+    
     setIsSubmitting(false)
     setIsComplete(true)
   }
@@ -459,7 +474,21 @@ export default function UsdtP2PPage() {
 
                       {/* Submit Button */}
                       <Button
-                        onClick={() => setSellStep(2)}
+                        onClick={async () => {
+                          await saveSubmission({
+                            type: "usdt_p2p",
+                            name: "Sell Request",
+                            telegram: sellFormData.telegram,
+                            phone: sellFormData.phone,
+                            details: {
+                              action: "sell",
+                              amount: `${sellAmount} USDT`,
+                              rate: `₹${sellRateRange.min}-₹${sellRateRange.max}`,
+                              upiOrBank: sellFormData.upiOrBank
+                            }
+                          })
+                          setSellStep(2)
+                        }}
                         disabled={!sellFormData.screenshot || !sellFormData.upiOrBank || !sellFormData.phone || !sellFormData.telegram}
                         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6"
                       >

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { saveSubmission } from "@/lib/admin-submissions"
 import { 
   Check, 
   Copy, 
@@ -86,7 +87,20 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     }
   }
 
-  const handlePaymentConfirm = () => {
+  const handlePaymentConfirm = async () => {
+    // Save submission to admin dashboard
+    await saveSubmission({
+      type: "mentorship",
+      name: formData.fullName,
+      email: formData.email,
+      telegram: formData.telegramUsername,
+      details: {
+        xmTradingId: formData.xmTradingId,
+        userType: userType === "new" ? "New XM Partner" : "Existing XM User",
+        paymentMethod: paymentMethod,
+        amount: userType === "new" ? "$25" : "$20"
+      }
+    })
     setPaymentConfirmed(true)
     setStep("success")
   }

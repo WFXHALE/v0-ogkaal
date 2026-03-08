@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { saveSubmission } from "@/lib/admin-submissions"
 import { 
   Check, 
   Copy, 
@@ -94,8 +95,21 @@ export function FundedAccountFlow({ isOpen, onClose }: FundedAccountFlowProps) {
     }
   }
 
-  const handlePaymentSubmit = () => {
+  const handlePaymentSubmit = async () => {
     if (paymentMethod && (paymentProof.screenshot || paymentProof.transactionId)) {
+      // Save submission to admin dashboard
+      await saveSubmission({
+        type: "funded_account",
+        name: formData.fullName,
+        email: formData.email,
+        telegram: formData.telegramUsername,
+        phone: formData.phone,
+        details: {
+          accountSize: formData.accountSize,
+          paymentMethod,
+          transactionId: paymentProof.transactionId || "Screenshot uploaded"
+        }
+      })
       setStep("success")
     }
   }
