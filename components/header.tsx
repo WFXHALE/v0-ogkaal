@@ -12,7 +12,7 @@ const navItems = [
   { label: "VIP Group", href: "/vip-group" },
   { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
   { label: "Indicators", href: "#indicators" },
-  { label: "Funded Tools", href: "#funded" },
+  { label: "Funded Tools", href: "/funded-tools" },
   { label: "Books", href: "#books" },
   { label: "Test Models", href: "#test-models" },
   { label: "Contact", href: "#contact" },
