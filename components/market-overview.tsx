@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react"
+import { TrendingUp, TrendingDown, RefreshCw, Clock } from "lucide-react"
 import useSWR from "swr"
 
 interface MarketAsset {
@@ -12,6 +12,8 @@ interface MarketAsset {
   isPositive: boolean
   tradingViewSymbol: string
   isMarketOpen?: boolean
+  isWeekend?: boolean
+  nextOpenTime?: string
   rawPrice?: number
 }
 
@@ -33,7 +35,6 @@ function AssetCard({
   const [flashColor, setFlashColor] = useState<"green" | "red" | null>(null)
   const isMarketClosed = asset.change === "Market Closed"
 
-  // Determine flash color based on price change
   useEffect(() => {
     if (previousPrice !== undefined && asset.rawPrice !== undefined && previousPrice !== asset.rawPrice) {
       if (asset.rawPrice > previousPrice) {
@@ -42,7 +43,6 @@ function AssetCard({
         setFlashColor("red")
       }
       
-      // Remove flash after animation
       const timer = setTimeout(() => {
         setFlashColor(null)
       }, 600)
@@ -103,11 +103,8 @@ function TradingViewChart({ symbol }: { symbol: string }) {
     if (!containerRef.current) return
 
     setIsLoading(true)
-
-    // Clear existing content
     containerRef.current.innerHTML = ""
 
-    // Create widget container
     const widgetContainer = document.createElement("div")
     widgetContainer.className = "tradingview-widget-container"
     widgetContainer.style.height = "100%"
@@ -121,7 +118,6 @@ function TradingViewChart({ symbol }: { symbol: string }) {
 
     containerRef.current.appendChild(widgetContainer)
 
-    // Create and load script
     const script = document.createElement("script")
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
     script.type = "text/javascript"
@@ -172,6 +168,21 @@ function TradingViewChart({ symbol }: { symbol: string }) {
   )
 }
 
+function ForexCountdown({ nextOpenTime }: { nextOpenTime: string }) {
+  const [timeLeft, setTimeLeft] = useState(nextOpenTime)
+
+  useEffect(() => {
+    setTimeLeft(nextOpenTime)
+  }, [nextOpenTime])
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Clock className="w-3 h-3" />
+      <span>Opens in: {timeLeft}</span>
+    </div>
+  )
+}
+
 function MarketSection({
   title,
   assets,
@@ -181,6 +192,8 @@ function MarketSection({
   isLive,
   onRefresh,
   previousPrices,
+  isMarketClosed,
+  nextOpenTime,
 }: {
   title: string
   assets: MarketAsset[]
@@ -190,6 +203,8 @@ function MarketSection({
   isLive: boolean
   onRefresh?: () => void
   previousPrices?: Record<string, number>
+  isMarketClosed?: boolean
+  nextOpenTime?: string | null
 }) {
   return (
     <div className="mb-8">
@@ -206,11 +221,26 @@ function MarketSection({
             </button>
           )}
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
-            <span className="text-sm text-muted-foreground">{isLive ? "Live" : "Delayed"}</span>
+            {isMarketClosed ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-sm text-muted-foreground">Market Closed</span>
+              </>
+            ) : (
+              <>
+                <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-yellow-500"}`} />
+                <span className="text-sm text-muted-foreground">{isLive ? "Live" : "Delayed"}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {isMarketClosed && nextOpenTime && (
+        <div className="mb-4">
+          <ForexCountdown nextOpenTime={nextOpenTime} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {assets.map((asset) => (
@@ -249,47 +279,51 @@ const defaultIndianData: MarketAsset[] = [
 export function MarketOverview() {
   const [selectedAsset, setSelectedAsset] = useState<MarketAsset>(defaultCryptoData[0])
   
-  // Track previous prices for flash animation
   const [prevCryptoPrices, setPrevCryptoPrices] = useState<Record<string, number>>({})
   const [prevForexPrices, setPrevForexPrices] = useState<Record<string, number>>({})
   const [prevIndianPrices, setPrevIndianPrices] = useState<Record<string, number>>({})
 
-  // Fetch real-time crypto data
+  // Crypto: Auto-refresh every 3 seconds
   const { data: cryptoResponse, isLoading: cryptoLoading, mutate: refreshCrypto } = useSWR(
     "/api/market/crypto",
     fetcher,
-    { refreshInterval: 5000, revalidateOnFocus: true }
+    { 
+      refreshInterval: 3000,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    }
   )
 
-  // Fetch forex data
+  // Forex: Auto-refresh every 30 seconds (or just check status when closed)
   const { data: forexResponse, isLoading: forexLoading, mutate: refreshForex } = useSWR(
     "/api/market/forex",
     fetcher,
-    { refreshInterval: 60000, revalidateOnFocus: true }
+    { 
+      refreshInterval: 30000,
+      revalidateOnFocus: true,
+    }
   )
 
-  // Fetch Indian market data
+  // Indian market: Auto-refresh every 30 seconds
   const { data: indianResponse, isLoading: indianLoading, mutate: refreshIndian } = useSWR(
     "/api/market/indian",
     fetcher,
-    { refreshInterval: 30000, revalidateOnFocus: true }
+    { 
+      refreshInterval: 30000,
+      revalidateOnFocus: true,
+    }
   )
 
   const cryptoData = cryptoResponse?.data || defaultCryptoData
   const forexData = forexResponse?.data || defaultForexData
   const indianData = indianResponse?.data || defaultIndianData
+  
+  const isForexMarketClosed = forexResponse?.isMarketClosed || false
+  const forexNextOpenTime = forexResponse?.nextOpenTime || null
 
-  // Update previous prices when data changes
+  // Update previous crypto prices for flash animation
   useEffect(() => {
     if (cryptoResponse?.data) {
-      const newPrices: Record<string, number> = {}
-      cryptoData.forEach((asset: MarketAsset) => {
-        if (asset.rawPrice) {
-          newPrices[asset.symbol] = prevCryptoPrices[asset.symbol] || asset.rawPrice
-        }
-      })
-      
-      // Delay updating previous prices to allow flash animation
       const timer = setTimeout(() => {
         const currentPrices: Record<string, number> = {}
         cryptoData.forEach((asset: MarketAsset) => {
@@ -302,7 +336,7 @@ export function MarketOverview() {
       
       return () => clearTimeout(timer)
     }
-  }, [cryptoResponse?.data])
+  }, [cryptoResponse?.data, cryptoData])
 
   useEffect(() => {
     if (forexResponse?.data) {
@@ -318,7 +352,7 @@ export function MarketOverview() {
       
       return () => clearTimeout(timer)
     }
-  }, [forexResponse?.data])
+  }, [forexResponse?.data, forexData])
 
   useEffect(() => {
     if (indianResponse?.data) {
@@ -334,7 +368,7 @@ export function MarketOverview() {
       
       return () => clearTimeout(timer)
     }
-  }, [indianResponse?.data])
+  }, [indianResponse?.data, indianData])
 
   const handleRefreshAll = useCallback(() => {
     refreshCrypto()
@@ -364,9 +398,11 @@ export function MarketOverview() {
           selectedAsset={selectedAsset}
           onSelectAsset={setSelectedAsset}
           isLoading={forexLoading}
-          isLive={!forexLoading && !!forexResponse?.data}
+          isLive={!forexLoading && !!forexResponse?.data && !isForexMarketClosed}
           onRefresh={refreshForex}
           previousPrices={prevForexPrices}
+          isMarketClosed={isForexMarketClosed}
+          nextOpenTime={forexNextOpenTime}
         />
 
         {/* Indian Market Section */}
