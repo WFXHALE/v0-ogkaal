@@ -10,6 +10,7 @@ const navItems = [
   { label: "Home", href: "/", isHome: true },
   { label: "Mentorship", href: "/mentorship" },
   { label: "VIP Group", href: "/vip-group" },
+  { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
   { label: "Indicators", href: "#indicators" },
   { label: "Funded Tools", href: "#funded" },
   { label: "Books", href: "#books" },
@@ -33,9 +34,11 @@ export function Header() {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`px-3 py-2 text-sm transition-colors ${
-                  item.isHome
-                    ? "font-bold text-primary bg-primary/10 rounded-md hover:bg-primary/20"
+                className={`px-3 py-2 text-sm transition-colors rounded-md ${
+                  item.isHighlight
+                    ? "font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                    : item.isHome
+                    ? "font-bold text-primary bg-primary/10 hover:bg-primary/20"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -65,9 +68,11 @@ export function Header() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`px-3 py-2 text-sm transition-colors ${
-                    item.isHome
-                      ? "font-bold text-primary bg-primary/10 rounded-md"
+                  className={`px-3 py-2 text-sm transition-colors rounded-md ${
+                    item.isHighlight
+                      ? "font-bold bg-primary text-primary-foreground"
+                      : item.isHome
+                      ? "font-bold text-primary bg-primary/10"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
