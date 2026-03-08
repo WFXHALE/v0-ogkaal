@@ -1,10 +1,10 @@
 import { Header } from "@/components/header"
 import { HeroSection } from "@/components/hero-section"
+import { AboutSection } from "@/components/about-section"
+import { WhatYouLearnSection } from "@/components/what-you-learn-section"
+import { MentorshipProgramSection } from "@/components/mentorship-program-section"
+import { NavigationCardsSection } from "@/components/navigation-cards-section"
 import { MarketOverview } from "@/components/market-overview"
-import { TeachingFormatSection } from "@/components/teaching-format-section"
-import { VipSignalsSection } from "@/components/vip-signals-section"
-import { StudentResourcesSection } from "@/components/student-resources-section"
-import { ServicesPreview } from "@/components/services-preview"
 import { ContactSection } from "@/components/contact-section"
 import { SocialMediaSection } from "@/components/social-media-section"
 
@@ -14,11 +14,13 @@ export default function Home() {
       <Header />
       <main>
         <HeroSection />
-        <MarketOverview />
-        <TeachingFormatSection />
-        <VipSignalsSection />
-        <StudentResourcesSection />
-        <ServicesPreview />
+        <AboutSection />
+        <WhatYouLearnSection />
+        <MentorshipProgramSection />
+        <NavigationCardsSection />
+        <div id="market-overview">
+          <MarketOverview />
+        </div>
         <ContactSection />
         <SocialMediaSection />
       </main>

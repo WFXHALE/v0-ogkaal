@@ -1,6 +1,4 @@
-import { Button } from "@/components/ui/button"
-import { ArrowRight, Play } from "lucide-react"
-import Link from "next/link"
+import { TrendingUp } from "lucide-react"
 
 export function HeroSection() {
   return (
@@ -10,9 +8,9 @@ export function HeroSection() {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
 
-      <div className="relative max-w-5xl mx-auto text-center">
+      <div className="relative max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <TrendingUp className="w-4 h-4 text-primary" />
           <span className="text-sm text-primary font-medium">SMC & ICT Trading Mentor</span>
         </div>
 
@@ -20,48 +18,14 @@ export function HeroSection() {
           OG <span className="text-primary">KAAL</span> TRADER
         </h1>
 
-        <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed text-balance">
-          Professional trading mentor specializing in <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span> and 
-          <span className="text-foreground font-medium"> ICT trading strategies</span>. 
-          Join our live mentorship programs designed for beginner and advanced traders to transform their trading journey.
+        <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 leading-relaxed text-balance">
+          Professional trader and mentor teaching <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span> and 
+          <span className="text-foreground font-medium"> ICT trading models</span>.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/mentorship">
-            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-8 h-12">
-              Start Mentorship
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
-          <Link href="/vip-group">
-            <Button size="lg" variant="outline" className="border-border hover:bg-secondary font-semibold px-8 h-12">
-              <Play className="w-5 h-5 mr-2" />
-              Join VIP Group
-            </Button>
-          </Link>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 mt-12 pt-8 border-t border-border/50">
-          <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">11,000+</p>
-            <p className="text-sm text-muted-foreground">Pips Captured (Q4 2025)</p>
-          </div>
-          <div className="hidden sm:block w-px h-12 bg-border" />
-          <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">100+</p>
-            <p className="text-sm text-muted-foreground">Traders Trained</p>
-          </div>
-          <div className="hidden sm:block w-px h-12 bg-border" />
-          <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">Live</p>
-            <p className="text-sm text-muted-foreground">VIP Signals Group</p>
-          </div>
-          <div className="hidden sm:block w-px h-12 bg-border" />
-          <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">Daily</p>
-            <p className="text-sm text-muted-foreground">Market Analysis</p>
-          </div>
-        </div>
+        <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          Trading since 2020. Helped traders pass funded accounts and develop disciplined trading systems.
+        </p>
       </div>
     </section>
   )
