@@ -7,8 +7,8 @@ import { Logo } from "@/components/logo"
 import { Menu, X } from "lucide-react"
 
 const navItems = [
-  { label: "Mentorship", href: "#mentorship" },
-  { label: "VIP Group", href: "#vip" },
+  { label: "Mentorship", href: "/mentorship" },
+  { label: "VIP Group", href: "/vip-group" },
   { label: "Indicators", href: "#indicators" },
   { label: "Funded Tools", href: "#funded" },
   { label: "Books", href: "#books" },
