@@ -11,10 +11,10 @@ const navItems = [
   { label: "Mentorship", href: "/mentorship" },
   { label: "VIP Group", href: "/vip-group" },
   { label: "Trade Dashboard", href: "/trade-dashboard" },
+  { label: "Intelligence", href: "/intelligence" },
   { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
   { label: "Funded Tools", href: "/funded-tools" },
   { label: "Books", href: "#books" },
-  { label: "Test Models", href: "#test-models" },
   { label: "Contact", href: "#contact" },
 ]
 
