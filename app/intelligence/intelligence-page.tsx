@@ -80,9 +80,9 @@ const INDIAN_INDICES = [
 ]
 
 export function IntelligencePageContent() {
-  const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("forex")
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -301,134 +301,56 @@ export function IntelligencePageContent() {
               )}
             </div>
 
-            {/* Forex & Commodities — TradingView Market Overview widget (live prices) */}
-            {activeTab === "forex" && mounted && (
-              <div className="rounded-xl overflow-hidden border border-border">
-                <iframe
-                  key="forex-market-overview"
-                  src={`https://s.tradingview.com/embed-widget/market-overview/?locale=en#${encodeURIComponent(JSON.stringify({
-                    colorTheme: "dark",
-                    dateRange: "1D",
-                    showChart: false,
-                    locale: "en",
-                    largeChartUrl: "",
-                    isTransparent: false,
-                    showSymbolLogo: true,
-                    showFloatingTooltip: false,
-                    width: "100%",
-                    height: 460,
-                    tabs: [
-                      {
-                        title: "Forex & Metals",
-                        symbols: [
-                          { s: "TVC:GOLD", d: "Gold" },
-                          { s: "TVC:SILVER", d: "Silver" },
-                          { s: "FX:EURUSD", d: "EUR/USD" },
-                          { s: "FX:GBPUSD", d: "GBP/USD" },
-                          { s: "FX:USDJPY", d: "USD/JPY" },
-                          { s: "FX:GBPJPY", d: "GBP/JPY" },
-                          { s: "FX:USDINR", d: "USD/INR" },
-                          { s: "TVC:DXY", d: "DXY" },
-                          { s: "TVC:USOIL", d: "Crude Oil" },
-                        ],
-                        originalTitle: "Forex",
-                      },
-                    ],
-                    utm_source: "",
-                    utm_medium: "widget",
-                    utm_campaign: "market-overview",
-                  }))}`}
-                  style={{ width: "100%", height: "460px", border: "none" }}
-                  allowFullScreen
-                />
-              </div>
-            )}
-
-            {/* Crypto — Binance cards */}
-            {activeTab === "crypto" && (
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
-                  <div
-                    key={item.symbol}
-                    className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-primary">{item.symbol}</span>
-                      {item.isPositive ? (
-                        <ArrowUpRight className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4 text-red-500" />
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-1">{item.name}</p>
-                    <p className="text-xl font-bold text-foreground">{item.price}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
-                        {item.change}
-                      </p>
-                      {item.bias && (
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
-                          item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {item.bias}
-                        </span>
-                      )}
-                    </div>
-                    {item.volume && (
-                      <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
+            {/* Uniform card grid for all three tabs */}
+            <div className={`grid gap-4 ${
+              activeTab === "crypto"
+                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+                : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            }`}>
+              {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
+                <div
+                  key={item.symbol}
+                  className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-primary">{item.symbol}</span>
+                    {item.isPositive ? (
+                      <ArrowUpRight className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4 text-red-500" />
                     )}
                   </div>
-                )) : (
-                  Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
-                      <div className="h-4 w-12 bg-muted rounded mb-2" />
-                      <div className="h-3 w-20 bg-muted rounded mb-2" />
-                      <div className="h-6 w-24 bg-muted rounded mb-1" />
-                      <div className="h-4 w-16 bg-muted rounded" />
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Indian Markets — TradingView Market Overview widget */}
-            {activeTab === "indian" && mounted && (
-              <div className="rounded-xl overflow-hidden border border-border">
-                <iframe
-                  key="indian-market-overview"
-                  src={`https://s.tradingview.com/embed-widget/market-overview/?locale=en#${encodeURIComponent(JSON.stringify({
-                    colorTheme: "dark",
-                    dateRange: "1D",
-                    showChart: false,
-                    locale: "en",
-                    isTransparent: false,
-                    showSymbolLogo: true,
-                    showFloatingTooltip: false,
-                    width: "100%",
-                    height: 340,
-                    tabs: [
-                      {
-                        title: "Indian Markets",
-                        symbols: [
-                          { s: "NSE:NIFTY", d: "NIFTY 50" },
-                          { s: "BSE:SENSEX", d: "SENSEX" },
-                          { s: "NSE:BANKNIFTY", d: "Bank NIFTY" },
-                          { s: "NSE:FINNIFTY", d: "Fin NIFTY" },
-                        ],
-                        originalTitle: "Indian",
-                      },
-                    ],
-                    utm_source: "",
-                    utm_medium: "widget",
-                    utm_campaign: "market-overview",
-                  }))}`}
-                  style={{ width: "100%", height: "340px", border: "none" }}
-                  allowFullScreen
-                />
-              </div>
-            )}
+                  <p className="text-sm text-muted-foreground mb-1">{item.name}</p>
+                  <p className="text-xl font-bold text-foreground">{item.price}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                      {item.change}
+                    </p>
+                    {item.bias && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
+                        item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {item.bias}
+                      </span>
+                    )}
+                  </div>
+                  {item.volume && (
+                    <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
+                  )}
+                </div>
+              )) : (
+                Array.from({ length: activeTab === "crypto" ? 10 : 6 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
+                    <div className="h-4 w-12 bg-muted rounded mb-2" />
+                    <div className="h-3 w-20 bg-muted rounded mb-2" />
+                    <div className="h-6 w-24 bg-muted rounded mb-1" />
+                    <div className="h-4 w-16 bg-muted rounded" />
+                  </div>
+                ))
+              )}
+            </div>
           </section>
 
           {/* TradingView Chart */}
