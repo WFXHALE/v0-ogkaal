@@ -133,6 +133,12 @@ html {
   }
 }
 
+/* Horizontal ticker scroll */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 /* Logo shine sweep animation */
 @keyframes logo-shine {
   0% { background-position: -200% center; }

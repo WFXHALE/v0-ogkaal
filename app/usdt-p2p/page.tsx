@@ -183,11 +183,28 @@ export default function UsdtP2PPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="pt-20">
+
+      {/* Scrolling Notice Ticker */}
+      <div className="w-full bg-[#0B0E11] border-b border-[#FCD535]/20 overflow-hidden py-2.5" style={{ marginTop: "80px" }}>
+        <div className="flex whitespace-nowrap" style={{ animation: "ticker-scroll 35s linear infinite" }}>
+          {[0, 1].map((i) => (
+            <span key={i} className="inline-flex items-center gap-2 px-8 text-sm text-muted-foreground shrink-0">
+              <span className="text-[#FCD535] font-bold">NOTICE:</span>
+              {" "}<span className="text-[#FCD535] font-semibold">USDT</span>{" "}
+              buying and selling on this website is intended only for{" "}
+              <span className="text-[#FCD535] font-semibold">Mentorship Students</span>{" "}
+              and members of the OG KAAL TRADER community (Instagram / YouTube family). This service is not intended for the general public. If any individual outside this community uses this service and any legal consequences occur, the individual will be fully responsible for all actions and liabilities.
+              <span className="mx-8 text-[#FCD535]/40">|</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <main className="flex-1 pt-0">
         {/* Hero Section */}
-        <section className="py-16 sm:py-24">
+        <section className="pt-12 pb-16 sm:pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
@@ -1397,6 +1414,49 @@ export default function UsdtP2PPage() {
           </div>
         </section>
       </main>
+
+      {/* Payment Liability & Legal Notice */}
+      <section className="border-t border-border bg-[#0B0E11] px-4 py-10">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#FCD535]" />
+            Payment Liability &amp; Legal Notice
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+            If any user submits a payment that results in suspicious transactions, fraud complaints, chargeback fraud, bank investigation, or account freeze, the responsibility will lie entirely with the user making the payment. If the website owner&apos;s bank account, payment system, or crypto wallet is affected due to such activity, legal action may be taken against the responsible user.
+          </p>
+
+          <p className="text-xs font-semibold text-foreground mb-2">Applicable Laws &amp; Sections</p>
+          <ul className="text-xs text-muted-foreground space-y-1 mb-5 list-none">
+            {[
+              "Information Technology Act Section 66C – Identity Theft",
+              "Information Technology Act Section 66D – Cheating by Personation using Computer Resources",
+              "Information Technology Act Section 43 – Unauthorized access or damage to systems",
+              "Indian Penal Code Section 420 – Cheating and Fraud",
+              "Indian Penal Code Section 406 – Criminal Breach of Trust",
+              "Indian Penal Code Section 468 – Forgery for the purpose of cheating",
+            ].map((law) => (
+              <li key={law} className="flex items-start gap-2">
+                <span className="text-[#FCD535] mt-0.5 shrink-0">•</span>
+                {law}
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-xs font-semibold text-foreground mb-1">Penalty Clause</p>
+          <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
+            If the website owner&apos;s account or financial system is affected due to a user&apos;s transaction, the responsible user will be required to pay a penalty of{" "}
+            <span className="text-[#FCD535] font-semibold">5x the payment amount</span>.{" "}
+            Example: If the payment amount is ₹1,000, the penalty will be ₹5,000.
+          </p>
+
+          <p className="text-xs font-semibold text-foreground mb-1">Legal Cost Liability</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            The responsible user will also be required to pay any additional legal expenses, investigation costs, or charges incurred while resolving the issue.
+          </p>
+        </div>
+      </section>
+
       <Footer />
     </div>
   )
