@@ -8,11 +8,10 @@ export interface CommunityUser {
   email: string
   phone: string
   level: TraderLevel
+  bio?: string
   avatar: string
   createdAt: string
-  // admin-only fields
-  ipAddress?: string
-  location?: string
+  isAdmin?: boolean
 }
 
 export interface TradeIdea {
@@ -27,7 +26,6 @@ export interface Comment {
   authorId: string
   authorName: string
   authorAvatar: string
-  authorLevel: TraderLevel
   content: string
   createdAt: string
 }
@@ -39,19 +37,21 @@ export interface Post {
   authorName: string
   authorAvatar: string
   authorLevel: TraderLevel
+  isAdminPost?: boolean
   content: string
-  title?: string           // article only
+  title?: string
   imageUrl?: string
   tradeIdea?: TradeIdea
   hashtags: string[]
-  likes: string[]          // array of user IDs
+  likes: string[]
   comments: Comment[]
   createdAt: string
 }
 
-const USERS_KEY = "og_community_users"
-const POSTS_KEY = "og_community_posts"
-const SESSION_KEY = "og_community_session"
+const USERS_KEY    = "og_community_users"
+const POSTS_KEY    = "og_community_posts"
+const SESSION_KEY  = "og_community_session"
+const FOLLOWS_KEY  = "og_community_follows"  // { [followerId]: followeeId[] }
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -59,31 +59,31 @@ function readUsers(): CommunityUser[] {
   if (typeof window === "undefined") return []
   try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]") } catch { return [] }
 }
-
-function writeUsers(users: CommunityUser[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
+function writeUsers(u: CommunityUser[]) { localStorage.setItem(USERS_KEY, JSON.stringify(u)) }
 
 function readPosts(): Post[] {
   if (typeof window === "undefined") return []
   try { return JSON.parse(localStorage.getItem(POSTS_KEY) || "[]") } catch { return [] }
 }
+function writePosts(p: Post[]) { localStorage.setItem(POSTS_KEY, JSON.stringify(p)) }
 
-function writePosts(posts: Post[]) {
-  localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
+function readFollows(): Record<string, string[]> {
+  if (typeof window === "undefined") return {}
+  try { return JSON.parse(localStorage.getItem(FOLLOWS_KEY) || "{}") } catch { return {} }
 }
+function writeFollows(f: Record<string, string[]>) { localStorage.setItem(FOLLOWS_KEY, JSON.stringify(f)) }
 
-// ---- avatar placeholder -----------------------------------------------------
+// ---- avatar -----------------------------------------------------------------
 
 const LEVEL_COLORS: Record<TraderLevel, string> = {
-  Beginner: "6366f1",
-  Trader: "10b981",
-  "Pro Trader": "f59e0b",
+  Beginner:        "6366f1",
+  Trader:          "10b981",
+  "Pro Trader":    "f59e0b",
   "Master Trader": "FCD535",
 }
 
 export function avatarUrl(name: string, level: TraderLevel): string {
-  const color = LEVEL_COLORS[level]
+  const color    = LEVEL_COLORS[level]
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${color}&color=fff&bold=true`
 }
@@ -92,12 +92,8 @@ export function avatarUrl(name: string, level: TraderLevel): string {
 
 export function getSession(): CommunityUser | null {
   if (typeof window === "undefined") return null
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null") } catch { return null }
 }
-
 export function setSession(user: CommunityUser | null) {
   if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user))
   else localStorage.removeItem(SESSION_KEY)
@@ -105,18 +101,14 @@ export function setSession(user: CommunityUser | null) {
 
 // ---- auth -------------------------------------------------------------------
 
-export function signUp(data: {
-  fullName: string
-  email: string
-  phone: string
-  level: TraderLevel
-}): { ok: boolean; error?: string; user?: CommunityUser } {
-  const users = readUsers()
-  if (users.find((u) => u.email === data.email))
-    return { ok: false, error: "Email already registered." }
-  if (users.find((u) => u.phone === data.phone))
-    return { ok: false, error: "Phone number already registered." }
+export const ADMIN_ID = "admin_shahid"
 
+export function signUp(data: { fullName: string; email: string; phone: string; level: TraderLevel }): {
+  ok: boolean; error?: string; user?: CommunityUser
+} {
+  const users = readUsers()
+  if (users.find((u) => u.email === data.email)) return { ok: false, error: "Email already registered." }
+  if (users.find((u) => u.phone === data.phone)) return { ok: false, error: "Phone already registered." }
   const user: CommunityUser = {
     id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
     fullName: data.fullName,
@@ -132,15 +124,9 @@ export function signUp(data: {
   return { ok: true, user }
 }
 
-export function signIn(identifier: string): {
-  ok: boolean
-  error?: string
-  user?: CommunityUser
-} {
+export function signIn(identifier: string): { ok: boolean; error?: string; user?: CommunityUser } {
   const users = readUsers()
-  const user = users.find(
-    (u) => u.email === identifier || u.phone === identifier
-  )
+  const user  = users.find((u) => u.email === identifier || u.phone === identifier)
   if (!user) return { ok: false, error: "No account found with that email or phone." }
   setSession(user)
   return { ok: true, user }
@@ -151,7 +137,31 @@ export function signIn(identifier: string): {
 export function getPosts(): Post[] {
   const posts = readPosts()
   if (posts.length === 0) return seedPosts()
-  return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function getPostsByUser(userId: string): Post[] {
+  return readPosts().filter((p) => p.authorId === userId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function getUserById(id: string): CommunityUser | null {
+  const users = readUsers()
+  // Check seeded admin
+  if (id === ADMIN_ID) {
+    return users.find((u) => u.id === ADMIN_ID) ?? {
+      id: ADMIN_ID,
+      fullName: "Shahid Bashir",
+      email: "",
+      phone: "",
+      level: "Master Trader",
+      bio: "Founder of OG KAAL TRADER. Master Trader & Mentor.",
+      avatar: avatarUrl("Shahid Bashir", "Master Trader"),
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180).toISOString(),
+      isAdmin: true,
+    }
+  }
+  return users.find((u) => u.id === id) ?? null
 }
 
 export function createPost(data: Omit<Post, "id" | "likes" | "comments" | "createdAt">): Post {
@@ -170,8 +180,8 @@ export function createPost(data: Omit<Post, "id" | "likes" | "comments" | "creat
 
 export function toggleLike(postId: string, userId: string): Post[] {
   const posts = readPosts()
-  const post = posts.find((p) => p.id === postId)
-  if (!post) return posts
+  const post  = posts.find((p) => p.id === postId)
+  if (!post) return getPosts()
   const idx = post.likes.indexOf(userId)
   if (idx === -1) post.likes.push(userId)
   else post.likes.splice(idx, 1)
@@ -181,29 +191,57 @@ export function toggleLike(postId: string, userId: string): Post[] {
 
 export function addComment(postId: string, comment: Omit<Comment, "id" | "createdAt">): Post[] {
   const posts = readPosts()
-  const post = posts.find((p) => p.id === postId)
-  if (!post) return posts
-  post.comments.push({
-    ...comment,
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
-  })
+  const post  = posts.find((p) => p.id === postId)
+  if (!post) return getPosts()
+  post.comments.push({ ...comment, id: Date.now().toString(), createdAt: new Date().toISOString() })
   writePosts(posts)
   return getPosts()
 }
 
-// ---- seed data --------------------------------------------------------------
+// ---- follows ----------------------------------------------------------------
+
+export function isFollowing(followerId: string, followeeId: string): boolean {
+  const follows = readFollows()
+  return (follows[followerId] ?? []).includes(followeeId)
+}
+
+export function toggleFollow(followerId: string, followeeId: string): boolean {
+  const follows = readFollows()
+  const list    = follows[followerId] ?? []
+  const idx     = list.indexOf(followeeId)
+  if (idx === -1) { list.push(followeeId); follows[followerId] = list }
+  else { list.splice(idx, 1); follows[followerId] = list }
+  writeFollows(follows)
+  return idx === -1  // true = now following
+}
+
+export function getFollowerCount(userId: string): number {
+  const follows = readFollows()
+  return Object.values(follows).filter((arr) => arr.includes(userId)).length
+}
+
+export function getFollowingCount(userId: string): number {
+  const follows = readFollows()
+  return (follows[userId] ?? []).length
+}
+
+export function getTotalLikes(userId: string): number {
+  return readPosts().filter((p) => p.authorId === userId).reduce((acc, p) => acc + p.likes.length, 0)
+}
+
+// ---- seed -------------------------------------------------------------------
 
 function seedPosts(): Post[] {
   const seed: Post[] = [
     {
       id: "seed1",
       type: "post",
-      authorId: "admin1",
+      authorId: ADMIN_ID,
       authorName: "Shahid Bashir",
       authorAvatar: avatarUrl("Shahid Bashir", "Master Trader"),
       authorLevel: "Master Trader",
-      content: "Gold is approaching a key supply zone around 2350. Watch for bearish order blocks before entering. Always wait for confirmation — patience is your edge. #XAUUSD #SMC",
+      isAdminPost: true,
+      content: "Gold is approaching a key supply zone around 2350. Watch for bearish order blocks before entering. Always wait for confirmation — patience is your edge.",
       hashtags: ["XAUUSD", "SMC"],
       likes: [],
       comments: [],
@@ -212,12 +250,13 @@ function seedPosts(): Post[] {
     {
       id: "seed2",
       type: "article",
-      authorId: "admin1",
+      authorId: ADMIN_ID,
       authorName: "Shahid Bashir",
       authorAvatar: avatarUrl("Shahid Bashir", "Master Trader"),
       authorLevel: "Master Trader",
+      isAdminPost: true,
       title: "Why Most Traders Lose — The Psychology Behind Failed Trades",
-      content: "The number one reason traders blow accounts is not a bad strategy. It is poor risk management and emotional decision making. When you enter a trade without a clear invalidation point, you are gambling, not trading. Define your risk before you define your reward. Set your SL, set your TP, and walk away.",
+      content: "The number one reason traders blow accounts is not a bad strategy. It is poor risk management and emotional decision making. Define your risk before you define your reward.",
       hashtags: ["Psychology", "RiskManagement"],
       likes: [],
       comments: [],
@@ -226,33 +265,45 @@ function seedPosts(): Post[] {
     {
       id: "seed3",
       type: "post",
-      authorId: "admin1",
+      authorId: ADMIN_ID,
       authorName: "Shahid Bashir",
       authorAvatar: avatarUrl("Shahid Bashir", "Master Trader"),
       authorLevel: "Master Trader",
-      content: "Live trade idea — EURUSD. Watching for a sweep of liquidity below 1.0820 before expecting a reversal to 1.0890. ICT concept: liquidity sweep + FVG fill. #EURUSD #ICT",
-      tradeIdea: {
-        asset: "EURUSD",
-        entry: "1.0820",
-        stopLoss: "1.0790",
-        target: "1.0890",
-      },
+      isAdminPost: true,
+      content: "Live trade idea — EURUSD. Watching for a sweep of liquidity below 1.0820 before expecting a reversal to 1.0890. ICT concept: liquidity sweep + FVG fill.",
+      tradeIdea: { asset: "EURUSD", entry: "1.0820", stopLoss: "1.0790", target: "1.0890" },
       hashtags: ["EURUSD", "ICT"],
       likes: [],
       comments: [],
       createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
     },
   ]
+  // Ensure admin user exists in storage
+  const users = readUsers()
+  if (!users.find((u) => u.id === ADMIN_ID)) {
+    users.unshift({
+      id: ADMIN_ID,
+      fullName: "Shahid Bashir",
+      email: "admin@ogkaaltrader.com",
+      phone: "0000000000",
+      level: "Master Trader",
+      bio: "Founder of OG KAAL TRADER. Master Trader & Mentor.",
+      avatar: avatarUrl("Shahid Bashir", "Master Trader"),
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180).toISOString(),
+      isAdmin: true,
+    })
+    writeUsers(users)
+  }
   writePosts(seed)
   return seed
 }
 
-// ---- time formatting --------------------------------------------------------
+// ---- time -------------------------------------------------------------------
 
 export function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (diff < 60) return `${diff}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 60)    return `${diff}s ago`
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
 }
