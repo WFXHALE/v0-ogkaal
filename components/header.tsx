@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X, Star } from "lucide-react"
@@ -35,6 +35,9 @@ function navClass(style: NavStyle): string {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const navItems: { label: string; href: string; style: NavStyle }[] = [
     { label: "Home",            href: "/",               style: "home" },
@@ -58,11 +61,10 @@ export function Header() {
             <Logo />
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-1" suppressHydrationWarning>
-            {navItems.map((item) => (
+          {/* Desktop nav — only render after hydration to avoid SSR mismatch */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {mounted && navItems.map((item) => (
               <Link key={item.label} href={item.href} className={navClass(item.style)}>
-                {/* VIP Group — gold star sparkle in corner */}
                 {item.style === "vip" && (
                   <span className="absolute -top-1 -right-1 star-sparkle">
                     <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
@@ -87,8 +89,8 @@ export function Header() {
         {/* Mobile nav */}
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border/50">
-            <nav className="flex flex-col gap-2" suppressHydrationWarning>
-              {navItems.map((item) => (
+            <nav className="flex flex-col gap-2">
+              {mounted && navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
