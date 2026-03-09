@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Bell, Heart, MessageCircle, UserPlus, Megaphone, Check } from "lucide-react"
-import { timeAgo } from "@/lib/community-store"
+import { timeAgo } from "@/lib/community-utils"
 
 export type NotificationType = "like" | "comment" | "follow" | "admin_post"
 
