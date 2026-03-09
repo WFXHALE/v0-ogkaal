@@ -16,7 +16,10 @@ import {
   Check,
   Upload,
   ExternalLink,
-  Send
+  Send,
+  QrCode,
+  Receipt,
+  FileCheck
 } from "lucide-react"
 import { useState, useRef } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
@@ -31,23 +34,31 @@ interface FormData {
   fullName: string
   email: string
   phone: string
+  usdtAmount: string
+  // Step 2 - Payment Info (read-only display)
   paymentMethod: PaymentMethod | ""
-  // Step 2 - Identity Verification
-  panNumber: string
-  aadhaarNumber: string
-  panCard: File | null
-  aadhaarCard: File | null
+  // Step 3 - Payment Confirmation
+  paymentScreenshot: File | null
+  utrNumber: string
+  // Step 4 - Identity Verification
+  governmentId: File | null
   selfie: File | null
-  // Step 3 - Wallet Details
+  // Step 5 - Wallet Details
   walletAddress: string
   network: Network | ""
-  usdtAmount: string
+}
+
+// Payment details - these would typically come from backend
+const PAYMENT_DETAILS = {
+  upiId: "ogkaaltrader@upi",
+  qrCodeUrl: "/images/payment-qr.png", // placeholder for QR code
 }
 
 export default function UsdtP2PPage() {
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
-  const [step, setStep] = useState(0) // 0 = info, 1-4 = form steps
+  const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
+  const [copiedUpi, setCopiedUpi] = useState(false)
   
   // Sell flow state
   const [sellStep, setSellStep] = useState(0) // 0 = method selection, 1 = kaal form, 2 = success
@@ -66,29 +77,34 @@ export default function UsdtP2PPage() {
     fullName: "",
     email: "",
     phone: "",
+    usdtAmount: "",
     paymentMethod: "",
-    panNumber: "",
-    aadhaarNumber: "",
-    panCard: null,
-    aadhaarCard: null,
+    paymentScreenshot: null,
+    utrNumber: "",
+    governmentId: null,
     selfie: null,
     walletAddress: "",
     network: "",
-    usdtAmount: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
 
-  const panCardRef = useRef<HTMLInputElement>(null)
-  const aadhaarCardRef = useRef<HTMLInputElement>(null)
+  const paymentScreenshotRef = useRef<HTMLInputElement>(null)
+  const governmentIdRef = useRef<HTMLInputElement>(null)
   const selfieRef = useRef<HTMLInputElement>(null)
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleFileChange = (field: "panCard" | "aadhaarCard" | "selfie", file: File | null) => {
+  const handleFileChange = (field: "paymentScreenshot" | "governmentId" | "selfie", file: File | null) => {
     setFormData(prev => ({ ...prev, [field]: file }))
+  }
+
+  const copyUpiId = () => {
+    navigator.clipboard.writeText(PAYMENT_DETAILS.upiId)
+    setCopiedUpi(true)
+    setTimeout(() => setCopiedUpi(false), 2000)
   }
 
   const handleSubmit = async () => {
@@ -104,6 +120,7 @@ export default function UsdtP2PPage() {
         action: "buy",
         amount: `${formData.usdtAmount} USDT`,
         paymentMethod: formData.paymentMethod,
+        utrNumber: formData.utrNumber,
         network: formData.network,
         walletAddress: formData.walletAddress
       }
@@ -113,9 +130,18 @@ export default function UsdtP2PPage() {
     setIsComplete(true)
   }
 
-  const canProceedStep1 = formData.fullName && formData.email && formData.phone && formData.paymentMethod
-  const canProceedStep2 = formData.panNumber && formData.aadhaarNumber && formData.panCard && formData.aadhaarCard && formData.selfie
-  const canProceedStep3 = formData.walletAddress && formData.network && formData.usdtAmount
+  // Calculate payment amount
+  const usdtAmount = Number(formData.usdtAmount) || 0
+  const rate = usdtAmount < 50 ? 117.5 : 93.5
+  const rateDisplay = usdtAmount < 50 ? "₹115 - ₹120" : "₹93 - ₹94"
+  const totalAmount = usdtAmount * rate
+
+  // Validation for each step
+  const canProceedStep1 = formData.fullName && formData.email && formData.phone && formData.usdtAmount
+  const canProceedStep2 = formData.paymentMethod // User must select a payment method
+  const canProceedStep3 = formData.paymentScreenshot && formData.utrNumber
+  const canProceedStep4 = formData.governmentId && formData.selfie
+  const canProceedStep5 = formData.walletAddress && formData.network
 
   // Sell USDT pricing tiers
   const getSellRate = (amount: number): { min: number; max: number } => {
@@ -127,6 +153,15 @@ export default function UsdtP2PPage() {
   const sellRateRange = getSellRate(sellAmount)
   const sellTotalINRMin = sellAmount * sellRateRange.min
   const sellTotalINRMax = sellAmount * sellRateRange.max
+
+  // Step labels for progress indicator
+  const stepLabels = [
+    { icon: User, label: "Details" },
+    { icon: QrCode, label: "Payment" },
+    { icon: Receipt, label: "Confirm" },
+    { icon: FileCheck, label: "Verify" },
+    { icon: CheckCircle, label: "Complete" },
+  ]
 
   return (
     <div className="min-h-screen bg-background">
@@ -546,27 +581,36 @@ export default function UsdtP2PPage() {
               </div>
             )}
 
-            {/* Multi-Step Form (Buy) */}
+            {/* Multi-Step Form (Buy) - 5 Steps */}
             {activeTab === "buy" && step > 0 && !isComplete && (
               <div className="max-w-2xl mx-auto">
                 {/* Progress Steps */}
-                <div className="flex items-center justify-between mb-8">
-                  {[1, 2, 3, 4].map((s) => (
-                    <div key={s} className="flex items-center">
-                      <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${
-                          step >= s 
-                            ? "bg-primary text-primary-foreground" 
-                            : "bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        {step > s ? <Check className="w-5 h-5" /> : s}
+                <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2">
+                  {stepLabels.map((s, index) => {
+                    const stepNum = index + 1
+                    const Icon = s.icon
+                    return (
+                      <div key={stepNum} className="flex items-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <div 
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                              step >= stepNum 
+                                ? "bg-primary text-primary-foreground" 
+                                : "bg-secondary text-muted-foreground"
+                            }`}
+                          >
+                            {step > stepNum ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                          </div>
+                          <span className={`text-xs font-medium ${step >= stepNum ? "text-primary" : "text-muted-foreground"}`}>
+                            {s.label}
+                          </span>
+                        </div>
+                        {stepNum < 5 && (
+                          <div className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 rounded ${step > stepNum ? "bg-primary" : "bg-secondary"}`} />
+                        )}
                       </div>
-                      {s < 4 && (
-                        <div className={`w-12 sm:w-20 h-1 mx-2 rounded ${step > s ? "bg-primary" : "bg-secondary"}`} />
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="p-6 sm:p-8 rounded-2xl bg-card border border-border">
@@ -579,7 +623,7 @@ export default function UsdtP2PPage() {
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-foreground">User Details</h3>
-                          <p className="text-sm text-muted-foreground">Enter your personal information</p>
+                          <p className="text-sm text-muted-foreground">Enter your personal information and USDT amount</p>
                         </div>
                       </div>
 
@@ -615,27 +659,20 @@ export default function UsdtP2PPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">Payment Method</label>
-                          <div className="grid grid-cols-3 gap-3">
-                            {[
-                              { value: "upi", label: "UPI" },
-                              { value: "imps", label: "IMPS" },
-                              { value: "erupee", label: "e-Rupee" },
-                            ].map((method) => (
-                              <button
-                                key={method.value}
-                                type="button"
-                                onClick={() => handleInputChange("paymentMethod", method.value)}
-                                className={`p-3 rounded-xl border text-sm font-medium transition-colors ${
-                                  formData.paymentMethod === method.value
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-secondary border-border text-foreground hover:border-primary/50"
-                                }`}
-                              >
-                                {method.label}
-                              </button>
-                            ))}
-                          </div>
+                          <label className="block text-sm font-medium text-foreground mb-2">Amount of USDT to Buy</label>
+                          <input
+                            type="number"
+                            value={formData.usdtAmount}
+                            onChange={(e) => handleInputChange("usdtAmount", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="Enter amount (min 50 USDT recommended)"
+                            min="1"
+                          />
+                          {formData.usdtAmount && Number(formData.usdtAmount) < 50 && (
+                            <p className="text-amber-500 text-sm mt-2">
+                              Orders below 50 USDT will be charged at ₹115-₹120 per USDT
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -660,145 +697,107 @@ export default function UsdtP2PPage() {
                     </div>
                   )}
 
-                  {/* Step 2 - Identity Verification */}
+                  {/* Step 2 - Payment Instructions */}
                   {step === 2 && (
                     <div>
                       <div className="flex items-center gap-3 mb-6">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <CreditCard className="w-6 h-6 text-primary" />
+                          <QrCode className="w-6 h-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-foreground">Identity Verification</h3>
-                          <p className="text-sm text-muted-foreground">Upload your KYC documents</p>
+                          <h3 className="text-xl font-bold text-foreground">Payment Instructions</h3>
+                          <p className="text-sm text-muted-foreground">Complete payment using the details below</p>
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">PAN Number</label>
-                          <input
-                            type="text"
-                            value={formData.panNumber}
-                            onChange={(e) => handleInputChange("panNumber", e.target.value.toUpperCase())}
-                            className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
-                            placeholder="ABCDE1234F"
-                            maxLength={10}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">Aadhaar Number</label>
-                          <input
-                            type="text"
-                            value={formData.aadhaarNumber}
-                            onChange={(e) => handleInputChange("aadhaarNumber", e.target.value.replace(/\D/g, ""))}
-                            className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="1234 5678 9012"
-                            maxLength={12}
-                          />
-                        </div>
-
-                        {/* File Uploads */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {/* PAN Card Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Upload PAN Card</label>
-                            <input
-                              ref={panCardRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleFileChange("panCard", e.target.files?.[0] || null)}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => panCardRef.current?.click()}
-                              className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors ${
-                                formData.panCard
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
-                              }`}
-                            >
-                              {formData.panCard ? (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Check className="w-6 h-6 text-primary" />
-                                  <span className="text-xs text-primary truncate max-w-full">{formData.panCard.name}</span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Upload className="w-6 h-6 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">PAN Card</span>
-                                </div>
-                              )}
-                            </button>
+                      {/* Order Summary */}
+                      <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 mb-6">
+                        <h4 className="font-semibold text-foreground mb-3">Order Summary</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">USDT Amount:</span>
+                            <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
                           </div>
-
-                          {/* Aadhaar Card Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Upload Aadhaar</label>
-                            <input
-                              ref={aadhaarCardRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleFileChange("aadhaarCard", e.target.files?.[0] || null)}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => aadhaarCardRef.current?.click()}
-                              className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors ${
-                                formData.aadhaarCard
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
-                              }`}
-                            >
-                              {formData.aadhaarCard ? (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Check className="w-6 h-6 text-primary" />
-                                  <span className="text-xs text-primary truncate max-w-full">{formData.aadhaarCard.name}</span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Upload className="w-6 h-6 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">Aadhaar</span>
-                                </div>
-                              )}
-                            </button>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Rate:</span>
+                            <span className="text-foreground font-medium">{rateDisplay}</span>
                           </div>
-
-                          {/* Selfie Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Upload Selfie</label>
-                            <input
-                              ref={selfieRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleFileChange("selfie", e.target.files?.[0] || null)}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => selfieRef.current?.click()}
-                              className={`w-full p-4 rounded-xl border-2 border-dashed transition-colors ${
-                                formData.selfie
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
-                              }`}
-                            >
-                              {formData.selfie ? (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Check className="w-6 h-6 text-primary" />
-                                  <span className="text-xs text-primary truncate max-w-full">{formData.selfie.name}</span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center gap-2">
-                                  <Upload className="w-6 h-6 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">Selfie</span>
-                                </div>
-                              )}
-                            </button>
+                          <div className="flex justify-between pt-2 border-t border-border">
+                            <span className="font-semibold text-foreground">Total to Pay:</span>
+                            <span className="text-xl font-bold text-primary">₹{totalAmount.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
+
+                      {/* Payment Method Selection */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-foreground mb-3">Select Payment Method</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { value: "upi", label: "UPI" },
+                            { value: "imps", label: "IMPS" },
+                            { value: "erupee", label: "e-Rupee" },
+                          ].map((method) => (
+                            <button
+                              key={method.value}
+                              type="button"
+                              onClick={() => handleInputChange("paymentMethod", method.value)}
+                              className={`p-3 rounded-xl border text-sm font-medium transition-colors ${
+                                formData.paymentMethod === method.value
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-secondary border-border text-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {method.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Payment Details */}
+                      {formData.paymentMethod && (
+                        <div className="space-y-4">
+                          {/* QR Code */}
+                          <div className="p-6 rounded-xl bg-secondary/50 border border-border text-center">
+                            <p className="text-sm text-muted-foreground mb-4">Scan QR Code to Pay</p>
+                            <div className="w-48 h-48 mx-auto bg-white rounded-xl flex items-center justify-center mb-4">
+                              <div className="text-center text-muted-foreground">
+                                <QrCode className="w-24 h-24 mx-auto text-foreground" />
+                                <p className="text-xs mt-2">Payment QR Code</p>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-foreground">Amount: ₹{totalAmount.toLocaleString()}</p>
+                          </div>
+
+                          {/* UPI ID */}
+                          <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                            <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 p-3 rounded-lg bg-background border border-border font-mono text-sm text-foreground">
+                                {PAYMENT_DETAILS.upiId}
+                              </code>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={copyUpiId}
+                                className="shrink-0"
+                              >
+                                {copiedUpi ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Important Note */}
+                          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                            <div className="flex items-start gap-3">
+                              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                              <p className="text-sm text-amber-200">
+                                Complete the payment using the QR code or UPI ID above. After payment, you will need to upload proof in the next step.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex justify-between mt-8">
                         <Button
@@ -814,6 +813,220 @@ export default function UsdtP2PPage() {
                           disabled={!canProceedStep2}
                           className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
+                          I Have Paid
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 3 - Payment Confirmation */}
+                  {step === 3 && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Receipt className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">Payment Confirmation</h3>
+                          <p className="text-sm text-muted-foreground">Upload proof of payment</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Payment Screenshot Upload */}
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">Upload Payment Screenshot</label>
+                          <input
+                            ref={paymentScreenshotRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileChange("paymentScreenshot", e.target.files?.[0] || null)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => paymentScreenshotRef.current?.click()}
+                            className={`w-full p-6 rounded-xl border-2 border-dashed transition-colors ${
+                              formData.paymentScreenshot
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {formData.paymentScreenshot ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Check className="w-8 h-8 text-primary" />
+                                <span className="text-sm text-primary font-medium">{formData.paymentScreenshot.name}</span>
+                                <span className="text-xs text-muted-foreground">Click to change</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <Upload className="w-8 h-8 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Click to upload payment screenshot</span>
+                                <span className="text-xs text-muted-foreground">JPG, PNG or PDF</span>
+                              </div>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* UTR Number */}
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">UTR / Transaction ID</label>
+                          <input
+                            type="text"
+                            value={formData.utrNumber}
+                            onChange={(e) => handleInputChange("utrNumber", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="Enter UTR number or Transaction ID"
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            You can find the UTR/Transaction ID in your payment app or bank statement
+                          </p>
+                        </div>
+
+                        {/* Info Box */}
+                        <div className="p-4 rounded-xl bg-secondary/30 border border-border">
+                          <div className="flex items-start gap-3">
+                            <CreditCard className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                            <p className="text-sm text-muted-foreground">
+                              Please ensure the screenshot clearly shows the payment amount, date, and transaction reference number.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between mt-8">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setStep(2)}
+                          className="text-muted-foreground"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => setStep(4)}
+                          disabled={!canProceedStep3}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          Submit Payment Proof
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 4 - Identity Verification */}
+                  {step === 4 && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <FileCheck className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">Identity Verification</h3>
+                          <p className="text-sm text-muted-foreground">Upload your identity documents</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Government ID Upload */}
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Government ID (Passport / Aadhaar / Driving License)
+                          </label>
+                          <input
+                            ref={governmentIdRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileChange("governmentId", e.target.files?.[0] || null)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => governmentIdRef.current?.click()}
+                            className={`w-full p-6 rounded-xl border-2 border-dashed transition-colors ${
+                              formData.governmentId
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {formData.governmentId ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Check className="w-8 h-8 text-primary" />
+                                <span className="text-sm text-primary font-medium">{formData.governmentId.name}</span>
+                                <span className="text-xs text-muted-foreground">Click to change</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <CreditCard className="w-8 h-8 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Click to upload Government ID</span>
+                                <span className="text-xs text-muted-foreground">JPG, PNG or PDF</span>
+                              </div>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Selfie Upload */}
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">Selfie Verification</label>
+                          <input
+                            ref={selfieRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileChange("selfie", e.target.files?.[0] || null)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => selfieRef.current?.click()}
+                            className={`w-full p-6 rounded-xl border-2 border-dashed transition-colors ${
+                              formData.selfie
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {formData.selfie ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Check className="w-8 h-8 text-primary" />
+                                <span className="text-sm text-primary font-medium">{formData.selfie.name}</span>
+                                <span className="text-xs text-muted-foreground">Click to change</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <User className="w-8 h-8 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Click to upload a clear selfie</span>
+                                <span className="text-xs text-muted-foreground">Face should be clearly visible</span>
+                              </div>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Info Box */}
+                        <div className="p-4 rounded-xl bg-secondary/30 border border-border">
+                          <div className="flex items-start gap-3">
+                            <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                            <p className="text-sm text-muted-foreground">
+                              Your documents are securely encrypted and used only for identity verification. We comply with all data protection regulations.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between mt-8">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setStep(3)}
+                          className="text-muted-foreground"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => setStep(5)}
+                          disabled={!canProceedStep4}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
                           Next Step
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
@@ -821,8 +1034,8 @@ export default function UsdtP2PPage() {
                     </div>
                   )}
 
-                  {/* Step 3 - Wallet Details */}
-                  {step === 3 && (
+                  {/* Step 5 - Wallet Details & Final Confirmation */}
+                  {step === 5 && (
                     <div>
                       <div className="flex items-center gap-3 mb-6">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -830,27 +1043,12 @@ export default function UsdtP2PPage() {
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-foreground">Wallet Details</h3>
-                          <p className="text-sm text-muted-foreground">Enter your crypto wallet information</p>
+                          <p className="text-sm text-muted-foreground">Enter where to receive your USDT</p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">USDT Amount</label>
-                          <input
-                            type="number"
-                            value={formData.usdtAmount}
-                            onChange={(e) => handleInputChange("usdtAmount", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="Enter amount (min 50 USDT)"
-                            min="1"
-                          />
-                          {formData.usdtAmount && Number(formData.usdtAmount) < 50 && (
-                            <p className="text-amber-500 text-sm mt-2">
-                              Orders below 50 USDT will be charged at ₹115-₹120 per USDT
-                            </p>
-                          )}
-                        </div>
+                        {/* Network Selection */}
                         <div>
                           <label className="block text-sm font-medium text-foreground mb-2">Network</label>
                           <div className="grid grid-cols-3 gap-3">
@@ -874,6 +1072,8 @@ export default function UsdtP2PPage() {
                             ))}
                           </div>
                         </div>
+
+                        {/* Wallet Address */}
                         <div>
                           <label className="block text-sm font-medium text-foreground mb-2">
                             {formData.network === "binance" ? "Binance ID" : "Wallet Address"}
@@ -888,132 +1088,33 @@ export default function UsdtP2PPage() {
                         </div>
 
                         {/* Order Summary */}
-                        {formData.usdtAmount && (
-                          <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
-                            <h4 className="font-semibold text-foreground mb-3">Order Summary</h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">USDT Amount:</span>
-                                <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Rate:</span>
-                                <span className="text-foreground font-medium">
-                                  {Number(formData.usdtAmount) < 50 ? "₹115 - ₹120" : "₹93 - ₹94"}
-                                </span>
-                              </div>
-                              <div className="flex justify-between pt-2 border-t border-border">
-                                <span className="text-muted-foreground">Estimated Total:</span>
-                                <span className="text-primary font-bold">
-                                  ₹{Number(formData.usdtAmount) < 50 
-                                    ? (Number(formData.usdtAmount) * 117.5).toLocaleString() 
-                                    : (Number(formData.usdtAmount) * 93.5).toLocaleString()}
-                                </span>
-                              </div>
+                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
+                          <h4 className="font-semibold text-foreground mb-3">Order Summary</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">USDT Amount:</span>
+                              <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Payment Amount:</span>
+                              <span className="text-foreground font-medium">₹{totalAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">UTR Number:</span>
+                              <span className="text-foreground font-medium">{formData.utrNumber}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Network:</span>
+                              <span className="text-foreground font-medium uppercase">{formData.network}</span>
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
 
                       <div className="flex justify-between mt-8">
                         <Button
                           variant="ghost"
-                          onClick={() => setStep(2)}
-                          className="text-muted-foreground"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          Back
-                        </Button>
-                        <Button
                           onClick={() => setStep(4)}
-                          disabled={!canProceedStep3}
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          Review Order
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 4 - Review & Submit */}
-                  {step === 4 && (
-                    <div>
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <CheckCircle className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-foreground">Review & Submit</h3>
-                          <p className="text-sm text-muted-foreground">Confirm your order details</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        {/* User Details Summary */}
-                        <div className="p-4 rounded-xl bg-secondary/50">
-                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <User className="w-4 h-4" /> User Details
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <span className="text-muted-foreground">Name:</span>
-                            <span className="text-foreground">{formData.fullName}</span>
-                            <span className="text-muted-foreground">Email:</span>
-                            <span className="text-foreground">{formData.email}</span>
-                            <span className="text-muted-foreground">Phone:</span>
-                            <span className="text-foreground">{formData.phone}</span>
-                            <span className="text-muted-foreground">Payment:</span>
-                            <span className="text-foreground uppercase">{formData.paymentMethod}</span>
-                          </div>
-                        </div>
-
-                        {/* Identity Summary */}
-                        <div className="p-4 rounded-xl bg-secondary/50">
-                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <CreditCard className="w-4 h-4" /> Identity Verification
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <span className="text-muted-foreground">PAN:</span>
-                            <span className="text-foreground">{formData.panNumber}</span>
-                            <span className="text-muted-foreground">Aadhaar:</span>
-                            <span className="text-foreground">{formData.aadhaarNumber}</span>
-                            <span className="text-muted-foreground">Documents:</span>
-                            <span className="text-primary">3 files uploaded</span>
-                          </div>
-                        </div>
-
-                        {/* Wallet Summary */}
-                        <div className="p-4 rounded-xl bg-secondary/50">
-                          <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                            <Wallet className="w-4 h-4" /> Wallet Details
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <span className="text-muted-foreground">Amount:</span>
-                            <span className="text-foreground">{formData.usdtAmount} USDT</span>
-                            <span className="text-muted-foreground">Network:</span>
-                            <span className="text-foreground uppercase">{formData.network}</span>
-                            <span className="text-muted-foreground">Address:</span>
-                            <span className="text-foreground font-mono text-xs break-all">{formData.walletAddress}</span>
-                          </div>
-                        </div>
-
-                        {/* Final Amount */}
-                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-foreground">Total Amount to Pay:</span>
-                            <span className="text-2xl font-bold text-primary">
-                              ₹{Number(formData.usdtAmount) < 50 
-                                ? (Number(formData.usdtAmount) * 117.5).toLocaleString() 
-                                : (Number(formData.usdtAmount) * 93.5).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between mt-8">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setStep(3)}
                           className="text-muted-foreground"
                         >
                           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -1021,7 +1122,7 @@ export default function UsdtP2PPage() {
                         </Button>
                         <Button
                           onClick={handleSubmit}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || !canProceedStep5}
                           className="bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                           {isSubmitting ? (
@@ -1050,11 +1151,15 @@ export default function UsdtP2PPage() {
                   <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6">
                     <CheckCircle className="w-10 h-10 text-green-500" />
                   </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-4">Order Submitted Successfully!</h3>
+                  <h3 className="text-2xl font-bold text-foreground mb-4">Submission Received!</h3>
                   <p className="text-muted-foreground mb-6">
-                    Details received. Please wait up to 30 minutes. Your USDT will arrive shortly. 
-                    If there is any delay, please contact us on Telegram.
+                    Your payment and identity verification are under review. Once approved, USDT will be released to your wallet.
                   </p>
+                  <div className="p-4 rounded-xl bg-secondary/30 border border-border mb-6">
+                    <p className="text-sm text-muted-foreground">
+                      Processing time: Usually within 30 minutes. If there is any delay, please contact us on Telegram.
+                    </p>
+                  </div>
                   <Button
                     asChild
                     className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
