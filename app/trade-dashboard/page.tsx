@@ -61,12 +61,67 @@ interface AccountInfo {
   isManualMode: boolean
 }
 
+type TradePlatform = "MT4" | "MT5" | "cTrader" | "DXTrade" | "Match-Trader" | "TradeLocker" | "Other"
+
 interface ConnectionSettings {
-  platform: "MT5" | "MT4" | "Other"
+  platform: TradePlatform
+  firmSearch: string
   accountId: string
+  password: string
   investorPassword: string
   serverName: string
+  serverSearch: string
 }
+
+// ─── Funded firm server data ─────────────────────────────────────────────────
+interface BrokerServer {
+  firm: string
+  platform: "MT4" | "MT5" | "both"
+  servers: string[]
+}
+
+const FUNDED_SERVERS: BrokerServer[] = [
+  { firm: "FTMO", platform: "both", servers: ["FTMO-Server", "FTMO-Server2", "FTMO-Demo", "FTMO-Live"] },
+  { firm: "FundedNext", platform: "both", servers: ["FundedNext-Server", "FundedNext-Live", "FundedNext-Demo", "FundedNext-MT4-Live"] },
+  { firm: "E8 Markets", platform: "both", servers: ["E8-Live", "E8-Demo", "E8Markets-Live", "E8Markets-Demo"] },
+  { firm: "The 5%ers", platform: "MT5", servers: ["The5ers-Server", "The5ers-Live", "FivePercentOnline-Server"] },
+  { firm: "Funding Pips", platform: "MT5", servers: ["FundingPips-Live", "FundingPips-Demo", "FundingPips-Server"] },
+  { firm: "Alpha Capital", platform: "both", servers: ["AlphaCapitalGroup-Live", "AlphaCapitalGroup-Demo"] },
+  { firm: "Goat Funded Trader", platform: "MT5", servers: ["GoatFundedTrader-Live", "GoatFundedTrader-Demo"] },
+  { firm: "Blueberry Funded", platform: "both", servers: ["BlueberryMarkets-Live", "BlueberryMarkets-Demo", "BlueberryFunded-Server"] },
+  { firm: "Maven Trading", platform: "MT5", servers: ["MavenTrading-Live", "MavenTrading-Demo"] },
+  { firm: "Finotive Funding", platform: "MT5", servers: ["FinotiveFunding-Live", "FinotiveFunding-Demo"] },
+  { firm: "QT Funded", platform: "MT5", servers: ["QTFunded-Live", "QTFunded-Demo"] },
+  { firm: "Aqua Funded", platform: "MT5", servers: ["AquaFunded-Live", "AquaFunded-Demo"] },
+  { firm: "Top One Trader", platform: "MT5", servers: ["TopOneTrader-Live", "TopOneTrader-Demo"] },
+  { firm: "Funded Elite", platform: "MT5", servers: ["FundedElite-Live", "FundedElite-Demo"] },
+  { firm: "BrightFunded", platform: "MT5", servers: ["BrightFunded-Live", "BrightFunded-Demo"] },
+  { firm: "For Traders", platform: "both", servers: ["ForTraders-Server", "ForTraders-Live", "ForTraders-Demo"] },
+  { firm: "Breakout", platform: "MT5", servers: ["BreakoutFunding-Live", "BreakoutFunding-Demo"] },
+  { firm: "Think Capital", platform: "MT5", servers: ["ThinkCapital-Live", "ThinkCapital-Demo"] },
+  { firm: "Pipstone Capital", platform: "MT5", servers: ["PipstoneCapital-Live", "PipstoneCapital-Demo"] },
+  { firm: "Kelvero Funding", platform: "MT5", servers: ["KelveroFunding-Live", "KelveroFunding-Demo"] },
+  { firm: "IC Markets", platform: "both", servers: ["ICMarkets-Live01", "ICMarkets-Live02", "ICMarkets-Demo", "ICMarketsSC-Live01", "ICMarketsSC-Live02"] },
+  { firm: "Pepperstone", platform: "both", servers: ["Pepperstone-Edge-Live", "Pepperstone-Edge-Demo", "PepperstoneFX-Demo01"] },
+  { firm: "ThinkMarkets", platform: "both", servers: ["ThinkMarkets-Live", "ThinkMarkets-Demo", "ThinkMarketsMT4-Live"] },
+  { firm: "Eightcap", platform: "both", servers: ["Eightcap-Live", "Eightcap-Demo", "EightcapLLC-Live"] },
+  { firm: "XM", platform: "both", servers: ["XMGlobal-MT5", "XMGlobal-MT5 2", "XMGlobal-MT5 3", "XMGlobal-MT4", "XMGlobal-MT4 2"] },
+  { firm: "OANDA", platform: "MT4", servers: ["OANDA-v20 Live", "OANDA-v20 Practice"] },
+  { firm: "Fusion Markets", platform: "both", servers: ["FusionMarkets-Live", "FusionMarkets-Demo"] },
+  { firm: "FXCM", platform: "both", servers: ["FXCM-USDReal", "FXCM-EURReal", "FXCM-Practice"] },
+  { firm: "Lux Trading", platform: "MT5", servers: ["LuxTradingFirm-Live", "LuxTradingFirm-Demo"] },
+  { firm: "The Trading Pit", platform: "both", servers: ["TheTradingPit-Live", "TheTradingPit-Demo"] },
+]
+
+const PLATFORMS: { id: TradePlatform; label: string; hasBrokerServer: boolean }[] = [
+  { id: "MT4", label: "MetaTrader 4 (MT4)", hasBrokerServer: true },
+  { id: "MT5", label: "MetaTrader 5 (MT5)", hasBrokerServer: true },
+  { id: "cTrader", label: "cTrader", hasBrokerServer: false },
+  { id: "DXTrade", label: "DXTrade", hasBrokerServer: false },
+  { id: "Match-Trader", label: "Match-Trader", hasBrokerServer: false },
+  { id: "TradeLocker", label: "TradeLocker", hasBrokerServer: false },
+  { id: "Other", label: "Other", hasBrokerServer: false },
+]
 
 // Sample data
 const SAMPLE_OPEN_TRADES: Trade[] = [
@@ -191,10 +246,14 @@ export default function TradeDashboardPage() {
   const [connectionStep, setConnectionStep] = useState<"choose" | "connect" | "connecting" | "success">("choose")
   const [connectionSettings, setConnectionSettings] = useState<ConnectionSettings>({
     platform: "MT5",
+    firmSearch: "",
     accountId: "",
+    password: "",
     investorPassword: "",
     serverName: "",
+    serverSearch: "",
   })
+  const [serverDropdownOpen, setServerDropdownOpen] = useState(false)
   const [connectionError, setConnectionError] = useState("")
   const [mounted, setMounted] = useState(false)
   
@@ -293,8 +352,13 @@ export default function TradeDashboardPage() {
 
   // Handle broker connection attempt
   const handleConnectBroker = async () => {
-    if (!connectionSettings.accountId || !connectionSettings.investorPassword || !connectionSettings.serverName) {
-      setConnectionError("Please fill in all fields")
+    const needsServer = PLATFORMS.find(p => p.id === connectionSettings.platform)?.hasBrokerServer
+    if (!connectionSettings.accountId || !connectionSettings.password) {
+      setConnectionError("Please fill in Account ID and Password")
+      return
+    }
+    if (needsServer && !connectionSettings.serverName) {
+      setConnectionError("Please select or enter a server name")
       return
     }
 
@@ -564,103 +628,211 @@ export default function TradeDashboardPage() {
                 </div>
               )}
 
-              {connectionStep === "connect" && (
-                <div className="space-y-4">
-                  <button
-                    onClick={() => setConnectionStep("choose")}
-                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4"
-                  >
-                    <ChevronDown className="w-4 h-4 rotate-90" />
-                    Back
-                  </button>
+              {connectionStep === "connect" && (() => {
+                const activePlatform = PLATFORMS.find(p => p.id === connectionSettings.platform)
+                const needsServer = activePlatform?.hasBrokerServer ?? false
 
-                  {/* Platform Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Broker Platform
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["MT5", "MT4", "Other"] as const).map((platform) => (
-                        <button
-                          key={platform}
-                          onClick={() => setConnectionSettings({ ...connectionSettings, platform })}
-                          className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                            connectionSettings.platform === platform
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border hover:border-primary/50 text-foreground"
-                          }`}
-                        >
-                          {platform}
-                        </button>
+                // Filter servers based on platform + search query
+                const filteredFirms = FUNDED_SERVERS.filter(b => {
+                  const matchesPlatform =
+                    b.platform === "both" ||
+                    b.platform === connectionSettings.platform
+                  const query = connectionSettings.serverSearch.toLowerCase()
+                  const matchesSearch =
+                    !query ||
+                    b.firm.toLowerCase().includes(query) ||
+                    b.servers.some(s => s.toLowerCase().includes(query))
+                  return matchesPlatform && matchesSearch
+                })
+
+                return (
+                  <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+                    <button
+                      onClick={() => setConnectionStep("choose")}
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      <ChevronDown className="w-4 h-4 rotate-90" />
+                      Back
+                    </button>
+
+                    {/* Step indicators */}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {["Platform", needsServer ? "Server" : null, "Credentials"].filter(Boolean).map((s, i, arr) => (
+                        <span key={s} className="flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded bg-secondary text-foreground font-medium">{i + 1}. {s}</span>
+                          {i < arr.length - 1 && <span>›</span>}
+                        </span>
                       ))}
                     </div>
-                  </div>
 
-                  {/* Account ID */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Account ID
-                    </label>
-                    <input
-                      type="text"
-                      value={connectionSettings.accountId}
-                      onChange={(e) => setConnectionSettings({ ...connectionSettings, accountId: e.target.value })}
-                      placeholder="Enter your trading account ID"
-                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                    />
-                  </div>
+                    {/* Step 1 — Platform */}
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-2">
+                        1. Select Platform
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={connectionSettings.platform}
+                          onChange={(e) => setConnectionSettings({
+                            ...connectionSettings,
+                            platform: e.target.value as TradePlatform,
+                            serverName: "",
+                            serverSearch: "",
+                          })}
+                          className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground focus:outline-none focus:border-primary appearance-none cursor-pointer"
+                        >
+                          {PLATFORMS.map(p => (
+                            <option key={p.id} value={p.id}>{p.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
 
-                  {/* Investor Password */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Investor Password (Read-Only)
-                    </label>
-                    <input
-                      type="password"
-                      value={connectionSettings.investorPassword}
-                      onChange={(e) => setConnectionSettings({ ...connectionSettings, investorPassword: e.target.value })}
-                      placeholder="Enter investor password"
-                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Shield className="w-3 h-3" />
-                      Read-only access - we cannot execute trades
+                    {/* Step 2 — Server (MT4/MT5 only) */}
+                    {needsServer && (
+                      <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">
+                          2. Select Server
+                        </label>
+
+                        {/* Search input */}
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={connectionSettings.serverSearch}
+                            onChange={(e) => {
+                              setConnectionSettings({ ...connectionSettings, serverSearch: e.target.value, serverName: "" })
+                              setServerDropdownOpen(true)
+                            }}
+                            onFocus={() => setServerDropdownOpen(true)}
+                            placeholder="Search firm or server name..."
+                            className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        {/* Selected server badge */}
+                        {connectionSettings.serverName && !serverDropdownOpen && (
+                          <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/30">
+                            <Check className="w-4 h-4 text-primary shrink-0" />
+                            <span className="text-sm text-primary font-medium truncate">{connectionSettings.serverName}</span>
+                            <button
+                              onClick={() => setConnectionSettings({ ...connectionSettings, serverName: "", serverSearch: "" })}
+                              className="ml-auto text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Dropdown results */}
+                        {serverDropdownOpen && (
+                          <div className="mt-1 rounded-lg border border-border bg-card shadow-xl max-h-56 overflow-y-auto">
+                            {filteredFirms.length === 0 ? (
+                              <div className="px-4 py-3 text-sm text-muted-foreground">No results</div>
+                            ) : (
+                              filteredFirms.map(broker => (
+                                <div key={broker.firm}>
+                                  <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                    {broker.firm}
+                                  </div>
+                                  {broker.servers.map(server => (
+                                    <button
+                                      key={server}
+                                      onClick={() => {
+                                        setConnectionSettings({ ...connectionSettings, serverName: server, serverSearch: server })
+                                        setServerDropdownOpen(false)
+                                      }}
+                                      className={`w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors flex items-center justify-between ${
+                                        connectionSettings.serverName === server ? "text-primary" : "text-foreground"
+                                      }`}
+                                    >
+                                      {server}
+                                      {connectionSettings.serverName === server && <Check className="w-3.5 h-3.5 text-primary" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              ))
+                            )}
+                            {/* Custom server option */}
+                            {connectionSettings.serverSearch && (
+                              <button
+                                onClick={() => {
+                                  setConnectionSettings({ ...connectionSettings, serverName: connectionSettings.serverSearch })
+                                  setServerDropdownOpen(false)
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm text-primary border-t border-border hover:bg-secondary transition-colors flex items-center gap-2"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Use &quot;{connectionSettings.serverSearch}&quot; as custom server
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Dismiss dropdown when clicking outside */}
+                        {serverDropdownOpen && (
+                          <div className="fixed inset-0 z-[-1]" onClick={() => setServerDropdownOpen(false)} />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 3 — Credentials */}
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-3">
+                        {needsServer ? "3." : "2."} Enter Credentials
+                      </label>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={connectionSettings.accountId}
+                          onChange={(e) => setConnectionSettings({ ...connectionSettings, accountId: e.target.value })}
+                          placeholder="Login ID"
+                          className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                        />
+                        <input
+                          type="password"
+                          value={connectionSettings.password}
+                          onChange={(e) => setConnectionSettings({ ...connectionSettings, password: e.target.value })}
+                          placeholder="Password"
+                          className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                        />
+                        <div>
+                          <input
+                            type="password"
+                            value={connectionSettings.investorPassword}
+                            onChange={(e) => setConnectionSettings({ ...connectionSettings, investorPassword: e.target.value })}
+                            placeholder="Investor Password (optional, read-only)"
+                            className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Shield className="w-3 h-3" />
+                            We cannot execute trades with read-only access
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {connectionError && (
+                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-500 text-sm">
+                        <AlertTriangle className="w-4 h-4" />
+                        {connectionError}
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleConnectBroker}
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold py-6"
+                    >
+                      Connect Account
+                    </Button>
+
+                    <p className="text-xs text-center text-muted-foreground">
+                      By connecting, you agree to our terms of service
                     </p>
                   </div>
-
-                  {/* Server Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Server Name
-                    </label>
-                    <input
-                      type="text"
-                      value={connectionSettings.serverName}
-                      onChange={(e) => setConnectionSettings({ ...connectionSettings, serverName: e.target.value })}
-                      placeholder="e.g., XMGlobal-MT5"
-                      className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                    />
-                  </div>
-
-                  {connectionError && (
-                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-500 text-sm">
-                      <AlertTriangle className="w-4 h-4" />
-                      {connectionError}
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={handleConnectBroker}
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold py-6"
-                  >
-                    Connect Account
-                  </Button>
-
-                  <p className="text-xs text-center text-muted-foreground">
-                    By connecting, you agree to our terms of service
-                  </p>
-                </div>
-              )}
+                )
+              })()}
 
               {connectionStep === "connecting" && (
                 <div className="py-8 text-center">
