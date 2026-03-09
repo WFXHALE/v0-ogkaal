@@ -110,29 +110,26 @@ function FollowButton({ targetId, currentUserId, currentUser }: {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (currentUserId) setFollowing(isFollowing(currentUserId, targetId))
+    if (currentUserId) isFollowing(currentUserId, targetId).then(setFollowing)
   }, [currentUserId, targetId])
 
   if (!currentUserId || currentUserId === targetId) return null
 
-  function handleClick() {
+  async function handleClick() {
     if (!currentUserId) return
     setLoading(true)
-    setTimeout(() => {
-      const nowFollowing = toggleFollow(currentUserId!, targetId)
-      setFollowing(nowFollowing)
-      setLoading(false)
-      // Fire follow notification only when following (not un-following)
-      if (nowFollowing && currentUser) {
-        sendNotification({
-          type: "follow",
-          recipientId: targetId,
-          actorId: currentUser.id,
-          actorName: currentUser.fullName,
-          actorAvatar: currentUser.avatar,
-        })
-      }
-    }, 200)
+    const nowFollowing = await toggleFollow(currentUserId!, targetId)
+    setFollowing(nowFollowing)
+    setLoading(false)
+    if (nowFollowing && currentUser) {
+      sendNotification({
+        type: "follow",
+        recipientId: targetId,
+        actorId: currentUser.id,
+        actorName: currentUser.fullName,
+        actorAvatar: currentUser.avatar,
+      })
+    }
   }
 
   return (
@@ -277,16 +274,16 @@ function AuthModal({ onClose, onAuth }: { onClose: () => void; onAuth: (u: Commu
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  function handleSignUp() {
+  async function handleSignUp() {
     if (!form.fullName || !form.email || !form.phone) { setError("All fields required."); return }
-    const res = signUp({ fullName: form.fullName, email: form.email, phone: form.phone, level: form.level })
+    const res = await signUp({ fullName: form.fullName, email: form.email, phone: form.phone, level: form.level })
     if (!res.ok) { setError(res.error || "Error"); return }
     onAuth(res.user!)
   }
 
-  function handleSignIn() {
+  async function handleSignIn() {
     if (!form.identifier) { setError("Enter email or phone."); return }
-    const res = signIn(form.identifier)
+    const res = await signIn(form.identifier)
     if (!res.ok) { setError(res.error || "Error"); return }
     onAuth(res.user!)
   }
@@ -377,9 +374,9 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
     setHashtag("")
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!content.trim()) return
-    const post = createPost({
+    const post = await createPost({
       type: postType === "video" ? "post" : postType,
       authorId: currentUser.id,
       authorName: currentUser.fullName,
@@ -533,7 +530,7 @@ export default function CommunityPage() {
     setMounted(true)
     const session = getSession()
     setCurrentUser(session)
-    setPosts(getPosts())
+    getPosts().then(setPosts)
     if (!session) setShowAuth(true)
   }, [])
 
@@ -548,7 +545,7 @@ export default function CommunityPage() {
   const handleTouchEnd = useCallback(() => {
     if (pullProgress >= 1) {
       setRefreshing(true)
-      setTimeout(() => { setPosts(getPosts()); setRefreshing(false); setPullProgress(0) }, 1000)
+      getPosts().then((p) => { setPosts(p); setRefreshing(false); setPullProgress(0) })
     } else { setPullProgress(0) }
     touchStartY.current = 0
   }, [pullProgress])
@@ -556,11 +553,10 @@ export default function CommunityPage() {
   function handleAuth(user: CommunityUser) { setCurrentUser(user); setShowAuth(false) }
   function handleSignOut() { setSession(null); setCurrentUser(null) }
 
-  function handleLike(postId: string) {
+  async function handleLike(postId: string) {
     if (!currentUser) return
-    const updatedPosts = toggleLike(postId, currentUser.id)
+    const updatedPosts = await toggleLike(postId, currentUser.id)
     setPosts(updatedPosts)
-    // Fire notification only when liking (not un-liking)
     const post = updatedPosts.find((p) => p.id === postId)
     if (post && post.likes.includes(currentUser.id)) {
       sendNotification({
@@ -575,9 +571,9 @@ export default function CommunityPage() {
     }
   }
 
-  function handleComment(postId: string, text: string) {
+  async function handleComment(postId: string, text: string) {
     if (!currentUser) return
-    const updatedPosts = addComment(postId, {
+    const updatedPosts = await addComment(postId, {
       authorId: currentUser.id, authorName: currentUser.fullName,
       authorAvatar: currentUser.avatar, content: text,
     })
@@ -596,15 +592,11 @@ export default function CommunityPage() {
     }
   }
 
-  function handleNewPost(post: Post) {
+  async function handleNewPost(post: Post) {
     setPosts((prev) => [post, ...prev])
     setShowCreator(false)
     setFabOpen(false)
-    // Admin posts notify all users (best-effort; we use a special admin_post type)
     if (post.isAdminPost) {
-      // Broadcast to followers — handled server-side via the route
-      // For now, fire a single admin_post notification to a sentinel recipient "__all__"
-      // so the bell on the admin's own view doesn't show, but other users polling will see it
       sendNotification({
         type: "admin_post",
         recipientId: "__broadcast__",

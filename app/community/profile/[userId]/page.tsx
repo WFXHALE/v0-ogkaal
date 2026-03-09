@@ -86,27 +86,32 @@ export default function ProfilePage() {
   const [currentUser, setCurrentUser] = useState<CommunityUser | null>(null)
   const [posts, setPosts]             = useState<Post[]>([])
   const [tab, setTab]                 = useState<"content" | "replies">("content")
-  const [following, setFollowing]     = useState(false)
+  const [following, setFollowing]         = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [totalLikes, setTotalLikes]       = useState(0)
 
   useEffect(() => {
     setMounted(true)
     const session = getSession()
     setCurrentUser(session)
-    const u = getUserById(userId)
-    setUser(u)
-    if (u) {
-      setPosts(getPostsByUser(u.id))
-      setFollowerCount(getFollowerCount(u.id))
-      if (session) setFollowing(isFollowing(session.id, u.id))
-    }
+    getUserById(userId).then((u) => {
+      setUser(u)
+      if (u) {
+        getPostsByUser(u.id).then(setPosts)
+        getFollowerCount(u.id).then(setFollowerCount)
+        getFollowingCount(u.id).then(setFollowingCount)
+        getTotalLikes(u.id).then(setTotalLikes)
+        if (session) isFollowing(session.id, u.id).then(setFollowing)
+      }
+    })
   }, [userId])
 
-  function handleFollow() {
+  async function handleFollow() {
     if (!currentUser || !user) return
-    const nowFollowing = toggleFollow(currentUser.id, user.id)
+    const nowFollowing = await toggleFollow(currentUser.id, user.id)
     setFollowing(nowFollowing)
-    setFollowerCount(getFollowerCount(user.id))
+    getFollowerCount(user.id).then(setFollowerCount)
   }
 
   if (!mounted) return null
@@ -126,10 +131,8 @@ export default function ProfilePage() {
     )
   }
 
-  const isAdmin      = user.id === ADMIN_ID || user.isAdmin
-  const isSelf       = currentUser?.id === user.id
-  const followingCount = getFollowingCount(user.id)
-  const totalLikes   = getTotalLikes(user.id)
+  const isAdmin = user.id === ADMIN_ID || user.isAdmin
+  const isSelf  = currentUser?.id === user.id
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
