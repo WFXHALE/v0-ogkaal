@@ -61,19 +61,23 @@ export function Header() {
             <Logo />
           </Link>
 
-          {/* Desktop nav — only render after hydration to avoid SSR mismatch */}
-          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
-            {mounted && navItems.map((item) => (
-              <Link key={item.label} href={item.href} className={navClass(item.style)}>
-                {item.style === "vip" && (
-                  <span className="absolute -top-1 -right-1 star-sparkle">
-                    <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
-                  </span>
-                )}
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Desktop nav — suppressed until mounted to prevent SSR/client mismatch */}
+          {mounted ? (
+            <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
+              {navItems.map((item) => (
+                <Link key={item.label} href={item.href} className={navClass(item.style)}>
+                  {item.style === "vip" && (
+                    <span className="absolute -top-1 -right-1 star-sparkle">
+                      <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
+                    </span>
+                  )}
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          ) : (
+            <div className="hidden lg:block flex-1 mx-4" />
+          )}
 
           <div className="flex items-center gap-3">
             <button
@@ -90,7 +94,7 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border/50">
             <nav className="flex flex-col gap-2">
-              {mounted && navItems.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
