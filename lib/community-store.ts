@@ -213,11 +213,14 @@ async function fetchPostsWithData(postRows: Record<string, unknown>[]): Promise<
 
 export async function getPosts(): Promise<Post[]> {
   const sb = createClient()
+  console.log("[v0] getPosts: SUPABASE_URL =", process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 40))
   const { data, error } = await sb
     .from("community_posts")
     .select("*")
     .order("created_at", { ascending: false })
+  console.log("[v0] getPosts: rows =", data?.length, "error =", error?.message)
   if (error || !data || data.length === 0) {
+    console.log("[v0] getPosts: falling back to seedPosts")
     return seedPosts()
   }
   return fetchPostsWithData(data as Record<string, unknown>[])
@@ -268,7 +271,8 @@ export async function createPost(data: Omit<Post, "id" | "likes" | "comments" | 
     comments:  [],
     createdAt: new Date().toISOString(),
   }
-  await sb.from("community_posts").insert({
+  console.log("[v0] createPost: inserting post id =", post.id, "author =", post.authorName)
+  const { error } = await sb.from("community_posts").insert({
     id:            post.id,
     type:          post.type,
     author_id:     post.authorId,
@@ -283,6 +287,7 @@ export async function createPost(data: Omit<Post, "id" | "likes" | "comments" | 
     hashtags:      post.hashtags,
     created_at:    post.createdAt,
   })
+  console.log("[v0] createPost: insert result error =", error?.message ?? "none")
   return post
 }
 
