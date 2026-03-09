@@ -16,6 +16,96 @@ const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 type Tab = "forex" | "crypto" | "indian"
 
+// ── Market Status Indicator ────────────────────────────────────────────────
+
+function getMarketStatus(tab: Tab, now: Date): { open: boolean; label: string; countdown?: string } {
+  if (tab === "crypto") return { open: true, label: "Market Open" }
+
+  if (tab === "forex") {
+    // Forex: open Mon 00:00 UTC → Fri 22:00 UTC
+    const day = now.getUTCDay()   // 0=Sun 1=Mon…6=Sat
+    const h   = now.getUTCHours()
+    const m   = now.getUTCMinutes()
+    const s   = now.getUTCSeconds()
+    const isOpen = (day > 0 && day < 5) || (day === 5 && (h < 22 || (h === 22 && m === 0 && s === 0)))
+
+    if (isOpen) return { open: true, label: "Market Open" }
+
+    // Calculate seconds until next Mon 00:00 UTC
+    const daysUntilMon = (8 - day) % 7 || 7
+    const secToMidnight = (23 - h) * 3600 + (59 - m) * 60 + (60 - s)
+    const secUntilOpen = (daysUntilMon - 1) * 86400 + secToMidnight
+    const hh = String(Math.floor(secUntilOpen / 3600)).padStart(2, "0")
+    const mm = String(Math.floor((secUntilOpen % 3600) / 60)).padStart(2, "0")
+    return { open: false, label: "Market Closed", countdown: `${hh}:${mm}` }
+  }
+
+  if (tab === "indian") {
+    // Indian: 9:15 AM – 3:30 PM IST (IST = UTC+5:30)
+    const istOffset = 5 * 60 + 30 // minutes
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+    const istMin = (utcMin + istOffset) % (24 * 60)
+    const istDay = now.getUTCDay() // approximate — close enough for IST
+
+    const openMin  = 9 * 60 + 15   // 9:15 AM
+    const closeMin = 15 * 60 + 30  // 3:30 PM
+
+    const isWeekday = istDay >= 1 && istDay <= 5
+    const isOpen = isWeekday && istMin >= openMin && istMin < closeMin
+
+    if (isOpen) return { open: true, label: "Market Open" }
+
+    // Countdown to next open
+    let secUntilOpen: number
+    if (isWeekday && istMin < openMin) {
+      secUntilOpen = (openMin - istMin) * 60 - now.getUTCSeconds()
+    } else {
+      // Next weekday 9:15 AM IST
+      const daysAhead = istDay === 5 ? 3 : istDay === 6 ? 2 : 1
+      const remainingTodayMin = 24 * 60 - istMin
+      secUntilOpen = (remainingTodayMin + (daysAhead - 1) * 24 * 60 + openMin) * 60 - now.getUTCSeconds()
+    }
+    const hh = String(Math.floor(secUntilOpen / 3600)).padStart(2, "0")
+    const mm = String(Math.floor((secUntilOpen % 3600) / 60)).padStart(2, "0")
+    return { open: false, label: "Market Closed", countdown: `${hh}:${mm}` }
+  }
+
+  return { open: false, label: "Market Closed" }
+}
+
+function MarketStatusBadge({ tab }: { tab: Tab }) {
+  const [status, setStatus] = useState<ReturnType<typeof getMarketStatus> | null>(null)
+
+  useEffect(() => {
+    const tick = () => setStatus(getMarketStatus(tab, new Date()))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [tab])
+
+  if (!status) return null
+
+  return (
+    <div className="flex items-center gap-1.5 text-sm font-medium">
+      <span
+        className={`inline-block w-2 h-2 rounded-full ${
+          status.open
+            ? "bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)] animate-pulse"
+            : "bg-red-400 shadow-[0_0_6px_2px_rgba(248,113,113,0.6)] animate-pulse"
+        }`}
+      />
+      <span className={status.open ? "text-green-400" : "text-red-400"}>
+        {status.label}
+      </span>
+      {!status.open && status.countdown && (
+        <span className="text-muted-foreground font-mono text-xs ml-1">
+          Opens in: {status.countdown}
+        </span>
+      )}
+    </div>
+  )
+}
+
 interface MarketAsset {
   symbol: string
   name: string
@@ -229,7 +319,10 @@ export function IntelligenceContent() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Market Intelligence</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-3xl font-bold text-foreground">Market Intelligence</h1>
+                <MarketStatusBadge tab={activeTab} />
+              </div>
               <p className="text-muted-foreground mt-1">
                 Real-time market data and analysis
               </p>
