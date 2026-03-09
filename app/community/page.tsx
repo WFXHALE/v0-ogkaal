@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import {
@@ -11,6 +11,7 @@ import {
 import {
   Heart, MessageCircle, UserPlus, X, Image as ImageIcon,
   Hash, TrendingUp, ChevronDown, Send, LogOut, Shield,
+  Plus, FileText, Video, RefreshCw,
 } from "lucide-react"
 
 // ---- level badge ------------------------------------------------------------
@@ -55,9 +56,16 @@ function AuthModal({ onClose, onAuth }: { onClose: () => void; onAuth: (u: Commu
     onAuth(res.user!)
   }
 
+  // Modal does NOT lock scroll — no overflow:hidden on body
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ pointerEvents: "none" }}
+    >
+      <div
+        className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8"
+        style={{ pointerEvents: "auto" }}
+      >
         <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
         </button>
@@ -156,7 +164,6 @@ function PostCard({ post, currentUser, onLike, onComment }: {
 
   return (
     <article className="bg-card border border-border rounded-2xl p-5 space-y-4">
-      {/* Author row */}
       <div className="flex items-center gap-3">
         <img src={post.authorAvatar} alt={post.authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
         <div className="flex-1 min-w-0">
@@ -171,11 +178,9 @@ function PostCard({ post, currentUser, onLike, onComment }: {
         </div>
       </div>
 
-      {/* Content */}
       {post.title && <h3 className="text-base font-bold text-foreground">{post.title}</h3>}
       <p className="text-sm text-foreground/90 leading-relaxed">{post.content}</p>
 
-      {/* Trade idea */}
       {post.tradeIdea && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-xl bg-[#FCD535]/5 border border-[#FCD535]/20">
           {([
@@ -192,12 +197,10 @@ function PostCard({ post, currentUser, onLike, onComment }: {
         </div>
       )}
 
-      {/* Image */}
       {post.imageUrl && (
         <img src={post.imageUrl} alt="Post image" className="w-full rounded-xl object-cover max-h-72" />
       )}
 
-      {/* Hashtags */}
       {post.hashtags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {post.hashtags.map((tag) => (
@@ -206,14 +209,12 @@ function PostCard({ post, currentUser, onLike, onComment }: {
         </div>
       )}
 
-      {/* Auth warning */}
       {authWarn && (
         <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
           Please Sign Up or Sign In to continue.
         </p>
       )}
 
-      {/* Actions */}
       <div className="flex items-center gap-4 pt-1 border-t border-border">
         <button
           onClick={() => requireAuth(() => onLike(post.id))}
@@ -240,7 +241,6 @@ function PostCard({ post, currentUser, onLike, onComment }: {
         </button>
       </div>
 
-      {/* Comments section */}
       {showComments && (
         <div className="space-y-3 pt-2">
           {post.comments.map((c) => (
@@ -281,8 +281,15 @@ function PostCard({ post, currentUser, onLike, onComment }: {
 
 // ---- post creator -----------------------------------------------------------
 
-function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPost: (p: Post) => void }) {
-  const [postType, setPostType] = useState<"post" | "article">("post")
+type CreatorType = "post" | "article" | "video"
+
+function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
+  currentUser: CommunityUser
+  onPost: (p: Post) => void
+  defaultType?: CreatorType
+  onCancel?: () => void
+}) {
+  const [postType, setPostType] = useState<CreatorType>(defaultType)
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [hashtag, setHashtag] = useState("")
@@ -291,6 +298,7 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
   const [tradeIdea, setTradeIdea] = useState({ asset: "", entry: "", stopLoss: "", target: "" })
   const [imageUrl, setImageUrl] = useState("")
   const [showImageInput, setShowImageInput] = useState(false)
+  const [videoUrl, setVideoUrl] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
   function addHashtag() {
@@ -302,21 +310,22 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
   function handleSubmit() {
     if (!content.trim()) return
     const post = createPost({
-      type: postType,
+      type: postType === "video" ? "post" : postType,
       authorId: currentUser.id,
       authorName: currentUser.fullName,
       authorAvatar: currentUser.avatar,
       authorLevel: currentUser.level,
       content,
-      title: postType === "article" ? title : undefined,
-      imageUrl: imageUrl || undefined,
+      title: (postType === "article" || postType === "video") ? title : undefined,
+      imageUrl: imageUrl || (videoUrl ? `[video] ${videoUrl}` : undefined),
       tradeIdea: showTradeIdea && tradeIdea.asset ? tradeIdea : undefined,
       hashtags,
     })
     onPost(post)
-    setContent(""); setTitle(""); setHashtags([]); setImageUrl("")
+    setContent(""); setTitle(""); setHashtags([]); setImageUrl(""); setVideoUrl("")
     setTradeIdea({ asset: "", entry: "", stopLoss: "", target: "" })
     setShowTradeIdea(false); setShowImageInput(false)
+    onCancel?.()
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -327,32 +336,54 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
     setShowImageInput(false)
   }
 
+  const tabs: { key: CreatorType; label: string }[] = [
+    { key: "post", label: "Post" },
+    { key: "article", label: "Article" },
+    { key: "video", label: "Video" },
+  ]
+
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
-      {/* Type tabs */}
-      <div className="flex gap-2 mb-4">
-        {(["post", "article"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setPostType(t)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors capitalize ${postType === t ? "bg-[#FCD535] text-[#0B0E11]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
-          >
-            {t}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setPostType(t.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${postType === t.key ? "bg-[#FCD535] text-[#0B0E11]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {onCancel && (
+          <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
           </button>
-        ))}
+        )}
       </div>
 
       <div className="flex gap-3">
         <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full flex-shrink-0 mt-0.5" />
         <div className="flex-1 space-y-3">
-          {postType === "article" && (
+          {(postType === "article" || postType === "video") && (
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Add Your Title"
+              placeholder={postType === "video" ? "Video Title" : "Add Your Title"}
               className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm font-semibold"
             />
           )}
+
+          {postType === "video" ? (
+            <input
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="Paste YouTube / video link..."
+              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm"
+            />
+          ) : null}
+
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -361,7 +392,6 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
             className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm resize-none"
           />
 
-          {/* Hashtag chips */}
           {hashtags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {hashtags.map((tag) => (
@@ -373,7 +403,6 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
             </div>
           )}
 
-          {/* Image preview */}
           {imageUrl && (
             <div className="relative">
               <img src={imageUrl} alt="Preview" className="w-full rounded-xl max-h-48 object-cover" />
@@ -381,11 +410,10 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
             </div>
           )}
 
-          {/* Image URL input */}
           {showImageInput && (
             <div className="flex gap-2">
               <input
-                placeholder="Paste image URL or upload below..."
+                placeholder="Paste image URL..."
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-foreground text-xs placeholder:text-muted-foreground focus:outline-none"
@@ -397,7 +425,6 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
             </div>
           )}
 
-          {/* Trade idea fields */}
           {showTradeIdea && (
             <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#FCD535]/5 border border-[#FCD535]/20">
               {(["asset", "entry", "stopLoss", "target"] as const).map((field) => (
@@ -412,11 +439,12 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
             </div>
           )}
 
-          {/* Toolbar */}
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => { setShowImageInput((v) => !v) }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showImageInput ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-              <ImageIcon className="w-3.5 h-3.5" /> Image
-            </button>
+            {postType !== "video" && (
+              <button onClick={() => setShowImageInput((v) => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showImageInput ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                <ImageIcon className="w-3.5 h-3.5" /> Image
+              </button>
+            )}
 
             <div className="flex items-center gap-1">
               <input
@@ -431,9 +459,11 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
               </button>
             </div>
 
-            <button onClick={() => setShowTradeIdea((v) => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showTradeIdea ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-              <TrendingUp className="w-3.5 h-3.5" /> Trade Idea
-            </button>
+            {postType === "post" && (
+              <button onClick={() => setShowTradeIdea((v) => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showTradeIdea ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                <TrendingUp className="w-3.5 h-3.5" /> Trade Idea
+              </button>
+            )}
 
             <button onClick={handleSubmit} disabled={!content.trim()} className="ml-auto px-5 py-1.5 rounded-lg bg-[#FCD535] text-[#0B0E11] text-xs font-bold hover:bg-[#F0B90B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               Publish
@@ -445,21 +475,80 @@ function PostCreator({ currentUser, onPost }: { currentUser: CommunityUser; onPo
   )
 }
 
+// ---- pull-to-refresh indicator -----------------------------------------------
+
+function PullToRefreshIndicator({ progress, refreshing }: { progress: number; refreshing: boolean }) {
+  if (progress === 0 && !refreshing) return null
+  return (
+    <div
+      className="flex items-center justify-center py-3 transition-all"
+      style={{ height: refreshing ? 56 : Math.min(progress * 56, 56) }}
+    >
+      <RefreshCw
+        className={`w-5 h-5 text-[#FCD535] ${refreshing ? "animate-spin" : ""}`}
+        style={{ transform: `rotate(${progress * 360}deg)` }}
+      />
+    </div>
+  )
+}
+
 // ---- main page --------------------------------------------------------------
 
 export default function CommunityPage() {
   const [mounted, setMounted] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authShownOnce, setAuthShownOnce] = useState(false)
   const [currentUser, setCurrentUser] = useState<CommunityUser | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [fabOpen, setFabOpen] = useState(false)
+  const [creatorType, setCreatorType] = useState<CreatorType>("post")
+  const [showCreator, setShowCreator] = useState(false)
+
+  // Pull-to-refresh
+  const [pullProgress, setPullProgress] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const touchStartY = useRef(0)
+  const PULL_THRESHOLD = 80
 
   useEffect(() => {
     setMounted(true)
     const session = getSession()
     setCurrentUser(session)
     setPosts(getPosts())
-    if (!session) setShowAuthModal(true)
+    if (!session) {
+      setShowAuthModal(true)
+      setAuthShownOnce(true)
+    }
   }, [])
+
+  // Pull-to-refresh handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      touchStartY.current = e.touches[0].clientY
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (window.scrollY > 0 || touchStartY.current === 0) return
+    const delta = e.touches[0].clientY - touchStartY.current
+    if (delta > 0) {
+      setPullProgress(Math.min(delta / PULL_THRESHOLD, 1))
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullProgress >= 1) {
+      setRefreshing(true)
+      setTimeout(() => {
+        setPosts(getPosts())
+        setRefreshing(false)
+        setPullProgress(0)
+      }, 1000)
+    } else {
+      setPullProgress(0)
+    }
+    touchStartY.current = 0
+  }, [pullProgress])
 
   function handleAuth(user: CommunityUser) {
     setCurrentUser(user)
@@ -489,12 +578,26 @@ export default function CommunityPage() {
 
   function handleNewPost(post: Post) {
     setPosts((prev) => [post, ...prev])
+    setShowCreator(false)
+    setFabOpen(false)
+  }
+
+  function openCreator(type: CreatorType) {
+    setCreatorType(type)
+    setShowCreator(true)
+    setFabOpen(false)
   }
 
   if (!mounted) return null
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div
+      className="min-h-screen bg-background flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Auth modal — pointer-events only, does NOT lock scroll */}
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} onAuth={handleAuth} />
       )}
@@ -502,6 +605,9 @@ export default function CommunityPage() {
       <Header />
 
       <main className="flex-1 mt-16">
+        {/* Pull-to-refresh indicator */}
+        <PullToRefreshIndicator progress={pullProgress} refreshing={refreshing} />
+
         {/* Page header */}
         <div className="border-b border-border bg-card/40">
           <div className="max-w-2xl mx-auto px-4 py-6 flex items-center justify-between">
@@ -529,13 +635,28 @@ export default function CommunityPage() {
         </div>
 
         {/* Feed */}
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-          {/* Post creator — only for signed-in users */}
-          {currentUser && (
-            <PostCreator currentUser={currentUser} onPost={handleNewPost} />
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-5 pb-32">
+          {/* Inline creator (opened via FAB) */}
+          {showCreator && currentUser && (
+            <PostCreator
+              currentUser={currentUser}
+              onPost={handleNewPost}
+              defaultType={creatorType}
+              onCancel={() => setShowCreator(false)}
+            />
           )}
 
-          {/* Posts feed */}
+          {/* Compact creator bar for signed-in users (always visible) */}
+          {currentUser && !showCreator && (
+            <button
+              onClick={() => openCreator("post")}
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 text-left hover:border-[#FCD535]/40 transition-colors"
+            >
+              <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">Share something with the community...</span>
+            </button>
+          )}
+
           {posts.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -556,6 +677,47 @@ export default function CommunityPage() {
       </main>
 
       <Footer />
+
+      {/* FAB — floating action button */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+        {/* FAB submenu */}
+        {fabOpen && currentUser && (
+          <div className="flex flex-col items-end gap-2 mb-1">
+            {([
+              { type: "post" as CreatorType, label: "Upload Post", icon: <Hash className="w-4 h-4" /> },
+              { type: "article" as CreatorType, label: "Upload Article", icon: <FileText className="w-4 h-4" /> },
+              { type: "video" as CreatorType, label: "Upload Video", icon: <Video className="w-4 h-4" /> },
+            ]).map((item) => (
+              <button
+                key={item.type}
+                onClick={() => openCreator(item.type)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border text-foreground text-sm font-medium shadow-lg hover:border-[#FCD535]/40 hover:text-[#FCD535] transition-all"
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* FAB trigger */}
+        <button
+          onClick={() => {
+            if (!currentUser) { setShowAuthModal(true); return }
+            setFabOpen((v) => !v)
+          }}
+          className="w-14 h-14 rounded-full bg-[#FCD535] text-[#0B0E11] flex items-center justify-center shadow-lg transition-transform active:scale-95"
+          style={{ boxShadow: "0 0 0 0 rgba(252,213,53,0.4), 0 4px 24px rgba(252,213,53,0.35)" }}
+          aria-label="Create post"
+        >
+          <Plus className={`w-6 h-6 transition-transform duration-200 ${fabOpen ? "rotate-45" : ""}`} />
+        </button>
+      </div>
+
+      {/* FAB backdrop to close menu */}
+      {fabOpen && (
+        <div className="fixed inset-0 z-30" onClick={() => setFabOpen(false)} />
+      )}
     </div>
   )
 }
