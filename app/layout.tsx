@@ -1,19 +1,13 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const _geist = Geist({
+const _inter = Inter({
   subsets: ["latin"],
   display: "swap",
   preload: true,
-  variable: "--font-geist",
-})
-const _geistMono = Geist_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  preload: true,
-  variable: "--font-geist-mono",
+  variable: "--font-inter",
 })
 
 export const viewport: Viewport = {

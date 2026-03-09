@@ -2,21 +2,42 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
-import { Menu, X } from "lucide-react"
+import { Menu, X, Star } from "lucide-react"
 
-const navItems = [
-  { label: "Home", href: "/", isHome: true },
-  { label: "Mentorship", href: "/mentorship" },
-  { label: "VIP Group", href: "/vip-group" },
-  { label: "Trade Dashboard", href: "/trade-dashboard" },
-  { label: "Intelligence", href: "/intelligence" },
-  { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
-  { label: "Funded Tools", href: "/funded-tools" },
-  { label: "Material", href: "/material" },
-  { label: "Contact", href: "/contact" },
+type NavStyle = "home" | "mentorship" | "vip" | "glitter" | "highlight" | "contact" | "default"
+
+const navItems: { label: string; href: string; style: NavStyle }[] = [
+  { label: "Home",            href: "/",               style: "home" },
+  { label: "Mentorship",      href: "/mentorship",     style: "mentorship" },
+  { label: "VIP Group",       href: "/vip-group",      style: "vip" },
+  { label: "Trade Dashboard", href: "/trade-dashboard",style: "glitter" },
+  { label: "Intelligence",    href: "/intelligence",   style: "glitter" },
+  { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
+  { label: "Funded Tools",    href: "/funded-tools",   style: "glitter" },
+  { label: "Material",        href: "/material",       style: "glitter" },
+  { label: "Contact",         href: "/contact",        style: "contact" },
 ]
+
+function navClass(style: NavStyle): string {
+  const base = "relative px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 "
+  switch (style) {
+    case "home":
+      return base + "text-foreground bg-white/10 hover:bg-white/20 border border-white/20"
+    case "mentorship":
+      return base + "text-white bg-purple-700/70 hover:bg-purple-600/80 border border-purple-500/40"
+    case "vip":
+      return base + "text-foreground hover:text-foreground hover:bg-white/5"
+    case "glitter":
+      return base + "nav-glitter text-[#848E9C] hover:text-foreground bg-white/5 hover:bg-white/10 border border-white/10"
+    case "highlight":
+      return base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
+    case "contact":
+      return base + "text-white bg-blue-600/70 hover:bg-blue-500/80 border border-blue-500/40"
+    default:
+      return base + "text-[#848E9C] hover:text-foreground"
+  }
+}
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -29,19 +50,16 @@ export function Header() {
             <Logo />
           </Link>
 
+          {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`px-3 py-2 text-sm transition-colors rounded-md ${
-                  item.isHighlight
-                    ? "font-bold bg-primary text-primary-foreground hover:bg-primary/90"
-                    : item.isHome
-                    ? "font-bold text-primary bg-primary/10 hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
+              <Link key={item.label} href={item.href} className={navClass(item.style)}>
+                {/* VIP Group — gold star sparkle in corner */}
+                {item.style === "vip" && (
+                  <span className="absolute -top-1 -right-1 star-sparkle">
+                    <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
+                  </span>
+                )}
                 {item.label}
               </Link>
             ))}
@@ -51,12 +69,14 @@ export function Header() {
             <button
               className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
+        {/* Mobile nav */}
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border/50">
             <nav className="flex flex-col gap-2">
@@ -64,19 +84,17 @@ export function Header() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`px-3 py-2 text-sm transition-colors rounded-md ${
-                    item.isHighlight
-                      ? "font-bold bg-primary text-primary-foreground"
-                      : item.isHome
-                      ? "font-bold text-primary bg-primary/10"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={navClass(item.style)}
                   onClick={() => setMobileMenuOpen(false)}
                 >
+                  {item.style === "vip" && (
+                    <span className="absolute -top-1 -right-1 star-sparkle">
+                      <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
+                    </span>
+                  )}
                   {item.label}
                 </Link>
               ))}
-
             </nav>
           </div>
         )}
