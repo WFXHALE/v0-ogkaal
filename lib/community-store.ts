@@ -1,19 +1,12 @@
 // Community data store — Supabase-backed
 import { createClient } from "@/lib/supabase/client"
 
-export type TraderLevel = "Beginner" | "Trader" | "Pro Trader" | "Master Trader"
-
-export interface CommunityUser {
-  id: string
-  fullName: string
-  email: string
-  phone: string
-  level: TraderLevel
-  bio?: string
-  avatar: string
-  createdAt: string
-  isAdmin?: boolean
-}
+// Re-export pure utilities so existing imports from community-store still work.
+// These live in community-utils.ts to avoid pulling Supabase into client UI modules.
+export type { TraderLevel, CommunityUser } from "@/lib/community-utils"
+export { avatarUrl, timeAgo, getSession, setSession, SESSION_KEY } from "@/lib/community-utils"
+import type { TraderLevel, CommunityUser } from "@/lib/community-utils"
+import { avatarUrl, getSession, setSession, SESSION_KEY } from "@/lib/community-utils"
 
 export interface TradeIdea {
   asset: string
@@ -47,35 +40,6 @@ export interface Post {
   likes: string[]      // array of user IDs who liked
   comments: Comment[]
   createdAt: string
-}
-
-const SESSION_KEY = "og_community_session"
-
-// ── avatar ────────────────────────────────────────────────────────────────────
-
-const LEVEL_COLORS: Record<TraderLevel, string> = {
-  Beginner:        "6366f1",
-  Trader:          "10b981",
-  "Pro Trader":    "f59e0b",
-  "Master Trader": "FCD535",
-}
-
-export function avatarUrl(name: string, level: TraderLevel): string {
-  const color    = LEVEL_COLORS[level]
-  const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${color}&color=fff&bold=true`
-}
-
-// ── session (localStorage — client only) ─────────────────────────────────────
-
-export function getSession(): CommunityUser | null {
-  if (typeof window === "undefined") return null
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null") } catch { return null }
-}
-export function setSession(user: CommunityUser | null) {
-  if (typeof window === "undefined") return
-  if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user))
-  else localStorage.removeItem(SESSION_KEY)
 }
 
 // ── helpers: row → domain ─────────────────────────────────────────────────────
@@ -452,12 +416,4 @@ async function seedPosts(): Promise<Post[]> {
   return fetchPostsWithData(seeds as unknown as Record<string, unknown>[])
 }
 
-// ── time ──────────────────────────────────────────────────────────────────────
 
-export function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (diff < 60)    return `${diff}s ago`
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
-}
