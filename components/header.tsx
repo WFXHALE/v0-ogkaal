@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X, Star } from "lucide-react"
@@ -33,25 +33,22 @@ function navClass(style: NavStyle): string {
   }
 }
 
+const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
+  { label: "Home",            href: "/",               style: "home" },
+  { label: "Mentorship",      href: "/mentorship",     style: "mentorship" },
+  { label: "VIP Group",       href: "/vip-group",      style: "vip" },
+  { label: "Trade Dashboard", href: "/trade-dashboard",style: "glitter" },
+  { label: "Intelligence",    href: "/intelligence",   style: "glitter" },
+  { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
+  { label: "Community",       href: "/community",      style: "community" },
+  { label: "Funded Tools",    href: "/funded-tools",   style: "glitter" },
+  { label: "Material",        href: "/material",       style: "glitter" },
+  { label: "FAQ",             href: "/faq",            style: "faq" },
+  { label: "Contact",         href: "/contact",        style: "contact" },
+]
+
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
-
-  const navItems: { label: string; href: string; style: NavStyle }[] = [
-    { label: "Home",            href: "/",               style: "home" },
-    { label: "Mentorship",      href: "/mentorship",     style: "mentorship" },
-    { label: "VIP Group",       href: "/vip-group",      style: "vip" },
-    { label: "Trade Dashboard", href: "/trade-dashboard",style: "glitter" },
-    { label: "Intelligence",    href: "/intelligence",   style: "glitter" },
-    { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
-    { label: "Community",       href: "/community",      style: "community" },
-    { label: "Funded Tools",    href: "/funded-tools",   style: "glitter" },
-    { label: "Material",        href: "/material",       style: "glitter" },
-    { label: "FAQ",             href: "/faq",            style: "faq" },
-    { label: "Contact",         href: "/contact",        style: "contact" },
-  ]
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
@@ -61,23 +58,19 @@ export function Header() {
             <Logo />
           </Link>
 
-          {/* Desktop nav — suppressed until mounted to prevent SSR/client mismatch */}
-          {mounted ? (
-            <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
-              {navItems.map((item) => (
-                <Link key={item.label} href={item.href} className={navClass(item.style)}>
-                  {item.style === "vip" && (
-                    <span className="absolute -top-1 -right-1 star-sparkle">
-                      <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
-                    </span>
-                  )}
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          ) : (
-            <div className="hidden lg:block flex-1 mx-4" />
-          )}
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
+            {NAV_ITEMS.map((item) => (
+              <Link key={item.label} href={item.href} className={navClass(item.style)}>
+                {item.style === "vip" && (
+                  <span className="absolute -top-1 -right-1 star-sparkle">
+                    <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
+                  </span>
+                )}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
 
           <div className="flex items-center gap-3">
             <button
@@ -94,7 +87,7 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border/50">
             <nav className="flex flex-col gap-2">
-              {navItems.map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
