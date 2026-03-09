@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server"
 
-// TwelveData batch quote — one API call for all symbols, conserves free tier credits
+// TwelveData batch quote — only Gold and DXY
 const SYMBOLS = [
   { td: "XAU/USD", symbol: "XAUUSD", name: "Gold",            metal: true  },
-  { td: "XAG/USD", symbol: "XAGUSD", name: "Silver",          metal: true  },
-  { td: "EUR/USD", symbol: "EURUSD", name: "EUR/USD",         metal: false },
-  { td: "GBP/USD", symbol: "GBPUSD", name: "GBP/USD",         metal: false },
-  { td: "USD/JPY", symbol: "USDJPY", name: "USD/JPY",         metal: false },
-  { td: "USD/INR", symbol: "USDINR", name: "USD/INR",         metal: false },
   { td: "DXY",     symbol: "DXY",    name: "US Dollar Index", metal: false },
 ]
 

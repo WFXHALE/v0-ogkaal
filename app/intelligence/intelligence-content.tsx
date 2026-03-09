@@ -138,15 +138,10 @@ interface EconomicEvent {
   previous: string
 }
 
-// Forex assets — order matches API response order
+// Forex assets — Gold and DXY only
 const FOREX_ASSETS = [
   { symbol: "XAUUSD", name: "Gold",            tvSymbol: "TVC:GOLD" },
-  { symbol: "XAGUSD", name: "Silver",          tvSymbol: "TVC:SILVER" },
-  { symbol: "EURUSD", name: "EUR/USD",         tvSymbol: "FX:EURUSD" },
-  { symbol: "GBPUSD", name: "GBP/USD",         tvSymbol: "FX:GBPUSD" },
-  { symbol: "USDJPY", name: "USD/JPY",         tvSymbol: "FX:USDJPY" },
-  { symbol: "USDINR", name: "USD/INR",         tvSymbol: "FX:USDINR" },
-  { symbol: "DXY",    name: "US Dollar Index", tvSymbol: "TVC:DXY" },
+  { symbol: "DXY",    name: "US Dollar Index", tvSymbol: "TVC:DXY"  },
 ]
 
 // Crypto assets (Top 10 by market cap)
@@ -186,11 +181,11 @@ export function IntelligenceContent() {
     { refreshInterval: 3000 }
   )
 
-  // Fetch forex data — 60s (exchangerate.host + metals.live rate-limit friendly)
+  // Fetch forex data — 15s refresh
   const { data: forexData, mutate: mutateForex, isValidating: forexLoading } = useSWR(
     activeTab === "forex" ? "/api/intelligence/forex" : null,
     fetcher,
-    { refreshInterval: 60000 }
+    { refreshInterval: 15000 }
   )
 
   // Fetch Indian market data — 30s
@@ -380,33 +375,45 @@ export function IntelligenceContent() {
               )}
             </div>
 
-            {/* Uniform card grid for all three tabs */}
+            {/* Card grid — 2 large cards for forex, compact grid for crypto/indian */}
             <div className={`grid gap-4 ${
-              activeTab === "crypto"
+              activeTab === "forex"
+                ? "grid-cols-1 sm:grid-cols-2"
+                : activeTab === "crypto"
                 ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
                 : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
             }`}>
               {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
                 <div
                   key={item.symbol}
-                  className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
+                  className={`rounded-xl bg-card border border-border hover:border-primary/50 transition-all ${
+                    activeTab === "forex" ? "p-8" : "p-4"
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-primary">{item.symbol}</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`font-semibold text-primary ${activeTab === "forex" ? "text-base" : "text-xs"}`}>
+                      {item.symbol}
+                    </span>
                     {item.isPositive ? (
-                      <ArrowUpRight className="w-4 h-4 text-green-500" />
+                      <ArrowUpRight className={activeTab === "forex" ? "w-6 h-6 text-green-500" : "w-4 h-4 text-green-500"} />
                     ) : (
-                      <ArrowDownRight className="w-4 h-4 text-red-500" />
+                      <ArrowDownRight className={activeTab === "forex" ? "w-6 h-6 text-red-500" : "w-4 h-4 text-red-500"} />
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">{item.name}</p>
-                  <p className="text-xl font-bold text-foreground">{item.price}</p>
+                  <p className={`text-muted-foreground mb-2 ${activeTab === "forex" ? "text-base" : "text-sm mb-1"}`}>
+                    {item.name}
+                  </p>
+                  <p className={`font-bold text-foreground ${activeTab === "forex" ? "text-4xl mb-4" : "text-xl mb-0"}`}>
+                    {item.price}
+                  </p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                    <p className={`font-medium ${item.isPositive ? "text-green-500" : "text-red-500"} ${
+                      activeTab === "forex" ? "text-xl" : "text-sm"
+                    }`}>
                       {item.change}
                     </p>
                     {item.bias && (
-                      <span className={`text-xs px-2 py-0.5 rounded ${
+                      <span className={`px-2 py-0.5 rounded ${activeTab === "forex" ? "text-sm" : "text-xs"} ${
                         item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
                         item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
                         "bg-muted text-muted-foreground"
@@ -420,12 +427,14 @@ export function IntelligenceContent() {
                   )}
                 </div>
               )) : (
-                Array.from({ length: activeTab === "crypto" ? 10 : 6 }).map((_, i) => (
-                  <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
-                    <div className="h-4 w-12 bg-muted rounded mb-2" />
-                    <div className="h-3 w-20 bg-muted rounded mb-2" />
-                    <div className="h-6 w-24 bg-muted rounded mb-1" />
-                    <div className="h-4 w-16 bg-muted rounded" />
+                Array.from({ length: activeTab === "forex" ? 2 : activeTab === "crypto" ? 10 : 2 }).map((_, i) => (
+                  <div key={i} className={`rounded-xl bg-card border border-border animate-pulse ${
+                    activeTab === "forex" ? "p-8" : "p-4"
+                  }`}>
+                    <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-5 w-20" : "h-4 w-12"}`} />
+                    <div className={`bg-muted rounded mb-3 ${activeTab === "forex" ? "h-4 w-32" : "h-3 w-20"}`} />
+                    <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-10 w-48" : "h-6 w-24"}`} />
+                    <div className={`bg-muted rounded ${activeTab === "forex" ? "h-6 w-24" : "h-4 w-16"}`} />
                   </div>
                 ))
               )}
