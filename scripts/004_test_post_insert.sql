@@ -10,7 +10,6 @@ INSERT INTO community_posts (
   type,
   content,
   is_admin_post,
-  likes,
   hashtags
 ) VALUES (
   'test_post_connection_check',
@@ -21,8 +20,7 @@ INSERT INTO community_posts (
   'post',
   'Supabase connection verified successfully from v0 project.',
   false,
-  '[]',
-  '["test","supabase"]'
+  '{"test","supabase"}'
 );
 
 -- Confirm it exists
