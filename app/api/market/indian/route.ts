@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 
-// Stooq: free, no API key, no rate-limit issues, covers Indian indices
-const STOOQ_INDICES = [
-  { symbol: "NIFTY50",   name: "NIFTY 50",   stooq: "^nf50.in"    },
-  { symbol: "BANKNIFTY", name: "Bank NIFTY", stooq: "^nsebank.in" },
+// TwelveData: NSE indices — NIFTY 50 (NIFTY) and Bank NIFTY (BANKNIFTY) on NSE exchange
+const INDICES = [
+  { td: "NIFTY",     exchange: "NSE", symbol: "NIFTY50",   name: "NIFTY 50"   },
+  { td: "BANKNIFTY", exchange: "NSE", symbol: "BANKNIFTY", name: "Bank NIFTY" },
 ]
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
@@ -12,43 +12,35 @@ function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   return "Neutral"
 }
 
-
-async function fetchStooq(stooqSymbol: string): Promise<{ price: number; open: number } | null> {
-  try {
-    // Stooq CSV endpoint: returns date,open,high,low,close,volume
-    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSymbol)}&f=sd2t2ohlcv&e=csv`
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 60 },
-    })
-    if (!res.ok) return null
-    const text = await res.text()
-    const lines = text.trim().split("\n")
-    if (lines.length < 2) return null
-    // Header: Symbol,Date,Time,Open,High,Low,Close,Volume
-    const cols = lines[1].split(",")
-    const open  = parseFloat(cols[3])
-    const close = parseFloat(cols[6])
-    if (!close || isNaN(close)) return null
-    return { price: close, open: isNaN(open) ? close : open }
-  } catch {
-    return null
-  }
-}
-
 export async function GET() {
-  try {
-    const stooqResults = await Promise.all(STOOQ_INDICES.map(i => fetchStooq(i.stooq)))
+  const apiKey = process.env.TWELVE_DATA_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ success: false, data: [], error: "TWELVE_DATA_API_KEY not set" }, { status: 500 })
+  }
 
-    const data = STOOQ_INDICES.map((idx, i) => {
-      const q = stooqResults[i]
-      if (!q) return null
-      const { price, open } = q
-      const changePct = open !== 0 ? ((price - open) / open) * 100 : 0
+  try {
+    // Batch quote: symbol:exchange format, comma-separated
+    const tickers = INDICES.map(i => `${i.td}:${i.exchange}`).join(",")
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(tickers)}&apikey=${apiKey}`
+
+    const res = await fetch(url, { next: { revalidate: 60 } })
+    if (!res.ok) throw new Error(`TwelveData responded ${res.status}`)
+
+    const json = await res.json()
+
+    const data = INDICES.map(idx => {
+      const key = `${idx.td}:${idx.exchange}`
+      const q = json[key] ?? json[idx.td] ?? {}
+      if (q.status === "error") return null
+
+      const price     = parseFloat(q.close ?? "0")
+      const changePct = parseFloat(q.percent_change ?? "0")
+      if (!price) return null
+
       return {
         symbol: idx.symbol,
-        name: idx.name,
-        price: `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        name:   idx.name,
+        price:  `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
         changePercent: `${Math.abs(changePct).toFixed(2)}%`,
         isPositive: changePct >= 0,
@@ -59,9 +51,6 @@ export async function GET() {
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
   } catch (err) {
     console.error("[indian market route]", err)
-    return NextResponse.json(
-      { success: false, data: [], error: "Failed to fetch Indian market data" },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, data: [], error: String(err) }, { status: 500 })
   }
 }

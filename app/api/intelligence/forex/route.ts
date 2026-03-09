@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server"
 
-// All 7 symbols fetched from Stooq — free, no API key, matches TradingView/interbank
-// Stooq CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
+// TwelveData batch quote — one API call for all symbols, conserves free tier credits
 const SYMBOLS = [
-  { stooq: "xauusd",   symbol: "XAUUSD", name: "Gold",            metal: true  },
-  { stooq: "xagusd",   symbol: "XAGUSD", name: "Silver",          metal: true  },
-  { stooq: "eurusd",   symbol: "EURUSD", name: "EUR/USD",         metal: false },
-  { stooq: "gbpusd",   symbol: "GBPUSD", name: "GBP/USD",         metal: false },
-  { stooq: "usdjpy",   symbol: "USDJPY", name: "USD/JPY",         metal: false },
-  { stooq: "usdinr",   symbol: "USDINR", name: "USD/INR",         metal: false },
-  { stooq: "dx-y.nyb", symbol: "DXY",   name: "US Dollar Index", metal: false },
+  { td: "XAU/USD", symbol: "XAUUSD", name: "Gold",            metal: true  },
+  { td: "XAG/USD", symbol: "XAGUSD", name: "Silver",          metal: true  },
+  { td: "EUR/USD", symbol: "EURUSD", name: "EUR/USD",         metal: false },
+  { td: "GBP/USD", symbol: "GBPUSD", name: "GBP/USD",         metal: false },
+  { td: "USD/JPY", symbol: "USDJPY", name: "USD/JPY",         metal: false },
+  { td: "USD/INR", symbol: "USDINR", name: "USD/INR",         metal: false },
+  { td: "DXY",     symbol: "DXY",    name: "US Dollar Index", metal: false },
 ]
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
@@ -25,37 +24,36 @@ function formatPrice(symbol: string, price: number, metal: boolean): string {
   return price.toFixed(2)
 }
 
-async function fetchStooq(stooq: string): Promise<{ price: number; open: number } | null> {
-  try {
-    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooq)}&f=sd2t2ohlcv&e=csv`
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 30 },
-    })
-    if (!res.ok) return null
-    const text = await res.text()
-    const lines = text.trim().split("\n")
-    if (lines.length < 2) return null
-    const cols  = lines[1].split(",")
-    // cols: Symbol, Date, Time, Open, High, Low, Close, Volume
-    const open  = parseFloat(cols[3])
-    const close = parseFloat(cols[6])
-    if (!close || isNaN(close) || close === 0) return null
-    return { price: close, open: isNaN(open) || open === 0 ? close : open }
-  } catch {
-    return null
-  }
-}
-
 export async function GET() {
-  try {
-    const results = await Promise.all(SYMBOLS.map(s => fetchStooq(s.stooq)))
+  const apiKey = process.env.TWELVE_DATA_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ success: false, data: [], error: "TWELVE_DATA_API_KEY not set" }, { status: 500 })
+  }
 
-    const data = SYMBOLS.map((s, i) => {
-      const q = results[i]
-      const price     = q?.price ?? 0
-      const open      = q?.open  ?? price
-      const changePct = open > 0 ? ((price - open) / open) * 100 : 0
+  try {
+    // /quote returns price, open, percent_change — one credit per symbol in batch
+    const tickers = SYMBOLS.map(s => s.td).join(",")
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(tickers)}&apikey=${apiKey}`
+
+    const res = await fetch(url, { next: { revalidate: 30 } })
+    if (!res.ok) throw new Error(`TwelveData responded ${res.status}`)
+
+    const json = await res.json()
+
+    // Single symbol returns the object directly; multiple symbols returns a keyed map
+    const isSingle = SYMBOLS.length === 1
+    const map: Record<string, { close?: string; open?: string; percent_change?: string; status?: string }> =
+      isSingle ? { [SYMBOLS[0].td]: json } : json
+
+    const data = SYMBOLS.map(s => {
+      const q = map[s.td] ?? {}
+      if (q.status === "error") return null
+
+      const price     = parseFloat(q.close ?? "0")
+      const open      = parseFloat(q.open  ?? "0")
+      const changePct = q.percent_change != null
+        ? parseFloat(q.percent_change)
+        : open > 0 ? ((price - open) / open) * 100 : 0
 
       return {
         symbol: s.symbol,
@@ -66,14 +64,11 @@ export async function GET() {
         isPositive: changePct >= 0,
         bias: bias(changePct),
       }
-    })
+    }).filter(Boolean)
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
   } catch (err) {
     console.error("[forex route]", err)
-    return NextResponse.json(
-      { success: false, data: [], error: String(err) },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, data: [], error: String(err) }, { status: 500 })
   }
 }
