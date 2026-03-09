@@ -15,8 +15,8 @@ const socialPlatforms = [
   {
     name: "Telegram",
     icon: Send,
-    username: "@OgKaalTrading",
-    url: "https://t.me/OgKaalTrading",
+    username: "@ogkaaltrading",
+    url: "https://t.me/ogkaaltrading",
     color: "bg-sky-500",
     hoverGlow: "hover:shadow-sky-500/20",
   },

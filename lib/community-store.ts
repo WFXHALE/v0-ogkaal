@@ -284,7 +284,7 @@ function seedPosts(): Post[] {
     users.unshift({
       id: ADMIN_ID,
       fullName: "Shahid Bashir",
-      email: "admin@ogkaaltrader.com",
+      email: "Swargakai@gmail.com",
       phone: "0000000000",
       level: "Master Trader",
       bio: "Founder of OG KAAL TRADER. Master Trader & Mentor.",
