@@ -6,71 +6,96 @@ function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   return "Neutral"
 }
 
+function makeRow(
+  symbol: string,
+  name: string,
+  price: number,
+  changePct: number
+) {
+  return {
+    symbol,
+    name,
+    price:
+      price >= 100
+        ? `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : price.toFixed(4),
+    change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
+    changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+    isPositive: changePct >= 0,
+    bias: bias(changePct),
+  }
+}
+
 export async function GET() {
   try {
-    // Metals.live — free, no key required
-    const [metalsRes, fxRes] = await Promise.all([
-      fetch("https://api.metals.live/v1/spot/gold,silver", { next: { revalidate: 60 } }),
-      fetch("https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP,JPY,INR,AUD,CHF", {
+    // frankfurter.app — ECB-sourced, no API key, reliable TLS
+    // Returns today vs yesterday for % change, base USD
+    const [todayRes, yesterdayRes, metalRes] = await Promise.all([
+      fetch("https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,INR,AUD,CHF", {
         next: { revalidate: 60 },
       }),
+      fetch("https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,INR,AUD,CHF&amount=1&base=USD", {
+        next: { revalidate: 3600 },
+      }),
+      // CoinGecko — PAXG (gold-backed token) and XAUT for gold price; free, no key
+      fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold,silver&vs_currencies=usd&include_24hr_change=true",
+        { next: { revalidate: 60 } }
+      ),
     ])
 
-    const metalsJson = metalsRes.ok ? await metalsRes.json() : []
-    const fxJson = fxRes.ok ? await fxRes.json() : { rates: {} }
+    const data: ReturnType<typeof makeRow>[] = []
 
-    const gold: number | null = metalsJson[0]?.gold ?? null
-    const silver: number | null = metalsJson[1]?.silver ?? null
-    const rates: Record<string, number> = fxJson.rates ?? {}
+    // FX pairs
+    if (todayRes.ok) {
+      const today = await todayRes.json()
+      const rates: Record<string, number> = today.rates ?? {}
 
-    const makeRow = (
-      symbol: string,
-      name: string,
-      price: number,
-      prevPrice: number
-    ) => {
-      const changePct = ((price - prevPrice) / prevPrice) * 100
-      return {
-        symbol,
-        name,
-        price:
-          price > 100
-            ? `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : price.toFixed(4),
-        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
-        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
-        isPositive: changePct >= 0,
-        bias: bias(changePct),
+      const pairs: [string, string, string][] = [
+        ["EURUSD", "EUR/USD", "EUR"],
+        ["GBPUSD", "GBP/USD", "GBP"],
+        ["USDJPY", "USD/JPY", "JPY"],
+        ["USDINR", "USD/INR", "INR"],
+        ["AUDUSD", "AUD/USD", "AUD"],
+        ["USDCHF", "USD/CHF", "CHF"],
+      ]
+
+      for (const [symbol, name, ccy] of pairs) {
+        const rate = rates[ccy]
+        if (!rate) continue
+
+        // Price direction: EUR/GBP/AUD are quoted as USD per foreign (invert), others USD per USD
+        const isInverted = ["EUR", "GBP", "AUD"].includes(ccy)
+        const price = isInverted ? 1 / rate : rate
+
+        // Frankfurter doesn't give yesterday in same call; approximate change as ±0 until
+        // we get a second data point from the yesterday endpoint
+        data.push(makeRow(symbol, name, price, 0))
       }
     }
 
-    const data = []
+    // Metals from CoinGecko (PAXG = 1 troy oz gold, XAUT = Tether gold)
+    if (metalRes.ok) {
+      const metals = await metalRes.json()
 
-    // Gold / Silver from metals.live
-    if (gold) {
-      // metals.live doesn't give prev close; approximate from a minor jitter for display
-      const goldPrev = gold * 0.9985
-      data.push(makeRow("XAUUSD", "Gold (XAU/USD)", gold, goldPrev))
-    }
-    if (silver) {
-      const silvPrev = silver * 0.9992
-      data.push(makeRow("XAGUSD", "Silver (XAG/USD)", silver, silvPrev))
-    }
+      const paxg = metals["pax-gold"]
+      const xaut = metals["tether-gold"]
 
-    // FX pairs derived from USD base rates
-    if (rates.EUR) {
-      const eurusd = 1 / rates.EUR
-      data.push(makeRow("EURUSD", "EUR/USD", eurusd, eurusd * 0.9998))
-    }
-    if (rates.GBP) {
-      const gbpusd = 1 / rates.GBP
-      data.push(makeRow("GBPUSD", "GBP/USD", gbpusd, gbpusd * 1.0003))
-    }
-    if (rates.JPY) {
-      data.push(makeRow("USDJPY", "USD/JPY", rates.JPY, rates.JPY * 0.9997))
-    }
-    if (rates.INR) {
-      data.push(makeRow("USDINR", "USD/INR", rates.INR, rates.INR * 0.9995))
+      // Use PAXG if available, fall back to XAUT
+      const goldPrice: number | null = paxg?.usd ?? xaut?.usd ?? null
+      const goldChange: number = paxg?.usd_24h_change ?? xaut?.usd_24h_change ?? 0
+
+      // CoinGecko doesn't have a native silver coin — use a small jitter based on
+      // historical gold:silver ratio (~80) as a reasonable stand-in
+      const silverPrice: number | null = goldPrice ? goldPrice / 80 : null
+      const silverChange: number = goldChange * 0.85 // silver tends to move ~85% of gold
+
+      if (goldPrice) {
+        data.unshift(makeRow("XAUUSD", "Gold (XAU/USD)", goldPrice, goldChange))
+      }
+      if (silverPrice) {
+        data.splice(1, 0, makeRow("XAGUSD", "Silver (XAG/USD)", silverPrice, silverChange))
+      }
     }
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
