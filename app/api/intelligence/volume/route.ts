@@ -25,59 +25,50 @@ function activity(ratio: number): "Very High" | "High" | "Normal" | "Low" {
 
 export async function GET() {
   try {
-    // Binance 24hr stats for each symbol individually (more reliable than bulk)
-    const binSymbols = SYMBOLS.map(s => `"${s.bin}"`).join(",")
-    const res = await fetch(
-      `https://api.binance.com/api/v3/ticker/24hr?symbols=[${binSymbols}]`,
-      { next: { revalidate: 10 } }
-    )
-    if (!res.ok) throw new Error("Binance 24hr failed")
-    const tickers: Array<{
-      symbol: string
-      quoteVolume: string
-      priceChangePercent: string
-      weightedAvgPrice: string
-      volume: string
-    }> = await res.json()
-
-    // Also fetch 7-day klines to compute a real average daily volume
-    const avgMap: Record<string, number> = {}
-    await Promise.all(
+    // Fetch each symbol individually — the batch `?symbols=[...]` endpoint is
+    // blocked by Binance when called from a server (no browser CORS headers).
+    const results = await Promise.all(
       SYMBOLS.map(async (s) => {
-        try {
-          const k = await fetch(
+        const [tickerRes, klinesRes] = await Promise.all([
+          fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s.bin}`, {
+            next: { revalidate: 10 },
+          }),
+          fetch(
             `https://api.binance.com/api/v3/klines?symbol=${s.bin}&interval=1d&limit=7`,
             { next: { revalidate: 300 } }
-          )
-          if (!k.ok) return
-          const klines: Array<[string, string, string, string, string, string, string, string]> = await k.json()
-          // klines[i][7] is quote asset volume
+          ),
+        ])
+
+        if (!tickerRes.ok) throw new Error(`Binance ticker failed for ${s.bin}`)
+        const t: {
+          quoteVolume: string
+          priceChangePercent: string
+        } = await tickerRes.json()
+
+        const vol24 = parseFloat(t.quoteVolume)
+        const changePct = parseFloat(t.priceChangePercent)
+
+        let avg = vol24 * 0.9
+        if (klinesRes.ok) {
+          const klines: string[][] = await klinesRes.json()
           const total = klines.reduce((acc, row) => acc + parseFloat(row[7]), 0)
-          avgMap[s.bin] = total / klines.length
-        } catch {
-          // leave undefined — will fall back to 90% of current
+          avg = total / klines.length
+        }
+
+        const ratio = avg > 0 ? vol24 / avg : 1
+        return {
+          symbol: s.symbol,
+          name: s.name,
+          volume24h: fmt(vol24),
+          volumeChange: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(1)}%`,
+          isIncreasing: changePct >= 0,
+          avgVolume: fmt(avg),
+          activity: activity(ratio),
         }
       })
     )
 
-    const data = tickers.map((t) => {
-      const s = SYMBOLS.find(x => x.bin === t.symbol)!
-      const vol24 = parseFloat(t.quoteVolume)
-      const avg = avgMap[t.bin] ?? vol24 * 0.9
-      const ratio = avg > 0 ? vol24 / avg : 1
-      const changePct = parseFloat(t.priceChangePercent)
-      return {
-        symbol: s.symbol,
-        name: s.name,
-        volume24h: fmt(vol24),
-        volumeChange: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(1)}%`,
-        isIncreasing: changePct >= 0,
-        avgVolume: fmt(avg),
-        activity: activity(ratio),
-      }
-    })
-
-    return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
+    return NextResponse.json({ success: true, data: results, timestamp: new Date().toISOString() })
   } catch (err) {
     console.error("[volume route]", err)
     return NextResponse.json({ success: false, data: [], error: "Volume fetch failed" }, { status: 500 })
