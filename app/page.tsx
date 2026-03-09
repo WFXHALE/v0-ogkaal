@@ -1,10 +1,9 @@
 import { Header } from "@/components/header"
 import { HeroSection } from "@/components/hero-section"
-import { AboutSection } from "@/components/about-section"
 import { WhatYouLearnSection } from "@/components/what-you-learn-section"
 import { MentorshipProgramSection } from "@/components/mentorship-program-section"
+import { GoldTicker } from "@/components/gold-ticker"
 import { NavigationCardsSection } from "@/components/navigation-cards-section"
-import { MarketOverview } from "@/components/market-overview"
 import { ContactSection } from "@/components/contact-section"
 import { SocialMediaSection } from "@/components/social-media-section"
 import { FaqSection } from "@/components/faq-section"
@@ -16,13 +15,10 @@ export default function Home() {
       <Header />
       <main className="flex-1">
         <HeroSection />
-        <AboutSection />
         <WhatYouLearnSection />
         <MentorshipProgramSection />
+        <GoldTicker />
         <NavigationCardsSection />
-        <div id="market-overview">
-          <MarketOverview />
-        </div>
         <ContactSection />
         <SocialMediaSection />
         <FaqSection />
