@@ -186,8 +186,8 @@ export default function UsdtP2PPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      {/* Scrolling Notice Ticker */}
-      <div className="w-full bg-[#0B0E11] border-b border-[#FCD535]/20 overflow-hidden py-2.5" style={{ marginTop: "80px" }}>
+      {/* Scrolling Notice Ticker — mt-20 to sit directly under the fixed header */}
+      <div className="mt-20 w-full bg-[#0B0E11] border-b border-[#FCD535]/20 overflow-hidden py-2.5">
         <div className="flex whitespace-nowrap" style={{ animation: "ticker-scroll 35s linear infinite" }}>
           {[0, 1].map((i) => (
             <span key={i} className="inline-flex items-center gap-2 px-8 text-sm text-muted-foreground shrink-0">
