@@ -39,7 +39,7 @@ export default function VipGroupPage() {
     },
     {
       title: "XM New User",
-      price: "Varies",
+      price: "₹3500 / $40",
       description: "For new XM users",
       requirements: "Create XM account using partner link, deposit minimum $50.",
       highlight: true,
@@ -48,7 +48,7 @@ export default function VipGroupPage() {
     },
     {
       title: "Funded Account User",
-      price: "From ₹2,500",
+      price: "₹4500 / $50",
       description: "For funded traders",
       requirements: "For traders using funded accounts. Select your account size.",
       highlight: false,

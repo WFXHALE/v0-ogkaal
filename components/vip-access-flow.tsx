@@ -40,17 +40,45 @@ const PAYMENT_DETAILS = {
   },
 }
 
-// Fixed price for XM Existing & New User flows
-const FIXED_PRICE = "₹2500 / $30"
+const PRICES = {
+  existing: "₹2500 / $30",
+  new: "₹3500 / $40",
+  funded: "₹4500 / $50",
+}
+
+const CRYPTO_OPTIONS = [
+  {
+    key: "bep20",
+    label: "USDT BEP20",
+    network: "BEP20",
+    address: "0xa1540bccbe530fcc92a2b31db5795394053fdad7",
+    isBinance: false,
+  },
+  {
+    key: "trc20",
+    label: "USDT TRC20",
+    network: "TRC20",
+    address: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF",
+    isBinance: false,
+  },
+  {
+    key: "binance",
+    label: "Binance ID Transfer",
+    network: "Binance",
+    address: "1125271626",
+    isBinance: true,
+  },
+]
 
 type CardType = "existing" | "new" | "funded" | null
 type FlowStep = "card-selection" | "xm-form" | "payment" | "contact" | "success"
 
 const FUNDED_ACCOUNT_SIZES = [
-  { value: "10000", label: "$10,000", price: "₹2,500" },
-  { value: "25000", label: "$25,000", price: "₹5,000" },
-  { value: "50000", label: "$50,000", price: "₹8,000" },
-  { value: "100000", label: "$100,000", price: "₹12,000" },
+  { value: "10000", label: "$10,000" },
+  { value: "25000", label: "$25,000" },
+  { value: "50000", label: "$50,000" },
+  { value: "100000", label: "$100,000" },
+  { value: "200000", label: "$200,000" },
 ]
 
 interface VipAccessFlowProps {
@@ -73,6 +101,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
   const [fundedAccountSize, setFundedAccountSize] = useState("")
 
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "imps" | "crypto" | null>(null)
+  const [cryptoOption, setCryptoOption] = useState<string | null>(null)
+  const [copiedCrypto, setCopiedCrypto] = useState(false)
   const [paymentData, setPaymentData] = useState({
     screenshot: null as File | null,
     utr: "",
@@ -97,6 +127,12 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     navigator.clipboard.writeText(value)
     setCopiedImpsField(key)
     setTimeout(() => setCopiedImpsField(null), 2000)
+  }
+
+  const handleCopyCrypto = (address: string) => {
+    navigator.clipboard.writeText(address)
+    setCopiedCrypto(true)
+    setTimeout(() => setCopiedCrypto(false), 2000)
   }
 
   const handleExistingUserClick = () => {
@@ -162,6 +198,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     setXmFormData({ traderId: "", depositScreenshot: null })
     setFundedAccountSize("")
     setPaymentMethod(null)
+    setCryptoOption(null)
+    setCopiedCrypto(false)
     setPaymentData({ screenshot: null, utr: "" })
     setContactData({ telegramId: "", instagramId: "", phoneNumber: "" })
     setCopiedUpi(false)
@@ -183,14 +221,14 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const getTotalSteps = () => 4
 
-  const getSelectedAccountPrice = () => {
-    const account = FUNDED_ACCOUNT_SIZES.find((a) => a.value === fundedAccountSize)
-    return account?.price || ""
+  const getPaymentPrice = () => {
+    if (!cardType) return ""
+    return PRICES[cardType]
   }
 
   const isPaymentValid = () => {
     if (!paymentMethod || !paymentData.screenshot) return false
-    if (paymentMethod === "crypto") return true
+    if (paymentMethod === "crypto") return !!cryptoOption
     return !!paymentData.utr
   }
 
@@ -264,7 +302,10 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">XM New User</span>
-                    <ExternalLink className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-primary">{PRICES.new}</span>
+                      <ExternalLink className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">Create a new XM account using our partner link</p>
                   <span className="inline-block px-2 py-0.5 rounded bg-primary/20 text-xs text-primary font-medium">
@@ -278,7 +319,10 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">Funded Account User</span>
-                    <Wallet className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-primary">{PRICES.funded}</span>
+                      <Wallet className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground">For traders using funded accounts</p>
                 </button>
@@ -402,7 +446,11 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
             <div>
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2">Select Account Size</h2>
-                <p className="text-muted-foreground">Choose your funded account size</p>
+                <p className="text-muted-foreground mb-3">Choose your funded account size</p>
+                <div className="inline-block px-5 py-2 rounded-xl bg-primary/10 border border-primary/30">
+                  <span className="text-lg font-bold text-primary">{PRICES.funded}</span>
+                  <span className="text-sm text-muted-foreground ml-2">flat fee</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-6">
@@ -417,7 +465,6 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                     }`}
                   >
                     <div className="text-lg font-bold text-foreground">{size.label}</div>
-                    <div className="text-sm text-primary font-medium">{size.price}</div>
                   </button>
                 ))}
               </div>
@@ -450,9 +497,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 <h2 className="text-2xl font-bold text-foreground mb-1">Payment</h2>
                 <p className="text-muted-foreground mb-2">Complete your payment to proceed</p>
                 <div className="inline-block px-6 py-2 rounded-xl bg-primary/10 border border-primary/30">
-                  <span className="text-xl font-bold text-primary">
-                    {cardType === "funded" ? getSelectedAccountPrice() : FIXED_PRICE}
-                  </span>
+                  <span className="text-xl font-bold text-primary">{getPaymentPrice()}</span>
                 </div>
               </div>
 
@@ -554,12 +599,65 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <Bitcoin className="w-5 h-5 text-primary" />
-                    <p className="text-sm font-medium text-foreground">Crypto Payment</p>
+                    <p className="text-sm font-medium text-foreground">Choose one payment method</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Contact us on Telegram to get the crypto wallet address and payment instructions
-                    before uploading your screenshot.
-                  </p>
+
+                  {/* Crypto sub-option buttons */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {CRYPTO_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => { setCryptoOption(opt.key); setCopiedCrypto(false) }}
+                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all text-center ${
+                          cryptoOption === opt.key
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border/50 hover:border-primary/50 text-muted-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Wallet / ID display */}
+                  {cryptoOption && (() => {
+                    const opt = CRYPTO_OPTIONS.find(o => o.key === cryptoOption)!
+                    return (
+                      <div className="p-4 rounded-xl bg-background border border-border space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Network</span>
+                          <span className="text-sm font-bold text-primary">{opt.network}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block mb-1">
+                            {opt.isBinance ? "Binance UID" : "Wallet Address"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 text-xs font-mono text-foreground bg-secondary px-3 py-2 rounded-lg break-all">
+                              {opt.address}
+                            </code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopyCrypto(opt.address)}
+                              className="shrink-0"
+                            >
+                              {copiedCrypto ? (
+                                <Check className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        {opt.isBinance && (
+                          <p className="text-xs text-muted-foreground">
+                            Send USDT using Binance Pay or internal Binance transfer.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 
@@ -721,16 +819,16 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
               <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-500" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Request Submitted!</h2>
-              <div className="p-5 rounded-xl bg-secondary/50 border border-border text-left space-y-2 mb-8 max-w-md mx-auto">
-                <p className="text-foreground text-sm">
-                  Your request has been submitted successfully.
+              <h2 className="text-2xl font-bold text-foreground mb-4">Payment Submitted!</h2>
+              <div className="p-5 rounded-xl bg-secondary/50 border border-border text-center space-y-2 mb-8 max-w-md mx-auto">
+                <p className="text-foreground text-sm font-medium">
+                  Payment submitted successfully.
                 </p>
-                <p className="text-foreground text-sm">
-                  Our team will verify your Trader ID and payment.
+                <p className="text-muted-foreground text-sm">
+                  Please wait while our team reviews your submission.
                 </p>
-                <p className="text-foreground text-sm">
-                  You will be added shortly after verification.
+                <p className="text-muted-foreground text-sm">
+                  You will be added shortly after confirmation.
                 </p>
               </div>
               <Button
