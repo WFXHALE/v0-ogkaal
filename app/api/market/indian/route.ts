@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server"
 
 // Stooq: free, no API key, no rate-limit issues, covers Indian indices
-// Symbols: ^NF50.IN=NIFTY50, ^BSESN=SENSEX, ^NSEBANK=BankNIFTY, ^NSEFIN15=FinNIFTY
-// USD/INR: fetched from Frankfurter (same source as forex route)
 const STOOQ_INDICES = [
-  { symbol: "NIFTY50",    name: "NIFTY 50",    stooq: "^nf50.in"   },
-  { symbol: "BANKNIFTY",  name: "Bank NIFTY",  stooq: "^nsebank.in"},
-  { symbol: "SENSEX",     name: "BSE SENSEX",  stooq: "^bsesn.in"  },
-  { symbol: "MIDCPNIFTY", name: "Midcap NIFTY",stooq: "^nf150.in"  },
+  { symbol: "NIFTY50",   name: "NIFTY 50",   stooq: "^nf50.in"    },
+  { symbol: "BANKNIFTY", name: "Bank NIFTY", stooq: "^nsebank.in" },
 ]
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
@@ -16,13 +12,6 @@ function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   return "Neutral"
 }
 
-function prevWorkday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  if (d.getUTCDay() === 0) d.setDate(d.getDate() - 2)
-  if (d.getUTCDay() === 6) d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
-}
 
 async function fetchStooq(stooqSymbol: string): Promise<{ price: number; open: number } | null> {
   try {
@@ -49,24 +38,14 @@ async function fetchStooq(stooqSymbol: string): Promise<{ price: number; open: n
 
 export async function GET() {
   try {
-    const yesterday = prevWorkday()
+    const stooqResults = await Promise.all(STOOQ_INDICES.map(i => fetchStooq(i.stooq)))
 
-    const [stooqResults, fxToday, fxPrev] = await Promise.all([
-      Promise.all(STOOQ_INDICES.map(i => fetchStooq(i.stooq))),
-      fetch(`https://api.frankfurter.app/latest?from=USD&to=INR`, { next: { revalidate: 60 } }),
-      fetch(`https://api.frankfurter.app/${yesterday}?from=USD&to=INR`, { next: { revalidate: 3600 } }),
-    ])
-
-    const data = []
-
-    // Indian indices
-    for (let i = 0; i < STOOQ_INDICES.length; i++) {
-      const idx = STOOQ_INDICES[i]
+    const data = STOOQ_INDICES.map((idx, i) => {
       const q = stooqResults[i]
-      if (!q) continue
+      if (!q) return null
       const { price, open } = q
       const changePct = open !== 0 ? ((price - open) / open) * 100 : 0
-      data.push({
+      return {
         symbol: idx.symbol,
         name: idx.name,
         price: `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -74,31 +53,8 @@ export async function GET() {
         changePercent: `${Math.abs(changePct).toFixed(2)}%`,
         isPositive: changePct >= 0,
         bias: bias(changePct),
-      })
-    }
-
-    // USD/INR from Frankfurter
-    if (fxToday.ok) {
-      const today = await fxToday.json()
-      const inrRate: number = today.rates?.INR ?? 0
-      let changePct = 0
-      if (fxPrev.ok) {
-        const prev = await fxPrev.json()
-        const prevRate: number = prev.rates?.INR ?? inrRate
-        changePct = prevRate !== 0 ? ((inrRate - prevRate) / prevRate) * 100 : 0
       }
-      if (inrRate > 0) {
-        data.push({
-          symbol: "USDINR",
-          name: "USD/INR",
-          price: `₹${inrRate.toFixed(4)}`,
-          change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
-          changePercent: `${Math.abs(changePct).toFixed(2)}%`,
-          isPositive: changePct >= 0,
-          bias: bias(changePct),
-        })
-      }
-    }
+    }).filter(Boolean)
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
   } catch (err) {

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server"
 
-// Sources:
-//  - Metals (XAUUSD, XAGUSD): Binance spot — XAUUSDT / XAGUSDT (no key, no rate limit)
-//  - FX pairs + DXY:          Frankfurter (ECB data, no key) + yesterday for change%
-//  - DXY:                     Computed via ICE formula using EUR, JPY, GBP, CHF
+// All 7 symbols fetched from Stooq — free, no API key, matches TradingView/interbank
+// Stooq CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
+const SYMBOLS = [
+  { stooq: "xauusd",   symbol: "XAUUSD", name: "Gold",            metal: true  },
+  { stooq: "xagusd",   symbol: "XAGUSD", name: "Silver",          metal: true  },
+  { stooq: "eurusd",   symbol: "EURUSD", name: "EUR/USD",         metal: false },
+  { stooq: "gbpusd",   symbol: "GBPUSD", name: "GBP/USD",         metal: false },
+  { stooq: "usdjpy",   symbol: "USDJPY", name: "USD/JPY",         metal: false },
+  { stooq: "usdinr",   symbol: "USDINR", name: "USD/INR",         metal: false },
+  { stooq: "dx-y.nyb", symbol: "DXY",   name: "US Dollar Index", metal: false },
+]
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   if (pct > 0.1) return "Bullish"
@@ -11,120 +18,55 @@ function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   return "Neutral"
 }
 
-function fmtFx(symbol: string, price: number): string {
-  if (["EURUSD", "GBPUSD"].includes(symbol)) return price.toFixed(5)
+function formatPrice(symbol: string, price: number, metal: boolean): string {
+  if (metal) return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (symbol === "EURUSD" || symbol === "GBPUSD") return price.toFixed(5)
   if (symbol === "USDJPY") return price.toFixed(3)
-  if (symbol === "USDINR") return price.toFixed(2)
-  if (symbol === "DXY")    return price.toFixed(2)
   return price.toFixed(2)
 }
 
-function fmtMetal(price: number): string {
-  return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function makeRow(symbol: string, name: string, price: number, changePct: number, isMetal = false) {
-  return {
-    symbol,
-    name,
-    price:  price > 0 ? (isMetal ? fmtMetal(price) : fmtFx(symbol, price)) : "-",
-    change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
-    changePercent: `${Math.abs(changePct).toFixed(2)}%`,
-    isPositive: changePct >= 0,
-    bias: bias(changePct),
+async function fetchStooq(stooq: string): Promise<{ price: number; open: number } | null> {
+  try {
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooq)}&f=sd2t2ohlcv&e=csv`
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 30 },
+    })
+    if (!res.ok) return null
+    const text = await res.text()
+    const lines = text.trim().split("\n")
+    if (lines.length < 2) return null
+    const cols  = lines[1].split(",")
+    // cols: Symbol, Date, Time, Open, High, Low, Close, Volume
+    const open  = parseFloat(cols[3])
+    const close = parseFloat(cols[6])
+    if (!close || isNaN(close) || close === 0) return null
+    return { price: close, open: isNaN(open) || open === 0 ? close : open }
+  } catch {
+    return null
   }
-}
-
-function prevWorkday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  if (d.getUTCDay() === 0) d.setDate(d.getDate() - 2)
-  if (d.getUTCDay() === 6) d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
 }
 
 export async function GET() {
   try {
-    const yesterday = prevWorkday()
+    const results = await Promise.all(SYMBOLS.map(s => fetchStooq(s.stooq)))
 
-    const [todayRes, prevRes, xauRes, xagRes] = await Promise.all([
-      fetch("https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,INR,CHF", {
-        next: { revalidate: 60 },
-      }),
-      fetch(`https://api.frankfurter.app/${yesterday}?from=USD&to=EUR,GBP,JPY,INR,CHF`, {
-        next: { revalidate: 3600 },
-      }),
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=XAUUSDT", {
-        next: { revalidate: 30 },
-      }),
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=XAGUSDT", {
-        next: { revalidate: 30 },
-      }),
-    ])
+    const data = SYMBOLS.map((s, i) => {
+      const q = results[i]
+      const price     = q?.price ?? 0
+      const open      = q?.open  ?? price
+      const changePct = open > 0 ? ((price - open) / open) * 100 : 0
 
-    const data: ReturnType<typeof makeRow>[] = []
-
-    // ── Metals (Binance spot) ────────────────────────────────────────────────
-    if (xauRes.ok) {
-      const t = await xauRes.json()
-      const price     = parseFloat(t.lastPrice ?? "0")
-      const changePct = parseFloat(t.priceChangePercent ?? "0")
-      if (price > 0) data.push(makeRow("XAUUSD", "Gold",   price, changePct, true))
-    }
-
-    if (xagRes.ok) {
-      const t = await xagRes.json()
-      const price     = parseFloat(t.lastPrice ?? "0")
-      const changePct = parseFloat(t.priceChangePercent ?? "0")
-      if (price > 0) data.push(makeRow("XAGUSD", "Silver", price, changePct, true))
-    }
-
-    // ── FX pairs (Frankfurter) ────────────────────────────────────────────────
-    if (todayRes.ok) {
-      const today = await todayRes.json()
-      const r: Record<string, number>  = today.rates ?? {}
-      let p: Record<string, number>    = {}
-      if (prevRes.ok) {
-        const prev = await prevRes.json()
-        p = prev.rates ?? {}
+      return {
+        symbol: s.symbol,
+        name:   s.name,
+        price:  price > 0 ? formatPrice(s.symbol, price, s.metal) : "-",
+        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
+        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+        isPositive: changePct >= 0,
+        bias: bias(changePct),
       }
-
-      const pairs: [string, string, string, boolean][] = [
-        ["EURUSD", "EUR/USD", "EUR", true ],  // invert: USD per EUR
-        ["GBPUSD", "GBP/USD", "GBP", true ],
-        ["USDJPY", "USD/JPY", "JPY", false],  // direct: JPY per USD
-        ["USDINR", "USD/INR", "INR", false],
-      ]
-
-      for (const [symbol, name, ccy, invert] of pairs) {
-        const rate = r[ccy]
-        if (!rate) continue
-        const price     = invert ? 1 / rate : rate
-        const prevRate  = p[ccy]
-        const prevPrice = prevRate ? (invert ? 1 / prevRate : prevRate) : price
-        const changePct = prevPrice !== 0 ? ((price - prevPrice) / prevPrice) * 100 : 0
-        data.push(makeRow(symbol, name, price, changePct))
-      }
-
-      // DXY via ICE official formula:
-      // 50.14348112 × EURUSD^-0.576 × USDJPY^0.136 × GBPUSD^-0.119 × USDCHF^0.036
-      // (USDCAD^0.091 and USDSEK^0.042 omitted — Frankfurter provides SEK via EUR cross)
-      const eur = r["EUR"] ? 1 / r["EUR"] : null
-      const jpy = r["JPY"] ?? null
-      const gbp = r["GBP"] ? 1 / r["GBP"] : null
-      const chf = r["CHF"] ?? null
-      const pe  = p["EUR"] ? 1 / p["EUR"] : eur
-      const pj  = p["JPY"] ?? jpy
-      const pg  = p["GBP"] ? 1 / p["GBP"] : gbp
-      const pc  = p["CHF"] ?? chf
-
-      if (eur && jpy && gbp && chf && pe && pj && pg && pc) {
-        const dxyCur  = 50.14348112 * Math.pow(eur,-0.576) * Math.pow(jpy,0.136) * Math.pow(gbp,-0.119) * Math.pow(chf,0.036)
-        const dxyPrev = 50.14348112 * Math.pow(pe, -0.576) * Math.pow(pj, 0.136) * Math.pow(pg, -0.119) * Math.pow(pc, 0.036)
-        const dxyChg  = dxyPrev !== 0 ? ((dxyCur - dxyPrev) / dxyPrev) * 100 : 0
-        data.push(makeRow("DXY", "US Dollar Index", dxyCur, dxyChg))
-      }
-    }
+    })
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
   } catch (err) {

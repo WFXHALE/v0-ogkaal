@@ -163,12 +163,10 @@ const CRYPTO_ASSETS = [
   { symbol: "LINK", name: "Chainlink", binanceSymbol: "LINKUSDT" },
 ]
 
-// Indian indices
+// Indian indices — only NIFTY 50 and Bank NIFTY
 const INDIAN_INDICES = [
-  { symbol: "NIFTY", name: "NIFTY 50", tvSymbol: "NSE:NIFTY" },
+  { symbol: "NIFTY50",   name: "NIFTY 50",   tvSymbol: "NSE:NIFTY"     },
   { symbol: "BANKNIFTY", name: "Bank NIFTY", tvSymbol: "NSE:BANKNIFTY" },
-  { symbol: "SENSEX", name: "BSE SENSEX", tvSymbol: "BSE:SENSEX" },
-  { symbol: "FINNIFTY", name: "Fin NIFTY", tvSymbol: "NSE:FINNIFTY" },
 ]
 
 export function IntelligenceContent() {
