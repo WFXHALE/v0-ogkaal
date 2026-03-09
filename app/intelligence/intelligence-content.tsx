@@ -174,8 +174,10 @@ const INDIAN_INDICES = [
 export function IntelligenceContent() {
   const [activeTab, setActiveTab] = useState<Tab>("forex")
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     setLastRefresh(new Date())
   }, [])
 
@@ -235,27 +237,11 @@ export function IntelligenceContent() {
     }
   }).filter(Boolean) as MarketAsset[] : []
 
-  // Process forex data
-  const forexAssets: MarketAsset[] = forexData?.data || FOREX_ASSETS.map(asset => ({
-    symbol: asset.symbol,
-    name: asset.name,
-    price: "-",
-    change: "-",
-    changePercent: "-",
-    isPositive: true,
-    bias: "Neutral" as const,
-  }))
+  // Process forex data — empty until mounted to prevent SSR/client order mismatch
+  const forexAssets: MarketAsset[] = mounted ? (forexData?.data || []) : []
 
-  // Process Indian data
-  const indianAssets: MarketAsset[] = indianData?.data || INDIAN_INDICES.map(idx => ({
-    symbol: idx.symbol,
-    name: idx.name,
-    price: "-",
-    change: "-",
-    changePercent: "-",
-    isPositive: true,
-    bias: "Neutral" as const,
-  }))
+  // Process Indian data — empty until mounted to prevent SSR/client order mismatch
+  const indianAssets: MarketAsset[] = mounted ? (indianData?.data || []) : []
 
   const news: NewsItem[] = newsData?.data || []
   const calendar: EconomicEvent[] = calendarData?.data || []
