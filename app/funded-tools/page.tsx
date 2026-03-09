@@ -4,6 +4,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { TradingCalculators } from "@/components/trading-calculators"
+import { ConsistencyCalculator } from "@/components/consistency-calculator"
 import { ConsistencyRuleCalculator } from "@/components/consistency-rule-calculator"
 import { MarketFundamentals } from "@/components/market-fundamentals"
 import { useState, useEffect } from "react"
@@ -607,6 +608,9 @@ export default function FundedToolsPage() {
 
           {/* Trading Calculators */}
           <TradingCalculators />
+
+          {/* Consistency Calculator */}
+          <ConsistencyCalculator />
 
           {/* Consistency Rule Calculator */}
           <ConsistencyRuleCalculator />
