@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ChevronDown, HelpCircle } from "lucide-react"
-import { faqs } from "@/app/faq/page"
+import { faqs } from "@/lib/faq-data"
 
 export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
