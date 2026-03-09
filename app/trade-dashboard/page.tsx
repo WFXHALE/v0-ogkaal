@@ -61,8 +61,6 @@ interface AccountInfo {
   isManualMode: boolean
 }
 
-type TradePlatform = "MT4" | "MT5" | "cTrader" | "DXTrade" | "Match-Trader" | "TradeLocker" | "Other"
-
 interface ConnectionSettings {
   platform: TradePlatform
   firmSearch: string
@@ -81,26 +79,30 @@ interface BrokerServer {
 }
 
 const FUNDED_SERVERS: BrokerServer[] = [
-  { firm: "FTMO", platform: "both", servers: ["FTMO-Server", "FTMO-Server2", "FTMO-Demo", "FTMO-Live"] },
-  { firm: "FundedNext", platform: "both", servers: ["FundedNext-Server", "FundedNext-Live", "FundedNext-Demo", "FundedNext-MT4-Live"] },
-  { firm: "E8 Markets", platform: "both", servers: ["E8-Live", "E8-Demo", "E8Markets-Live", "E8Markets-Demo"] },
-  { firm: "The 5%ers", platform: "MT5", servers: ["The5ers-Server", "The5ers-Live", "FivePercentOnline-Server"] },
-  { firm: "Funding Pips", platform: "MT5", servers: ["FundingPips-Live", "FundingPips-Demo", "FundingPips-Server"] },
-  { firm: "Alpha Capital", platform: "both", servers: ["AlphaCapitalGroup-Live", "AlphaCapitalGroup-Demo"] },
-  { firm: "Goat Funded Trader", platform: "MT5", servers: ["GoatFundedTrader-Live", "GoatFundedTrader-Demo"] },
-  { firm: "Blueberry Funded", platform: "both", servers: ["BlueberryMarkets-Live", "BlueberryMarkets-Demo", "BlueberryFunded-Server"] },
-  { firm: "Maven Trading", platform: "MT5", servers: ["MavenTrading-Live", "MavenTrading-Demo"] },
-  { firm: "Finotive Funding", platform: "MT5", servers: ["FinotiveFunding-Live", "FinotiveFunding-Demo"] },
+  // ── Top prop firms ────────────────────────────────────────────────────────
+  { firm: "FTMO", platform: "both", servers: ["FTMO-Server", "FTMO-Server2", "FTMO-Server3", "FTMO-Server4", "FTMO-Demo", "FTMO-Live"] },
+  { firm: "FundedNext", platform: "both", servers: ["FundedNext-Server", "FundedNext-Live", "FundedNext-Demo", "FundedNext-MT5", "FundedNext-MT4-Live"] },
+  { firm: "Funding Pips", platform: "MT5", servers: ["FundingPips-Live", "FundingPips-Demo", "FundingPips-MT5", "FundingPips-Server"] },
+  { firm: "E8 Markets", platform: "both", servers: ["E8Markets-Live", "E8Markets-Demo", "E8Markets-MT5", "E8Markets-Server"] },
+  { firm: "The 5%ers", platform: "MT5", servers: ["The5ers-Live", "The5ers-Demo", "The5ers-MT5", "FivePercentOnline-Server"] },
+  { firm: "Alpha Capital", platform: "both", servers: ["AlphaCapital-Live", "AlphaCapital-Demo", "AlphaCapital-MT5", "AlphaCapital-Server"] },
+  { firm: "Goat Funded Trader", platform: "MT5", servers: ["GoatFunded-Live", "GoatFunded-Demo", "GoatFunded-MT5", "GoatFunded-Server"] },
+  { firm: "Maven Trading", platform: "MT5", servers: ["MavenTrading-Live", "MavenTrading-Demo", "MavenTrading-MT5"] },
+  { firm: "Finotive Funding", platform: "MT5", servers: ["Finotive-Live", "Finotive-Demo", "Finotive-MT5"] },
   { firm: "QT Funded", platform: "MT5", servers: ["QTFunded-Live", "QTFunded-Demo"] },
   { firm: "Aqua Funded", platform: "MT5", servers: ["AquaFunded-Live", "AquaFunded-Demo"] },
   { firm: "Top One Trader", platform: "MT5", servers: ["TopOneTrader-Live", "TopOneTrader-Demo"] },
   { firm: "Funded Elite", platform: "MT5", servers: ["FundedElite-Live", "FundedElite-Demo"] },
   { firm: "BrightFunded", platform: "MT5", servers: ["BrightFunded-Live", "BrightFunded-Demo"] },
-  { firm: "For Traders", platform: "both", servers: ["ForTraders-Server", "ForTraders-Live", "ForTraders-Demo"] },
-  { firm: "Breakout", platform: "MT5", servers: ["BreakoutFunding-Live", "BreakoutFunding-Demo"] },
+  { firm: "Blueberry Funded", platform: "both", servers: ["BlueberryFunded-Live", "BlueberryFunded-Demo", "BlueberryMarkets-Live", "BlueberryMarkets-Demo"] },
+  { firm: "For Traders", platform: "both", servers: ["ForTraders-Live", "ForTraders-Demo"] },
+  { firm: "Breakout", platform: "MT5", servers: ["Breakout-Live", "Breakout-Demo"] },
   { firm: "Think Capital", platform: "MT5", servers: ["ThinkCapital-Live", "ThinkCapital-Demo"] },
-  { firm: "Pipstone Capital", platform: "MT5", servers: ["PipstoneCapital-Live", "PipstoneCapital-Demo"] },
-  { firm: "Kelvero Funding", platform: "MT5", servers: ["KelveroFunding-Live", "KelveroFunding-Demo"] },
+  { firm: "Pipstone Capital", platform: "MT5", servers: ["Pipstone-Live", "Pipstone-Demo"] },
+  { firm: "Kelvero Funding", platform: "MT5", servers: ["Kelvero-Live", "Kelvero-Demo"] },
+  { firm: "Lux Trading", platform: "MT5", servers: ["LuxTradingFirm-Live", "LuxTradingFirm-Demo"] },
+  { firm: "The Trading Pit", platform: "both", servers: ["TheTradingPit-Live", "TheTradingPit-Demo"] },
+  // ── Retail brokers ────────────────────────────────────────────────────────
   { firm: "IC Markets", platform: "both", servers: ["ICMarkets-Live01", "ICMarkets-Live02", "ICMarkets-Demo", "ICMarketsSC-Live01", "ICMarketsSC-Live02"] },
   { firm: "Pepperstone", platform: "both", servers: ["Pepperstone-Edge-Live", "Pepperstone-Edge-Demo", "PepperstoneFX-Demo01"] },
   { firm: "ThinkMarkets", platform: "both", servers: ["ThinkMarkets-Live", "ThinkMarkets-Demo", "ThinkMarketsMT4-Live"] },
@@ -109,18 +111,35 @@ const FUNDED_SERVERS: BrokerServer[] = [
   { firm: "OANDA", platform: "MT4", servers: ["OANDA-v20 Live", "OANDA-v20 Practice"] },
   { firm: "Fusion Markets", platform: "both", servers: ["FusionMarkets-Live", "FusionMarkets-Demo"] },
   { firm: "FXCM", platform: "both", servers: ["FXCM-USDReal", "FXCM-EURReal", "FXCM-Practice"] },
-  { firm: "Lux Trading", platform: "MT5", servers: ["LuxTradingFirm-Live", "LuxTradingFirm-Demo"] },
-  { firm: "The Trading Pit", platform: "both", servers: ["TheTradingPit-Live", "TheTradingPit-Demo"] },
 ]
 
+type TradePlatform =
+  | "MT4"
+  | "MT5"
+  | "cTrader"
+  | "DXTrade"
+  | "Match-Trader"
+  | "TradeLocker"
+  | "MagicTrader"
+  | "TradingView"
+  | "NinjaTrader"
+  | "Rithmic"
+  | "Quantower"
+  | "Other"
+
 const PLATFORMS: { id: TradePlatform; label: string; hasBrokerServer: boolean }[] = [
-  { id: "MT4", label: "MetaTrader 4 (MT4)", hasBrokerServer: true },
-  { id: "MT5", label: "MetaTrader 5 (MT5)", hasBrokerServer: true },
-  { id: "cTrader", label: "cTrader", hasBrokerServer: false },
-  { id: "DXTrade", label: "DXTrade", hasBrokerServer: false },
-  { id: "Match-Trader", label: "Match-Trader", hasBrokerServer: false },
-  { id: "TradeLocker", label: "TradeLocker", hasBrokerServer: false },
-  { id: "Other", label: "Other", hasBrokerServer: false },
+  { id: "MT5",          label: "MetaTrader 5 (MT5)",            hasBrokerServer: true  },
+  { id: "MT4",          label: "MetaTrader 4 (MT4)",            hasBrokerServer: true  },
+  { id: "cTrader",      label: "cTrader",                       hasBrokerServer: false },
+  { id: "DXTrade",      label: "DXTrade",                       hasBrokerServer: false },
+  { id: "Match-Trader", label: "Match-Trader",                  hasBrokerServer: false },
+  { id: "TradeLocker",  label: "TradeLocker",                   hasBrokerServer: false },
+  { id: "MagicTrader",  label: "MagicTrader",                   hasBrokerServer: false },
+  { id: "TradingView",  label: "TradingView Broker Integration", hasBrokerServer: false },
+  { id: "NinjaTrader",  label: "NinjaTrader",                   hasBrokerServer: false },
+  { id: "Rithmic",      label: "Rithmic",                       hasBrokerServer: false },
+  { id: "Quantower",    label: "Quantower",                     hasBrokerServer: false },
+  { id: "Other",        label: "Other",                         hasBrokerServer: false },
 ]
 
 // Sample data
