@@ -138,13 +138,15 @@ interface EconomicEvent {
   previous: string
 }
 
-// Forex assets
+// Forex assets — order matches API response order
 const FOREX_ASSETS = [
-  { symbol: "XAUUSD", name: "Gold", tvSymbol: "TVC:GOLD" },
-  { symbol: "DXY", name: "US Dollar Index", tvSymbol: "TVC:DXY" },
-  { symbol: "EURUSD", name: "EUR/USD", tvSymbol: "FX:EURUSD" },
-  { symbol: "GBPUSD", name: "GBP/USD", tvSymbol: "FX:GBPUSD" },
-  { symbol: "XAGUSD", name: "Silver", tvSymbol: "TVC:SILVER" },
+  { symbol: "XAUUSD", name: "Gold",            tvSymbol: "TVC:GOLD" },
+  { symbol: "XAGUSD", name: "Silver",          tvSymbol: "TVC:SILVER" },
+  { symbol: "EURUSD", name: "EUR/USD",         tvSymbol: "FX:EURUSD" },
+  { symbol: "GBPUSD", name: "GBP/USD",         tvSymbol: "FX:GBPUSD" },
+  { symbol: "USDJPY", name: "USD/JPY",         tvSymbol: "FX:USDJPY" },
+  { symbol: "USDINR", name: "USD/INR",         tvSymbol: "FX:USDINR" },
+  { symbol: "DXY",    name: "US Dollar Index", tvSymbol: "TVC:DXY" },
 ]
 
 // Crypto assets (Top 10 by market cap)

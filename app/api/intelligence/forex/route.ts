@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 
-// Sources:
-//  - FX pairs:  Frankfurter (ECB data, no key, reliable TLS) + yesterday for change%
-//  - Metals:    Binance XAUUSDT / XAGUSDT perpetual (no key, no rate limit)
-//  - DXY:       Derived from EUR/USD weight (~57.6% EUR) as a close approximation
+// Source: Stooq.com — free, no API key, interbank/CME quotes that match TradingView
+// Symbols: xauusd (Gold spot), xagusd (Silver spot), eurusd, gbpusd, usdjpy, usdinr, dx-y.nyb (DXY)
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   if (pct > 0.1) return "Bullish"
@@ -35,92 +33,73 @@ function makeRow(symbol: string, name: string, price: number, changePct: number,
   }
 }
 
-function prevWorkday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  if (d.getUTCDay() === 0) d.setDate(d.getDate() - 2)
-  if (d.getUTCDay() === 6) d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
+// Stooq symbol → our symbol + display name + is metal
+const SYMBOLS = [
+  { stooq: "xauusd", symbol: "XAUUSD", name: "Gold",            metal: true },
+  { stooq: "xagusd", symbol: "XAGUSD", name: "Silver",          metal: true },
+  { stooq: "eurusd", symbol: "EURUSD", name: "EUR/USD",         metal: false },
+  { stooq: "gbpusd", symbol: "GBPUSD", name: "GBP/USD",         metal: false },
+  { stooq: "usdjpy", symbol: "USDJPY", name: "USD/JPY",         metal: false },
+  { stooq: "usdinr", symbol: "USDINR", name: "USD/INR",         metal: false },
+  { stooq: "dx-y.nyb", symbol: "DXY",  name: "US Dollar Index", metal: false },
+]
+
+// Fetch one Stooq CSV quote: https://stooq.com/q/l/?s=SYMBOL&f=sd2t2ohlcv&h&e=csv
+async function fetchStooq(stooq: string): Promise<{ price: number; open: number } | null> {
+  try {
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooq)}&f=sd2t2ohlcv&h&e=csv`
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 30 },
+    })
+    if (!res.ok) return null
+    const text = await res.text()
+    // CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
+    const lines = text.trim().split("\n")
+    if (lines.length < 2) return null
+    const cols = lines[1].split(",")
+    const open  = parseFloat(cols[3] ?? "0")
+    const close = parseFloat(cols[6] ?? "0")
+    if (!close || close === 0) return null
+    return { price: close, open }
+  } catch {
+    return null
+  }
 }
 
 export async function GET() {
   try {
-    const yesterday = prevWorkday()
+    const results = await Promise.all(SYMBOLS.map(s => fetchStooq(s.stooq)))
 
-    // 1. Frankfurter: today + yesterday for change%
-    const [todayRes, prevRes, xauRes, xagRes] = await Promise.all([
-      fetch("https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,INR", {
-        next: { revalidate: 60 },
-      }),
-      fetch(`https://api.frankfurter.app/${yesterday}?from=USD&to=EUR,GBP,JPY,INR`, {
-        next: { revalidate: 3600 },
-      }),
-      // 2. Binance: Gold / Silver perpetual futures — no key, no rate limit
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=XAUUSDT", {
-        next: { revalidate: 30 },
-      }),
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=XAGUSDT", {
-        next: { revalidate: 30 },
-      }),
-    ])
+    const data = SYMBOLS.map((s, i) => {
+      const q = results[i]
+      const price = q?.price ?? 0
+      const open  = q?.open  ?? price
+      const changePct = open > 0 ? ((price - open) / open) * 100 : 0
 
-    const data: ReturnType<typeof makeRow>[] = []
-
-    // ── Metals ──────────────────────────────────────────────────────────────
-    if (xauRes.ok) {
-      const t = await xauRes.json()
-      const price = parseFloat(t.lastPrice ?? "0")
-      const changePct = parseFloat(t.priceChangePercent ?? "0")
-      if (price > 0) data.push(makeRow("XAUUSD", "Gold", price, changePct, true))
-    }
-
-    if (xagRes.ok) {
-      const t = await xagRes.json()
-      const price = parseFloat(t.lastPrice ?? "0")
-      const changePct = parseFloat(t.priceChangePercent ?? "0")
-      if (price > 0) data.push(makeRow("XAGUSD", "Silver", price, changePct, true))
-    }
-
-    // ── FX pairs ─────────────────────────────────────────────────────────────
-    if (todayRes.ok) {
-      const today = await todayRes.json()
-      const todayRates: Record<string, number> = today.rates ?? {}
-      let prevRates: Record<string, number> = {}
-      if (prevRes.ok) {
-        const prev = await prevRes.json()
-        prevRates = prev.rates ?? {}
+      let priceStr = "-"
+      if (price > 0) {
+        if (s.metal) {
+          priceStr = `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        } else if (["EURUSD", "GBPUSD"].includes(s.symbol)) {
+          priceStr = price.toFixed(5)
+        } else if (s.symbol === "USDJPY") {
+          priceStr = price.toFixed(3)
+        } else {
+          priceStr = price.toFixed(2)
+        }
       }
 
-      const pairs: [string, string, string, boolean][] = [
-        ["EURUSD", "EUR/USD", "EUR", true],   // inverted: EUR per USD → USD per EUR
-        ["GBPUSD", "GBP/USD", "GBP", true],
-        ["USDJPY", "USD/JPY", "JPY", false],  // direct: JPY per USD
-        ["USDINR", "USD/INR", "INR", false],
-      ]
-
-      for (const [symbol, name, ccy, invert] of pairs) {
-        const rate = todayRates[ccy]
-        if (!rate) continue
-        const price = invert ? 1 / rate : rate
-        const prevRate = prevRates[ccy]
-        const prevPrice = prevRate ? (invert ? 1 / prevRate : prevRate) : price
-        const changePct = prevPrice !== 0 ? ((price - prevPrice) / prevPrice) * 100 : 0
-        data.push(makeRow(symbol, name, price, changePct))
+      return {
+        symbol: s.symbol,
+        name: s.name,
+        price: priceStr,
+        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
+        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+        isPositive: changePct >= 0,
+        bias: changePct > 0.1 ? "Bullish" : changePct < -0.1 ? "Bearish" : "Neutral",
       }
-
-      // DXY approximation: inverse of EUR/USD weighted (EUR = 57.6% of DXY)
-      // Real DXY = 50.14 * EURUSD^-0.576 * USDJPY^0.136 * GBPUSD^-0.119 * ...
-      // Simplified: base 100 relative move from EUR/USD inverse
-      const eurUsd = todayRates["EUR"] ? 1 / todayRates["EUR"] : null
-      const prevEurUsd = prevRates["EUR"] ? 1 / prevRates["EUR"] : null
-      if (eurUsd && prevEurUsd) {
-        // Approximate current DXY from EUR/USD (inverse relationship, ~0.576 weight)
-        const dxyChangePct = -((eurUsd - prevEurUsd) / prevEurUsd) * 100 * 0.576
-        // Estimate DXY level: historical avg ~103, use EUR/USD to scale
-        const dxyPrice = 103.82 * Math.pow(0.9 / eurUsd, 0.576)
-        data.push(makeRow("DXY", "US Dollar Index", dxyPrice, dxyChangePct))
-      }
-    }
+    })
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
   } catch (err) {
