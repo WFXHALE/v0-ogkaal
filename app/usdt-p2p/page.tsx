@@ -53,6 +53,12 @@ const PAYMENT_DETAILS = {
   upiId: "cxewankuss@ybl",
   upiQrCodeUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/paytm-uNxomWsKUWCUbHXNJTECcGuJiEsvB9.jpg",
   erupeeQrCodeUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/qr-YXgnZr1z6VbDW8poxN1mnzBILfT73j.jpg",
+  imps: {
+    accountNumber: "259541281829",
+    ifsc: "INDB0000136",
+    bankName: "Indusind Bank",
+    accountHolder: "Shahid Bashir"
+  }
 }
 
 export default function UsdtP2PPage() {
@@ -64,7 +70,18 @@ export default function UsdtP2PPage() {
   // Sell flow state
   const [sellStep, setSellStep] = useState(0) // 0 = method selection, 1 = kaal form, 2 = success
   const [sellFormData, setSellFormData] = useState({
-    upiOrBank: "",
+    // Payment method selection (where user wants to receive payment)
+    paymentMethodType: "" as "upi" | "imps" | "gpay" | "",
+    // UPI details
+    upiId: "",
+    // IMPS details
+    accountNumber: "",
+    ifscCode: "",
+    bankName: "",
+    accountHolderName: "",
+    // Google Pay
+    gpayNumber: "",
+    // Common fields
     phone: "",
     telegram: "",
     screenshot: null as File | null,
@@ -468,23 +485,121 @@ export default function UsdtP2PPage() {
                         </Button>
                       </div>
 
-                      {/* Step 3 */}
+                      {/* Step 3 - Payment Method Selection */}
                       <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">3</div>
-                          <h5 className="font-semibold text-foreground">Enter your details</h5>
+                          <h5 className="font-semibold text-foreground">Where do you want to receive payment?</h5>
+                        </div>
+                        
+                        {/* Payment Method Type Selection */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          {[
+                            { value: "upi", label: "UPI" },
+                            { value: "imps", label: "IMPS/Bank" },
+                            { value: "gpay", label: "Google Pay" },
+                          ].map((method) => (
+                            <button
+                              key={method.value}
+                              type="button"
+                              onClick={() => setSellFormData(prev => ({ ...prev, paymentMethodType: method.value as "upi" | "imps" | "gpay" }))}
+                              className={`p-3 rounded-xl border text-sm font-medium transition-colors ${
+                                sellFormData.paymentMethodType === method.value
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border text-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {method.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* UPI Details */}
+                        {sellFormData.paymentMethodType === "upi" && (
+                          <div className="space-y-4 p-4 rounded-xl bg-background border border-border">
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">UPI ID</label>
+                              <input
+                                type="text"
+                                value={sellFormData.upiId}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, upiId: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="e.g., yourname@upi"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* IMPS/Bank Details */}
+                        {sellFormData.paymentMethodType === "imps" && (
+                          <div className="space-y-4 p-4 rounded-xl bg-background border border-border">
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">Account Holder Name</label>
+                              <input
+                                type="text"
+                                value={sellFormData.accountHolderName}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="Enter account holder name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">Account Number</label>
+                              <input
+                                type="text"
+                                value={sellFormData.accountNumber}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="Enter account number"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">IFSC Code</label>
+                              <input
+                                type="text"
+                                value={sellFormData.ifscCode}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, ifscCode: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="e.g., SBIN0001234"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">Bank Name</label>
+                              <input
+                                type="text"
+                                value={sellFormData.bankName}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, bankName: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="Enter bank name"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Google Pay Details */}
+                        {sellFormData.paymentMethodType === "gpay" && (
+                          <div className="space-y-4 p-4 rounded-xl bg-background border border-border">
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">Google Pay Number</label>
+                              <input
+                                type="tel"
+                                value={sellFormData.gpayNumber}
+                                onChange={(e) => setSellFormData(prev => ({ ...prev, gpayNumber: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="Enter your Google Pay number"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Step 4 - Contact Details */}
+                      <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">4</div>
+                          <h5 className="font-semibold text-foreground">Contact Details</h5>
                         </div>
                         <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">UPI ID or Bank Account Details</label>
-                            <input
-                              type="text"
-                              value={sellFormData.upiOrBank}
-                              onChange={(e) => setSellFormData(prev => ({ ...prev, upiOrBank: e.target.value }))}
-                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              placeholder="e.g., yourname@upi or Account Number + IFSC"
-                            />
-                          </div>
                           <div>
                             <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
                             <input
@@ -511,6 +626,12 @@ export default function UsdtP2PPage() {
                       {/* Submit Button */}
                       <Button
                         onClick={async () => {
+                          const paymentDetails = sellFormData.paymentMethodType === "upi" 
+                            ? { type: "UPI", upiId: sellFormData.upiId }
+                            : sellFormData.paymentMethodType === "imps"
+                            ? { type: "IMPS", accountHolder: sellFormData.accountHolderName, accountNumber: sellFormData.accountNumber, ifsc: sellFormData.ifscCode, bank: sellFormData.bankName }
+                            : { type: "Google Pay", gpayNumber: sellFormData.gpayNumber }
+                          
                           await saveSubmission({
                             type: "usdt_p2p",
                             name: "Sell Request",
@@ -520,12 +641,20 @@ export default function UsdtP2PPage() {
                               action: "sell",
                               amount: `${sellAmount} USDT`,
                               rate: `₹${sellRateRange.min}-₹${sellRateRange.max}`,
-                              upiOrBank: sellFormData.upiOrBank
+                              paymentMethod: paymentDetails
                             }
                           })
                           setSellStep(2)
                         }}
-                        disabled={!sellFormData.screenshot || !sellFormData.upiOrBank || !sellFormData.phone || !sellFormData.telegram}
+                        disabled={
+                          !sellFormData.screenshot || 
+                          !sellFormData.phone || 
+                          !sellFormData.telegram ||
+                          !sellFormData.paymentMethodType ||
+                          (sellFormData.paymentMethodType === "upi" && !sellFormData.upiId) ||
+                          (sellFormData.paymentMethodType === "imps" && (!sellFormData.accountNumber || !sellFormData.ifscCode || !sellFormData.bankName || !sellFormData.accountHolderName)) ||
+                          (sellFormData.paymentMethodType === "gpay" && !sellFormData.gpayNumber)
+                        }
                         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6"
                       >
                         Submit Sell Request
@@ -569,7 +698,7 @@ export default function UsdtP2PPage() {
                         variant="ghost"
                         onClick={() => {
                           setSellStep(0)
-                          setSellFormData({ upiOrBank: "", phone: "", telegram: "", screenshot: null })
+                          setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", phone: "", telegram: "", screenshot: null })
                           setSellUsdtAmount("")
                         }}
                         className="mt-4 text-muted-foreground"
@@ -777,8 +906,8 @@ export default function UsdtP2PPage() {
                             <p className="text-sm font-medium text-foreground">Amount: ₹{totalAmount.toLocaleString()}</p>
                           </div>
 
-                          {/* UPI ID - Show for UPI and IMPS */}
-                          {(formData.paymentMethod === "upi" || formData.paymentMethod === "imps") && (
+                          {/* UPI ID - Show for UPI */}
+                          {formData.paymentMethod === "upi" && (
                             <div className="p-4 rounded-xl bg-secondary/50 border border-border">
                               <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
                               <div className="flex items-center gap-2">
@@ -793,6 +922,31 @@ export default function UsdtP2PPage() {
                                 >
                                   {copiedUpi ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                 </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* IMPS Bank Details - Show for IMPS */}
+                          {formData.paymentMethod === "imps" && (
+                            <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                              <p className="text-sm text-muted-foreground mb-3">Bank Transfer Details (IMPS/NEFT):</p>
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
+                                  <span className="text-sm text-muted-foreground">Account Holder:</span>
+                                  <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.accountHolder}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
+                                  <span className="text-sm text-muted-foreground">Account Number:</span>
+                                  <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.accountNumber}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
+                                  <span className="text-sm text-muted-foreground">IFSC Code:</span>
+                                  <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.ifsc}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
+                                  <span className="text-sm text-muted-foreground">Bank Name:</span>
+                                  <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.bankName}</span>
+                                </div>
                               </div>
                             </div>
                           )}
