@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X, Star } from "lucide-react"
 
-type NavStyle = "home" | "mentorship" | "vip" | "glitter" | "highlight" | "contact" | "faq" | "default"
+type NavStyle = "home" | "mentorship" | "vip" | "glitter" | "highlight" | "community" | "contact" | "faq" | "default"
 
 const navItems: { label: string; href: string; style: NavStyle }[] = [
   { label: "Home",            href: "/",               style: "home" },
@@ -14,6 +14,7 @@ const navItems: { label: string; href: string; style: NavStyle }[] = [
   { label: "Trade Dashboard", href: "/trade-dashboard",style: "glitter" },
   { label: "Intelligence",    href: "/intelligence",   style: "glitter" },
   { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
+  { label: "Community",       href: "/community",      style: "community" },
   { label: "Funded Tools",    href: "/funded-tools",   style: "glitter" },
   { label: "Material",        href: "/material",       style: "glitter" },
   { label: "FAQ",             href: "/faq",            style: "faq" },
@@ -33,6 +34,8 @@ function navClass(style: NavStyle): string {
       return base + "nav-glitter text-[#848E9C] hover:text-foreground bg-white/5 hover:bg-white/10 border border-white/10"
     case "highlight":
       return base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
+    case "community":
+      return base + "text-white bg-emerald-600/80 hover:bg-emerald-500/90 border border-emerald-500/40 font-semibold"
     case "faq":
       return base + "nav-glitter text-[#FCD535] bg-[#FCD535]/10 hover:bg-[#FCD535]/20 border border-[#FCD535]/30 font-semibold"
     case "contact":
