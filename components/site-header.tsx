@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X } from "lucide-react"
+import { NotificationBell } from "@/components/notification-bell"
+import { getSession } from "@/lib/community-store"
 
 type NavStyle = "highlight" | "default"
 
@@ -32,6 +34,12 @@ const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const session = getSession()
+    if (session) setUserId(session.id)
+  }, [])
 
   return (
     <header
@@ -55,6 +63,9 @@ export function Header() {
               </Link>
             ))}
           </nav>
+
+          {/* Notification bell (visible when logged-in to community) */}
+          {userId && <NotificationBell userId={userId} />}
 
           {/* Hamburger */}
           <button

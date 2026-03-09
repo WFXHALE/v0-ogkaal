@@ -15,6 +15,7 @@ import {
   Hash, TrendingUp, ChevronDown, Send, LogOut, Shield,
   Plus, FileText, Video, RefreshCw,
 } from "lucide-react"
+import { sendNotification, NotificationBell } from "@/components/notification-bell"
 
 // ---- admin badges -----------------------------------------------------------
 
@@ -100,7 +101,11 @@ function CommentDrawer({ post, currentUser, onClose, onComment }: {
 
 // ---- follow button ----------------------------------------------------------
 
-function FollowButton({ targetId, currentUserId }: { targetId: string; currentUserId: string | null }) {
+function FollowButton({ targetId, currentUserId, currentUser }: {
+  targetId: string
+  currentUserId: string | null
+  currentUser?: CommunityUser | null
+}) {
   const [following, setFollowing] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -117,6 +122,16 @@ function FollowButton({ targetId, currentUserId }: { targetId: string; currentUs
       const nowFollowing = toggleFollow(currentUserId!, targetId)
       setFollowing(nowFollowing)
       setLoading(false)
+      // Fire follow notification only when following (not un-following)
+      if (nowFollowing && currentUser) {
+        sendNotification({
+          type: "follow",
+          recipientId: targetId,
+          actorId: currentUser.id,
+          actorName: currentUser.fullName,
+          actorAvatar: currentUser.avatar,
+        })
+      }
     }, 200)
   }
 
@@ -171,7 +186,7 @@ function PostCard({ post, currentUser, onLike, onComment }: {
             <span className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</span>
           </div>
         </Link>
-        <FollowButton targetId={post.authorId} currentUserId={currentUser?.id ?? null} />
+          <FollowButton targetId={post.authorId} currentUserId={currentUser?.id ?? null} currentUser={currentUser} />
       </div>
 
       {post.title && <h3 className="text-base font-bold text-foreground">{post.title}</h3>}
@@ -540,15 +555,67 @@ export default function CommunityPage() {
 
   function handleAuth(user: CommunityUser) { setCurrentUser(user); setShowAuth(false) }
   function handleSignOut() { setSession(null); setCurrentUser(null) }
-  function handleLike(postId: string) { if (currentUser) setPosts(toggleLike(postId, currentUser.id)) }
+
+  function handleLike(postId: string) {
+    if (!currentUser) return
+    const updatedPosts = toggleLike(postId, currentUser.id)
+    setPosts(updatedPosts)
+    // Fire notification only when liking (not un-liking)
+    const post = updatedPosts.find((p) => p.id === postId)
+    if (post && post.likes.includes(currentUser.id)) {
+      sendNotification({
+        type: "like",
+        recipientId: post.authorId,
+        actorId: currentUser.id,
+        actorName: currentUser.fullName,
+        actorAvatar: currentUser.avatar,
+        postId: post.id,
+        postPreview: post.content.slice(0, 60),
+      })
+    }
+  }
+
   function handleComment(postId: string, text: string) {
     if (!currentUser) return
-    setPosts(addComment(postId, {
+    const updatedPosts = addComment(postId, {
       authorId: currentUser.id, authorName: currentUser.fullName,
       authorAvatar: currentUser.avatar, content: text,
-    }))
+    })
+    setPosts(updatedPosts)
+    const post = updatedPosts.find((p) => p.id === postId)
+    if (post) {
+      sendNotification({
+        type: "comment",
+        recipientId: post.authorId,
+        actorId: currentUser.id,
+        actorName: currentUser.fullName,
+        actorAvatar: currentUser.avatar,
+        postId: post.id,
+        postPreview: text.slice(0, 60),
+      })
+    }
   }
-  function handleNewPost(post: Post) { setPosts((prev) => [post, ...prev]); setShowCreator(false); setFabOpen(false) }
+
+  function handleNewPost(post: Post) {
+    setPosts((prev) => [post, ...prev])
+    setShowCreator(false)
+    setFabOpen(false)
+    // Admin posts notify all users (best-effort; we use a special admin_post type)
+    if (post.isAdminPost) {
+      // Broadcast to followers — handled server-side via the route
+      // For now, fire a single admin_post notification to a sentinel recipient "__all__"
+      // so the bell on the admin's own view doesn't show, but other users polling will see it
+      sendNotification({
+        type: "admin_post",
+        recipientId: "__broadcast__",
+        actorId: post.authorId,
+        actorName: post.authorName,
+        actorAvatar: post.authorAvatar,
+        postId: post.id,
+        postPreview: (post.title ?? post.content).slice(0, 60),
+      })
+    }
+  }
   function openCreator(type: CreatorType) { setCreatorType(type); setShowCreator(true); setFabOpen(false) }
 
   if (!mounted) return null
@@ -571,6 +638,7 @@ export default function CommunityPage() {
             </div>
             {currentUser ? (
               <div className="flex items-center gap-2">
+                <NotificationBell userId={currentUser.id} />
                 <Link href={`/community/profile/${currentUser.id}`} className="flex items-center gap-2 group">
                   <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full group-hover:ring-2 group-hover:ring-[#FCD535]/50 transition-all" />
                   <span className="hidden sm:block text-sm font-semibold text-foreground group-hover:text-[#FCD535] transition-colors">{currentUser.fullName}</span>
