@@ -2,6 +2,7 @@
 
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { NoticeTicker } from "@/components/notice-ticker"
 import { Button } from "@/components/ui/button"
 import { 
   Shield, 
@@ -186,23 +187,9 @@ export default function UsdtP2PPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      {/* Scrolling Notice Ticker — mt-20 to sit directly under the fixed header */}
-      <div className="mt-20 w-full bg-[#0B0E11] border-b border-[#FCD535]/20 overflow-hidden py-2.5">
-        <div className="flex whitespace-nowrap" style={{ animation: "ticker-scroll 35s linear infinite" }}>
-          {[0, 1].map((i) => (
-            <span key={i} className="inline-flex items-center gap-2 px-8 text-sm text-muted-foreground shrink-0">
-              <span className="text-[#FCD535] font-bold">NOTICE:</span>
-              {" "}<span className="text-[#FCD535] font-semibold">USDT</span>{" "}
-              buying and selling on this website is intended only for{" "}
-              <span className="text-[#FCD535] font-semibold">Mentorship Students</span>{" "}
-              and members of the OG KAAL TRADER community (Instagram / YouTube family). This service is not intended for the general public. If any individual outside this community uses this service and any legal consequences occur, the individual will be fully responsible for all actions and liabilities.
-              <span className="mx-8 text-[#FCD535]/40">|</span>
-            </span>
-          ))}
-        </div>
-      </div>
+      <NoticeTicker />
 
-      <main className="flex-1 pt-0">
+      <main className="flex-1 mt-20">
         {/* Hero Section */}
         <section className="pt-12 pb-16 sm:pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
