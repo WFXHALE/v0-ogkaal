@@ -3,7 +3,6 @@
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { VipAccessFlow, useVipAccessFlow } from "@/components/vip-access-flow"
-import { FundedAccountFlow, useFundedAccountFlow } from "@/components/funded-account-flow"
 import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
 import { useState } from "react"
 
@@ -20,7 +19,6 @@ const vipFeatures = [
 
 export default function VipGroupPage() {
   const { isOpen, initialUserType, openFlow, closeFlow } = useVipAccessFlow()
-  const { isOpen: isFundedOpen, openFlow: openFundedFlow, closeFlow: closeFundedFlow } = useFundedAccountFlow()
   const [copiedCode, setCopiedCode] = useState(false)
 
   const handleCopyCode = () => {
@@ -31,31 +29,31 @@ export default function VipGroupPage() {
 
   const pricingOptions = [
     {
-      title: "XM Partner Account",
-      price: "$25",
-      description: "For new XM users",
-      requirements: "User must open an XM account using the provided referral link.",
-      highlight: true,
-      cta: "Open XM Account",
-      onClick: () => openFlow("new"),
-    },
-    {
       title: "XM Existing User",
-      price: "$20",
+      price: "Varies",
       description: "For current XM traders",
-      requirements: "For users already trading with XM.",
+      requirements: "For users already trading with XM. Deposit minimum $50 and submit Trader ID.",
       highlight: false,
       cta: "Join VIP Group",
       onClick: () => openFlow("existing"),
     },
     {
-      title: "Funded Account Traders",
-      price: "$50",
-      description: "Without XM account",
-      requirements: "For traders using funded accounts or other brokers.",
+      title: "XM New User",
+      price: "Varies",
+      description: "For new XM users",
+      requirements: "Create XM account using partner link, deposit minimum $50.",
+      highlight: true,
+      cta: "Open XM Account",
+      onClick: () => openFlow("new"),
+    },
+    {
+      title: "Funded Account User",
+      price: "From ₹2,500",
+      description: "For funded traders",
+      requirements: "For traders using funded accounts. Select your account size.",
       highlight: false,
-      cta: "Request Funded Access",
-      onClick: openFundedFlow,
+      cta: "Get Funded Access",
+      onClick: () => openFlow("funded"),
     },
   ]
 
@@ -300,12 +298,6 @@ export default function VipGroupPage() {
         isOpen={isOpen} 
         onClose={closeFlow} 
         initialUserType={initialUserType}
-      />
-
-      {/* Funded Account Flow Modal */}
-      <FundedAccountFlow
-        isOpen={isFundedOpen}
-        onClose={closeFundedFlow}
       />
     </div>
   )
