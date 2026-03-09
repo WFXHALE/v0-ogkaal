@@ -48,10 +48,11 @@ interface FormData {
   network: Network | ""
 }
 
-// Payment details - these would typically come from backend
+// Payment details
 const PAYMENT_DETAILS = {
-  upiId: "ogkaaltrader@upi",
-  qrCodeUrl: "/images/payment-qr.png", // placeholder for QR code
+  upiId: "cxewankuss@ybl",
+  upiQrCodeUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/paytm-uNxomWsKUWCUbHXNJTECcGuJiEsvB9.jpg",
+  erupeeQrCodeUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/qr-YXgnZr1z6VbDW8poxN1mnzBILfT73j.jpg",
 }
 
 export default function UsdtP2PPage() {
@@ -757,42 +758,53 @@ export default function UsdtP2PPage() {
                       {/* Payment Details */}
                       {formData.paymentMethod && (
                         <div className="space-y-4">
-                          {/* QR Code */}
+                          {/* QR Code - Different for UPI/IMPS vs e-Rupee */}
                           <div className="p-6 rounded-xl bg-secondary/50 border border-border text-center">
-                            <p className="text-sm text-muted-foreground mb-4">Scan QR Code to Pay</p>
-                            <div className="w-48 h-48 mx-auto bg-white rounded-xl flex items-center justify-center mb-4">
-                              <div className="text-center text-muted-foreground">
-                                <QrCode className="w-24 h-24 mx-auto text-foreground" />
-                                <p className="text-xs mt-2">Payment QR Code</p>
-                              </div>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              {formData.paymentMethod === "erupee" 
+                                ? "Scan QR Code to Pay via Digital Rupee" 
+                                : "Scan QR Code to Pay via UPI"}
+                            </p>
+                            <div className="w-64 mx-auto bg-white rounded-xl overflow-hidden mb-4">
+                              <img 
+                                src={formData.paymentMethod === "erupee" 
+                                  ? PAYMENT_DETAILS.erupeeQrCodeUrl 
+                                  : PAYMENT_DETAILS.upiQrCodeUrl}
+                                alt={formData.paymentMethod === "erupee" ? "e-Rupee QR Code" : "UPI QR Code"}
+                                className="w-full h-auto"
+                              />
                             </div>
                             <p className="text-sm font-medium text-foreground">Amount: ₹{totalAmount.toLocaleString()}</p>
                           </div>
 
-                          {/* UPI ID */}
-                          <div className="p-4 rounded-xl bg-secondary/50 border border-border">
-                            <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
-                            <div className="flex items-center gap-2">
-                              <code className="flex-1 p-3 rounded-lg bg-background border border-border font-mono text-sm text-foreground">
-                                {PAYMENT_DETAILS.upiId}
-                              </code>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={copyUpiId}
-                                className="shrink-0"
-                              >
-                                {copiedUpi ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                              </Button>
+                          {/* UPI ID - Show for UPI and IMPS */}
+                          {(formData.paymentMethod === "upi" || formData.paymentMethod === "imps") && (
+                            <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                              <p className="text-sm text-muted-foreground mb-2">Or pay to UPI ID:</p>
+                              <div className="flex items-center gap-2">
+                                <code className="flex-1 p-3 rounded-lg bg-background border border-border font-mono text-sm text-foreground">
+                                  {PAYMENT_DETAILS.upiId}
+                                </code>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={copyUpiId}
+                                  className="shrink-0"
+                                >
+                                  {copiedUpi ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                </Button>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Important Note */}
                           <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
                             <div className="flex items-start gap-3">
                               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                               <p className="text-sm text-amber-200">
-                                Complete the payment using the QR code or UPI ID above. After payment, you will need to upload proof in the next step.
+                                {formData.paymentMethod === "erupee"
+                                  ? "Complete the payment using the Digital Rupee QR code above. After payment, you will need to upload proof in the next step."
+                                  : "Complete the payment using the QR code or UPI ID above. After payment, you will need to upload proof in the next step."}
                               </p>
                             </div>
                           </div>
