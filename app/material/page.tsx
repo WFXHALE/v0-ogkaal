@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { ChevronDown, BookOpen } from "lucide-react"
 
 const SECTIONS = [
@@ -111,6 +112,7 @@ export default function MaterialPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   )
 }

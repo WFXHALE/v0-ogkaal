@@ -1,6 +1,7 @@
 "use client"
 
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { 
   Shield, 
@@ -372,7 +373,7 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">
                             {sellRateRange.min === sellRateRange.max 
                               ? `₹${sellRateRange.min}` 
-                              : `₹${sellRateRange.min}��₹${sellRateRange.max}`} per USDT
+                              : `₹${sellRateRange.min}���₹${sellRateRange.max}`} per USDT
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
@@ -1396,6 +1397,7 @@ export default function UsdtP2PPage() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   )
 }

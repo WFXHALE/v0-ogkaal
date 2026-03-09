@@ -1,6 +1,7 @@
 "use client"
 
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { TradingCalculators } from "@/components/trading-calculators"
 import { ConsistencyRuleCalculator } from "@/components/consistency-rule-calculator"
@@ -935,6 +936,7 @@ export default function FundedToolsPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   )
 }

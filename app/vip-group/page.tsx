@@ -1,6 +1,7 @@
 "use client"
 
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { VipAccessFlow, useVipAccessFlow } from "@/components/vip-access-flow"
 import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
@@ -305,6 +306,7 @@ export default function VipGroupPage() {
         onClose={closeFlow} 
         initialUserType={initialUserType}
       />
+      <Footer />
     </div>
   )
 }

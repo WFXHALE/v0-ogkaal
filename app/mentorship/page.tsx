@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import {
   Check,
@@ -678,6 +679,7 @@ export default function MentorshipPage() {
         </section>
 
       </main>
+      <Footer />
     </div>
   )
 }

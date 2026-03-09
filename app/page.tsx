@@ -7,12 +7,14 @@ import { NavigationCardsSection } from "@/components/navigation-cards-section"
 import { MarketOverview } from "@/components/market-overview"
 import { ContactSection } from "@/components/contact-section"
 import { SocialMediaSection } from "@/components/social-media-section"
+import { FaqSection } from "@/components/faq-section"
+import { Footer } from "@/components/footer"
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main>
+      <main className="flex-1">
         <HeroSection />
         <AboutSection />
         <WhatYouLearnSection />
@@ -23,7 +25,9 @@ export default function Home() {
         </div>
         <ContactSection />
         <SocialMediaSection />
+        <FaqSection />
       </main>
+      <Footer />
     </div>
   )
 }

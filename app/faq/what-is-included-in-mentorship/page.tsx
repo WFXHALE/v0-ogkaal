@@ -1,0 +1,63 @@
+import Link from "next/link"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { FaqFeedback } from "@/components/faq-feedback"
+import { ChevronLeft } from "lucide-react"
+
+export const metadata = {
+  title: "What is included in the OG KAAL Mentorship? — FAQ",
+}
+
+export default function FaqAnswer1() {
+  return (
+    <div className="min-h-screen bg-background font-sans flex flex-col">
+      <Header />
+      <main className="flex-1 pt-24 pb-20 px-4">
+        <div className="max-w-2xl mx-auto">
+          <Link
+            href="/faq"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to FAQ
+          </Link>
+
+          <h1 className="text-2xl font-bold text-foreground mb-8 text-balance">
+            What is included in the OG KAAL Mentorship?
+          </h1>
+
+          <div className="prose prose-sm max-w-none space-y-5 text-muted-foreground leading-relaxed">
+            <p>
+              The OG KAAL Mentorship is a structured trading education program designed to take you from beginner to a confident, independent trader using Smart Money Concepts (SMC) and ICT methodology.
+            </p>
+
+            <div className="p-5 rounded-xl bg-card border border-border space-y-3">
+              <p className="text-foreground font-semibold text-sm">What is included:</p>
+              {[
+                "SMC (Smart Money Concepts) training — covering order blocks, liquidity, market structure, and institutional trading concepts.",
+                "ICT (Inner Circle Trader) methodology — kill zones, fair value gaps, IPDA, and advanced price action principles.",
+                "Live classes conducted multiple days per week via Telegram or other platforms.",
+                "Recorded sessions so you can revisit lessons at any time.",
+                "Structured study material covering all topics taught in class.",
+                "Community support where you can ask questions and get feedback from the team.",
+                "Regular market analysis and practical examples using real charts.",
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                  <p className="text-sm">{item}</p>
+                </div>
+              ))}
+            </div>
+
+            <p>
+              The mentorship is not just theory — it is focused on practical skill-building so that you can apply concepts in live markets with confidence.
+            </p>
+          </div>
+
+          <FaqFeedback />
+        </div>
+      </main>
+      <Footer />
+    </div>
+  )
+}

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { MessageCircle, Instagram, Send, Youtube, Mail, Check } from "lucide-react"
 import { saveSubmission } from "@/lib/admin-submissions"
@@ -73,7 +74,7 @@ export default function ContactPage() {
   const isFormValid = formData.name.trim() && formData.email.trim() && formData.message.trim()
 
   return (
-    <div className="min-h-screen bg-background font-sans">
+    <div className="min-h-screen bg-background font-sans flex flex-col">
       <Header />
 
       <main className="pt-24 pb-20 px-4">
@@ -192,6 +193,7 @@ export default function ContactPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   )
 }
