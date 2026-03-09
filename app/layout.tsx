@@ -1,10 +1,26 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  variable: "--font-geist",
+})
+const _geistMono = Geist_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  variable: "--font-geist-mono",
+})
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+}
 
 export const metadata: Metadata = {
   title: 'OG KAAL TRADER - Master the Markets',
@@ -36,6 +52,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://hebbkx1anhila5yf.public.blob.vercel-storage.com" />
+        <link rel="dns-prefetch" href="https://hebbkx1anhila5yf.public.blob.vercel-storage.com" />
+      </head>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
         <Analytics />
