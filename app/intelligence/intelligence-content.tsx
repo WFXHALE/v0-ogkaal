@@ -295,30 +295,30 @@ export function IntelligenceContent() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="pt-16 sm:pt-20 pb-12">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-3xl font-bold text-foreground">Market Intelligence</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Market Intelligence</h1>
                 <MarketStatusBadge tab={activeTab} />
               </div>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
                 Real-time market data and analysis
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span suppressHydrationWarning>Last updated: {formatLastRefresh()}</span>
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground min-w-0 flex-1 sm:flex-none">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span suppressHydrationWarning className="truncate">Updated: {formatLastRefresh()}</span>
               </div>
               <Button
                 onClick={handleRefreshAll}
                 variant="outline"
                 size="sm"
                 disabled={isAnyLoading}
-                className="border-primary/50"
+                className="border-primary/50 shrink-0"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isAnyLoading ? "animate-spin" : ""}`} />
                 Refresh
@@ -330,36 +330,36 @@ export function IntelligenceContent() {
           <div className="flex rounded-xl bg-secondary p-1 mb-8">
             <button
               onClick={() => setActiveTab("forex")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-6 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                 activeTab === "forex"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <DollarSign className="w-4 h-4" />
-              Forex
+              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>Forex</span>
             </button>
             <button
               onClick={() => setActiveTab("crypto")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-6 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                 activeTab === "crypto"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Bitcoin className="w-4 h-4" />
-              Crypto
+              <Bitcoin className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>Crypto</span>
             </button>
             <button
               onClick={() => setActiveTab("indian")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-2 sm:px-6 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                 activeTab === "indian"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <IndianRupee className="w-4 h-4" />
-              Indian Markets
+              <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden xs:inline">Indian </span><span>Markets</span>
             </button>
           </div>
 
@@ -470,13 +470,13 @@ export function IntelligenceContent() {
               <iframe
                 key={activeTab}
                 src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${getTradingViewSymbol()}&interval=60&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=1a1a2e&studies=%5B%5D&theme=dark&style=1&timezone=exchange&withdateranges=1&showpopupbutton=1&allow_symbol_change=1&watchlist=%5B%22${getWatchlist()}%22%5D&details=1&hotlist=1&calendar=1`}
-                style={{ width: "100%", height: "500px" }}
+                className="w-full h-[320px] sm:h-[500px]"
                 allowFullScreen
               />
             </div>
           </section>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             {/* Market News */}
             <section>
               <div className="flex items-center gap-2 mb-4">

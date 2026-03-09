@@ -43,31 +43,33 @@ export function SocialMediaSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {socialPlatforms.map((platform) => (
             <Link
               key={platform.name}
               href={platform.url}
               target="_blank"
               rel="noopener noreferrer"
-              className={`group relative bg-card border border-border/50 rounded-xl p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-xl ${platform.hoverGlow}`}
+              className={`group relative bg-card border border-border/50 rounded-xl p-4 sm:p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-xl ${platform.hoverGlow}`}
             >
-              <div className="flex flex-col items-center text-center">
+              {/* Mobile: horizontal layout; sm+: vertical */}
+              <div className="flex items-center gap-4 sm:flex-col sm:items-center sm:text-center sm:gap-0">
                 <div
-                  className={`w-16 h-16 rounded-full ${platform.color} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}
+                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full ${platform.color} flex items-center justify-center shrink-0 sm:mb-4 transition-transform duration-300 group-hover:scale-110`}
                 >
-                  <platform.icon className="w-8 h-8 text-white" />
+                  <platform.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
 
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {platform.name}
-                </h3>
+                <div className="flex-1 sm:flex-none sm:w-full">
+                  <h3 className="text-base sm:text-xl font-semibold text-foreground sm:mb-2">
+                    {platform.name}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground sm:mb-4">
+                    {platform.username}
+                  </p>
+                </div>
 
-                <p className="text-sm text-muted-foreground mb-4">
-                  {platform.username}
-                </p>
-
-                <div className="w-full py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm transition-all group-hover:bg-primary group-hover:text-primary-foreground">
+                <div className="sm:w-full py-2 px-4 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm transition-all group-hover:bg-primary group-hover:text-primary-foreground text-center shrink-0">
                   Follow
                 </div>
               </div>

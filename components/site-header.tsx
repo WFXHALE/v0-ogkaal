@@ -68,13 +68,17 @@ export function Header() {
 
         {/* Mobile nav */}
         {mobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-border/50">
-            <nav className="flex flex-col gap-1">
+          <div className="lg:hidden py-3 border-t border-border/50">
+            <nav className="flex flex-col gap-0.5">
               {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={navClass(item.style) + " block w-full"}
+                  className={
+                    item.style === "highlight"
+                      ? "block w-full px-4 py-3.5 text-sm font-bold rounded-lg bg-[#FCD535] text-[#0B0E11] active:bg-[#F0B90B] text-center"
+                      : "block w-full px-4 py-3.5 text-sm font-medium rounded-lg text-[#848E9C] hover:text-foreground hover:bg-white/[0.08] active:bg-white/[0.12]"
+                  }
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.label}

@@ -98,16 +98,16 @@ export default function ContactPage() {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all ${bg} group`}
+                className={`flex items-center gap-3 sm:gap-4 p-4 sm:p-5 rounded-2xl border-2 transition-all ${bg} group`}
               >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-background/50`}>
-                  <Icon className={`w-6 h-6 ${color}`} />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 bg-background/50">
+                  <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${color}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground mb-0.5">{platform}</p>
                   <p className="text-sm font-medium text-foreground truncate">{detail}</p>
                 </div>
-                <span className={`text-sm font-semibold ${color} shrink-0 group-hover:underline`}>
+                <span className={`hidden sm:inline text-sm font-semibold ${color} shrink-0 group-hover:underline`}>
                   {cta}
                 </span>
               </a>
@@ -115,7 +115,7 @@ export default function ContactPage() {
           </div>
 
           {/* Email + Form */}
-          <div className="rounded-2xl bg-card border border-border p-8">
+          <div className="rounded-2xl bg-card border border-border p-5 sm:p-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Mail className="w-5 h-5 text-primary" />
