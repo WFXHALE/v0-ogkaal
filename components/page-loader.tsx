@@ -27,12 +27,20 @@ function useInjectKeyframes() {
 
 export function PageLoader() {
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
   const [fading, setFading] = useState(false)
   const prevPath = useRef<string | null>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useInjectKeyframes()
+
+  // Mark as mounted after first client render — prevents SSR/client mismatch
+  useEffect(() => {
+    setMounted(true)
+    prevPath.current = pathname
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const hide = () => {
     setFading(true)
@@ -43,11 +51,8 @@ export function PageLoader() {
   }
 
   useEffect(() => {
-    // Skip on initial mount — the page is already rendered
-    if (prevPath.current === null) {
-      prevPath.current = pathname
-      return
-    }
+    // Don't run until mounted and path is initialized
+    if (!mounted || prevPath.current === null) return
     // Skip if same path
     if (prevPath.current === pathname) return
     prevPath.current = pathname
@@ -60,19 +65,18 @@ export function PageLoader() {
     showTimer.current = setTimeout(() => {
       setFading(false)
       setVisible(true)
-
-      // Auto-hide after a max of 800ms (page should be ready by then)
+      // Auto-hide after a max of 800ms
       hideTimer.current = setTimeout(hide, 800)
     }, 200)
 
     return () => {
-      // Pathname changed again before 200ms → cancel, never show
       if (showTimer.current) clearTimeout(showTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
-  }, [pathname])
+  }, [pathname, mounted])
 
-  if (!visible) return null
+  // Never render on server, and never render when not visible
+  if (!mounted || !visible) return null
 
   return (
     <div
