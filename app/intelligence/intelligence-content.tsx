@@ -375,70 +375,83 @@ export function IntelligenceContent() {
               )}
             </div>
 
-            {/* Card grid — 2 large cards for forex, compact grid for crypto/indian */}
-            <div className={`grid gap-4 ${
-              activeTab === "forex"
-                ? "grid-cols-1 sm:grid-cols-2"
-                : activeTab === "crypto"
-                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
-                : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-            }`}>
-              {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
-                <div
-                  key={item.symbol}
-                  className={`rounded-xl bg-card border border-border hover:border-primary/50 transition-all ${
-                    activeTab === "forex" ? "p-8" : "p-4"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`font-semibold text-primary ${activeTab === "forex" ? "text-base" : "text-xs"}`}>
-                      {item.symbol}
-                    </span>
-                    {item.isPositive ? (
-                      <ArrowUpRight className={activeTab === "forex" ? "w-6 h-6 text-green-500" : "w-4 h-4 text-green-500"} />
-                    ) : (
-                      <ArrowDownRight className={activeTab === "forex" ? "w-6 h-6 text-red-500" : "w-4 h-4 text-red-500"} />
-                    )}
+            {/* Card grid — SSR renders a static skeleton; real grid renders after mount */}
+            {!mounted ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                {[0, 1].map(i => (
+                  <div key={i} className="p-8 rounded-xl bg-card border border-border animate-pulse">
+                    <div className="h-5 w-20 bg-muted rounded mb-2" />
+                    <div className="h-4 w-32 bg-muted rounded mb-3" />
+                    <div className="h-10 w-48 bg-muted rounded mb-2" />
+                    <div className="h-6 w-24 bg-muted rounded" />
                   </div>
-                  <p className={`text-muted-foreground mb-2 ${activeTab === "forex" ? "text-base" : "text-sm mb-1"}`}>
-                    {item.name}
-                  </p>
-                  <p className={`font-bold text-foreground ${activeTab === "forex" ? "text-4xl mb-4" : "text-xl mb-0"}`}>
-                    {item.price}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className={`font-medium ${item.isPositive ? "text-green-500" : "text-red-500"} ${
-                      activeTab === "forex" ? "text-xl" : "text-sm"
-                    }`}>
-                      {item.change}
-                    </p>
-                    {item.bias && (
-                      <span className={`px-2 py-0.5 rounded ${activeTab === "forex" ? "text-sm" : "text-xs"} ${
-                        item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
-                        item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {item.bias}
+                ))}
+              </div>
+            ) : (
+              <div className={`grid gap-4 ${
+                activeTab === "forex"
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : activeTab === "crypto"
+                  ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+                  : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+              }`}>
+                {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
+                  <div
+                    key={item.symbol}
+                    className={`rounded-xl bg-card border border-border hover:border-primary/50 transition-all ${
+                      activeTab === "forex" ? "p-8" : "p-4"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`font-semibold text-primary ${activeTab === "forex" ? "text-base" : "text-xs"}`}>
+                        {item.symbol}
                       </span>
+                      {item.isPositive ? (
+                        <ArrowUpRight className={activeTab === "forex" ? "w-6 h-6 text-green-500" : "w-4 h-4 text-green-500"} />
+                      ) : (
+                        <ArrowDownRight className={activeTab === "forex" ? "w-6 h-6 text-red-500" : "w-4 h-4 text-red-500"} />
+                      )}
+                    </div>
+                    <p className={`text-muted-foreground mb-2 ${activeTab === "forex" ? "text-base" : "text-sm"}`}>
+                      {item.name}
+                    </p>
+                    <p className={`font-bold text-foreground ${activeTab === "forex" ? "text-4xl mb-4" : "text-xl"}`}>
+                      {item.price}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className={`font-medium ${item.isPositive ? "text-green-500" : "text-red-500"} ${
+                        activeTab === "forex" ? "text-xl" : "text-sm"
+                      }`}>
+                        {item.change}
+                      </p>
+                      {item.bias && (
+                        <span className={`px-2 py-0.5 rounded ${activeTab === "forex" ? "text-sm" : "text-xs"} ${
+                          item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
+                          item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {item.bias}
+                        </span>
+                      )}
+                    </div>
+                    {item.volume && (
+                      <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
                     )}
                   </div>
-                  {item.volume && (
-                    <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
-                  )}
-                </div>
-              )) : (
-                Array.from({ length: activeTab === "forex" ? 2 : activeTab === "crypto" ? 10 : 2 }).map((_, i) => (
-                  <div key={i} className={`rounded-xl bg-card border border-border animate-pulse ${
-                    activeTab === "forex" ? "p-8" : "p-4"
-                  }`}>
-                    <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-5 w-20" : "h-4 w-12"}`} />
-                    <div className={`bg-muted rounded mb-3 ${activeTab === "forex" ? "h-4 w-32" : "h-3 w-20"}`} />
-                    <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-10 w-48" : "h-6 w-24"}`} />
-                    <div className={`bg-muted rounded ${activeTab === "forex" ? "h-6 w-24" : "h-4 w-16"}`} />
-                  </div>
-                ))
-              )}
-            </div>
+                )) : (
+                  Array.from({ length: activeTab === "forex" ? 2 : activeTab === "crypto" ? 10 : 2 }).map((_, i) => (
+                    <div key={i} className={`rounded-xl bg-card border border-border animate-pulse ${
+                      activeTab === "forex" ? "p-8" : "p-4"
+                    }`}>
+                      <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-5 w-20" : "h-4 w-12"}`} />
+                      <div className={`bg-muted rounded mb-3 ${activeTab === "forex" ? "h-4 w-32" : "h-3 w-20"}`} />
+                      <div className={`bg-muted rounded mb-2 ${activeTab === "forex" ? "h-10 w-48" : "h-6 w-24"}`} />
+                      <div className={`bg-muted rounded ${activeTab === "forex" ? "h-6 w-24" : "h-4 w-16"}`} />
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </section>
 
           {/* TradingView Chart */}
