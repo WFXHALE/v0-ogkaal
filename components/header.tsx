@@ -14,7 +14,7 @@ const navItems = [
   { label: "Intelligence", href: "/intelligence" },
   { label: "USDT P2P", href: "/usdt-p2p", isHighlight: true },
   { label: "Funded Tools", href: "/funded-tools" },
-  { label: "Books", href: "#books" },
+  { label: "Material", href: "/material" },
   { label: "Contact", href: "/contact" },
 ]
 
