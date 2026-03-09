@@ -53,10 +53,22 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Preconnect to external domains for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://hebbkx1anhila5yf.public.blob.vercel-storage.com" />
         <link rel="dns-prefetch" href="https://hebbkx1anhila5yf.public.blob.vercel-storage.com" />
+        
+        {/* Prefetch critical navigation pages for instant routing */}
+        <link rel="prefetch" href="/" />
+        <link rel="prefetch" href="/mentorship" />
+        <link rel="prefetch" href="/vip-group" />
+        <link rel="prefetch" href="/usdt-p2p" />
+        <link rel="prefetch" href="/contact" />
+        <link rel="prefetch" href="/material" />
+        
+        {/* Optimize rendering */}
+        <meta httpEquiv="x-ua-compatible" content="ie=edge" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
