@@ -180,7 +180,7 @@ export function MarketFundamentals() {
     setMounted(true)
     // Read session from localStorage (matches existing app pattern)
     try {
-      const raw = localStorage.getItem("community_session")
+      const raw = localStorage.getItem("og_community_session")
       if (raw) {
         const session = JSON.parse(raw)
         if (session?.id) {
