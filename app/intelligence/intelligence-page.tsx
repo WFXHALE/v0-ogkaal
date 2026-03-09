@@ -136,7 +136,7 @@ export function IntelligencePageContent() {
     return {
       symbol: asset.symbol,
       name: asset.name,
-      price: price < 1 ? `$${price.toFixed(4)}` : price < 100 ? `$${price.toFixed(2)}` : `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+      price: price < 1 ? `$${price.toFixed(4)}` : price < 100 ? `$${price.toFixed(2)}` : `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}`,
       change: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
       changePercent: `${change.toFixed(2)}%`,
       isPositive: change >= 0,
@@ -180,11 +180,13 @@ export function IntelligencePageContent() {
   }
 
   const formatLastRefresh = () => {
-    if (!mounted || !lastRefresh) return ""
+    if (!lastRefresh) return ""
+    // Use explicit options to produce identical output on server and client
     return lastRefresh.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
+      hour12: true,
     })
   }
 
@@ -237,7 +239,7 @@ export function IntelligencePageContent() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
-                <span>Last updated: {formatLastRefresh()}</span>
+                <span suppressHydrationWarning>Last updated: {formatLastRefresh()}</span>
               </div>
               <Button
                 onClick={handleRefreshAll}
@@ -290,7 +292,7 @@ export function IntelligencePageContent() {
           </div>
 
           {/* Live Prices Grid */}
-          <section className="mb-8">
+          <section className="mb-8" suppressHydrationWarning>
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-5 h-5 text-primary" />
               <h2 className="text-xl font-semibold text-foreground">
