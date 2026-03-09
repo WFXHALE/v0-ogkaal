@@ -28,9 +28,9 @@ export function GoldTicker() {
   const gold = data?.data?.find(d => d.symbol === "XAUUSD")
 
   return (
-    <section className="py-10 sm:py-12 px-4">
+    <section className="py-12 px-4">
       <div className="max-w-lg mx-auto">
-        <div className="rounded-2xl bg-card border border-border p-6 sm:p-8 text-center">
+        <div className="rounded-2xl bg-card border border-border p-8 text-center">
           {/* Title */}
           <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
             Live Price
