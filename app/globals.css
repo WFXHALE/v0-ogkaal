@@ -194,3 +194,12 @@ html {
   animation: sparkle-spin 2s ease-in-out infinite;
   display: inline-block;
 }
+
+/* Hide scrollbar for nav overflow */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

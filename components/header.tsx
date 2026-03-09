@@ -10,7 +10,7 @@ type NavStyle = "home" | "mentorship" | "vip" | "glitter" | "highlight" | "commu
 
 
 function navClass(style: NavStyle): string {
-  const base = "relative px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 "
+  const base = "relative shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap "
   switch (style) {
     case "home":
       return base + "text-foreground bg-white/10 hover:bg-white/20 border border-white/20"
@@ -62,7 +62,7 @@ export function Header() {
           </Link>
 
           {/* Desktop nav — only render after hydration to avoid SSR mismatch */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
             {mounted && navItems.map((item) => (
               <Link key={item.label} href={item.href} className={navClass(item.style)}>
                 {item.style === "vip" && (
