@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Newspaper, TrendingUp, TrendingDown, Minus, Clock, RefreshCw, Calendar, AlertCircle, ExternalLink } from "lucide-react"
+import { Newspaper, TrendingUp, TrendingDown, Minus, Clock, RefreshCw, Calendar, AlertCircle, ExternalLink, Bell, BellOff, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -25,8 +25,14 @@ interface EconomicEvent {
   impact: "high" | "medium" | "low"
   time: string
   date: string
+  rawDate?: string
   forecast?: string
   previous?: string
+}
+
+interface CalendarAlert {
+  event_id: string
+  minutes_before: number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +59,8 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+const MINUTES_OPTIONS = [5, 15, 30, 60]
+
 export function MarketFundamentals() {
   const [mounted, setMounted] = useState(false)
   const [activeFilter, setActiveFilter] = useState<"all" | "forex" | "crypto" | "gold" | "indices">("all")
@@ -66,6 +74,19 @@ export function MarketFundamentals() {
   const [events, setEvents] = useState<EconomicEvent[]>([])
   const [calLoading, setCalLoading] = useState(true)
   const [calError, setCalError] = useState(false)
+
+  // ── Alerts state ────────────────────────────────────────────────────────
+  const [alerts, setAlerts] = useState<CalendarAlert[]>([])
+  const [alertLoading, setAlertLoading] = useState<string | null>(null) // event_id being toggled
+  const [alertPopup, setAlertPopup] = useState<string | null>(null) // event_id popup open
+  const [alertMinutes, setAlertMinutes] = useState<Record<string, number>>({}) // event_id → minutes
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg)
+    setTimeout(() => setToastMsg(null), 3000)
+  }
 
   // ── Fetch news ──────────────────────────────────────────────────────────
   const fetchNews = useCallback(async () => {
@@ -93,7 +114,7 @@ export function MarketFundamentals() {
     setCalLoading(true)
     setCalError(false)
     try {
-      const res = await fetch("/api/economic-calendar?limit=24")
+      const res = await fetch("/api/economic-calendar?limit=40")
       if (!res.ok) throw new Error("cal_error")
       const data = await res.json()
       if (data.events && data.events.length > 0) {
@@ -108,15 +129,73 @@ export function MarketFundamentals() {
     }
   }, [])
 
+  // ── Fetch user alerts ───────────────────────────────────────────────────
+  const fetchAlerts = useCallback(async (uid: string) => {
+    try {
+      const res = await fetch(`/api/calendar-alerts?user_id=${uid}`)
+      const data = await res.json()
+      if (data.alerts) setAlerts(data.alerts)
+    } catch { /* silent */ }
+  }, [])
+
+  // ── Toggle alert ────────────────────────────────────────────────────────
+  const toggleAlert = async (event: EconomicEvent) => {
+    if (!userId) { showToast("Sign in to set alerts"); return }
+    const existing = alerts.find(a => a.event_id === event.id)
+    setAlertLoading(event.id)
+    try {
+      if (existing) {
+        await fetch(`/api/calendar-alerts?user_id=${userId}&event_id=${event.id}`, { method: "DELETE" })
+        setAlerts(prev => prev.filter(a => a.event_id !== event.id))
+        showToast("Alert removed")
+      } else {
+        const minutes = alertMinutes[event.id] ?? 15
+        const res = await fetch("/api/calendar-alerts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            event_id: event.id,
+            event_title: event.event,
+            event_date: event.rawDate ?? event.date,
+            event_time: event.time,
+            currency: event.currency,
+            impact: event.impact,
+            minutes_before: minutes,
+          }),
+        })
+        if (res.ok) {
+          setAlerts(prev => [...prev, { event_id: event.id, minutes_before: minutes }])
+          showToast(`Alert set — ${minutes}min before`)
+        }
+      }
+    } catch { showToast("Failed to update alert") }
+    finally {
+      setAlertLoading(null)
+      setAlertPopup(null)
+    }
+  }
+
   useEffect(() => {
     setMounted(true)
+    // Read session from localStorage (matches existing app pattern)
+    try {
+      const raw = localStorage.getItem("community_session")
+      if (raw) {
+        const session = JSON.parse(raw)
+        if (session?.id) {
+          setUserId(session.id)
+          fetchAlerts(session.id)
+        }
+      }
+    } catch { /* no session */ }
+
     fetchNews()
     fetchCalendar()
-    // Auto-refresh news every 10 min, calendar every 30 min
     const newsInterval = setInterval(fetchNews, 10 * 60 * 1000)
     const calInterval  = setInterval(fetchCalendar, 30 * 60 * 1000)
     return () => { clearInterval(newsInterval); clearInterval(calInterval) }
-  }, [fetchNews, fetchCalendar])
+  }, [fetchNews, fetchCalendar, fetchAlerts])
 
   if (!mounted) return null
 
@@ -130,6 +209,13 @@ export function MarketFundamentals() {
 
   return (
     <div className="space-y-6">
+      {/* ── Toast ──────────────────────────────────────────────────────────── */}
+      {toastMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-card border border-border shadow-xl text-sm font-medium text-foreground pointer-events-none">
+          <Check className="w-4 h-4 text-primary shrink-0" />
+          {toastMsg}
+        </div>
+      )}
       {/* ── Market Headlines ───────────────────────────────────────────────── */}
       <div className="p-6 rounded-xl bg-card border border-border">
         {/* Header */}
@@ -300,68 +386,139 @@ export function MarketFundamentals() {
         ) : (
           <div className="space-y-2">
             {/* Column headers */}
-            <div className="grid grid-cols-[2rem_1fr_auto_auto_auto] gap-x-3 px-3 text-xs font-medium text-muted-foreground mb-1 hidden sm:grid">
+            <div className="grid grid-cols-[2rem_1fr_auto_auto_auto_2rem] gap-x-3 px-3 text-xs font-medium text-muted-foreground mb-1 hidden sm:grid">
               <span></span>
               <span>Event</span>
               <span className="text-right">Forecast</span>
               <span className="text-right">Previous</span>
               <span className="text-right">Date / Time</span>
+              <span></span>
             </div>
-            {filteredEvents.map(event => (
-              <div
-                key={event.id}
-                className="grid grid-cols-1 sm:grid-cols-[2rem_1fr_auto_auto_auto] gap-x-3 gap-y-1 items-center p-3 rounded-lg bg-secondary/40 border border-border hover:border-primary/20 transition-colors"
-              >
-                {/* Impact dot + currency */}
-                <div className="flex sm:flex-col items-center gap-2 sm:gap-1">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${impactDot(event.impact)}`} />
-                </div>
+            {filteredEvents.map(event => {
+              const isAlerting = alerts.some(a => a.event_id === event.id)
+              const isLoading  = alertLoading === event.id
+              const popupOpen  = alertPopup === event.id
+              const minutes    = alertMinutes[event.id] ?? 15
 
-                {/* Event name + currency + flag */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-base leading-none">{event.flag}</span>
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${impactBadge(event.impact)}`}>
-                      {event.currency}
-                    </span>
+              return (
+                <div
+                  key={event.id}
+                  className="relative grid grid-cols-1 sm:grid-cols-[2rem_1fr_auto_auto_auto_2rem] gap-x-3 gap-y-1 items-center p-3 rounded-lg bg-secondary/40 border border-border hover:border-primary/20 transition-colors"
+                >
+                  {/* Impact dot */}
+                  <div className="flex sm:flex-col items-center gap-2 sm:gap-1">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${impactDot(event.impact)}`} />
                   </div>
-                  <span className="text-sm font-medium text-foreground truncate block">{event.event}</span>
-                </div>
 
-                {/* Forecast */}
-                <div className="text-right">
-                  {event.forecast ? (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Forecast</div>
-                      <div className="text-sm font-medium text-foreground">{event.forecast}</div>
+                  {/* Event name + currency + flag */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-base leading-none">{event.flag}</span>
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${impactBadge(event.impact)}`}>
+                        {event.currency}
+                      </span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </div>
+                    <span className="text-sm font-medium text-foreground truncate block">{event.event}</span>
+                  </div>
 
-                {/* Previous */}
-                <div className="text-right">
-                  {event.previous ? (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Previous</div>
-                      <div className="text-sm text-muted-foreground">{event.previous}</div>
+                  {/* Forecast */}
+                  <div className="text-right">
+                    {event.forecast ? (
+                      <div>
+                        <div className="text-xs text-muted-foreground">Forecast</div>
+                        <div className="text-sm font-medium text-foreground">{event.forecast}</div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </div>
+
+                  {/* Previous */}
+                  <div className="text-right">
+                    {event.previous ? (
+                      <div>
+                        <div className="text-xs text-muted-foreground">Previous</div>
+                        <div className="text-sm text-muted-foreground">{event.previous}</div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </div>
+
+                  {/* Date + time */}
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-foreground">{event.date}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                      <Clock className="w-3 h-3" />
+                      {event.time}
                     </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </div>
+                  </div>
 
-                {/* Date + time */}
-                <div className="text-right">
-                  <div className="text-sm font-medium text-foreground">{event.date}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                    <Clock className="w-3 h-3" />
-                    {event.time}
+                  {/* Bell alert button */}
+                  <div className="flex justify-end relative">
+                    <button
+                      onClick={() => {
+                        if (isAlerting) { toggleAlert(event); return }
+                        setAlertPopup(popupOpen ? null : event.id)
+                      }}
+                      disabled={isLoading}
+                      title={isAlerting ? "Remove alert" : "Set alert"}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                        isAlerting
+                          ? "bg-primary/20 text-primary hover:bg-red-500/20 hover:text-red-400"
+                          : "bg-secondary hover:bg-primary/10 hover:text-primary text-muted-foreground"
+                      }`}
+                    >
+                      {isLoading ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : isAlerting ? (
+                        <Bell className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Bell className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
+                    {/* Minutes picker popup */}
+                    {popupOpen && (
+                      <div className="absolute right-0 top-9 z-20 bg-card border border-border rounded-xl shadow-xl p-3 w-52">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-foreground">Alert me before</span>
+                          <button onClick={() => setAlertPopup(null)} className="text-muted-foreground hover:text-foreground">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5 mb-3">
+                          {MINUTES_OPTIONS.map(m => (
+                            <button
+                              key={m}
+                              onClick={() => setAlertMinutes(prev => ({ ...prev, [event.id]: m }))}
+                              className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                minutes === m
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {m}m
+                            </button>
+                          ))}
+                        </div>
+                        <Button
+                          size="sm"
+                          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold"
+                          onClick={() => toggleAlert(event)}
+                          disabled={isLoading}
+                        >
+                          <Bell className="w-3 h-3 mr-1.5" />
+                          Set Alert
+                        </Button>
+                        {/* Dismiss overlay */}
+                        <div className="fixed inset-0 z-[-1]" onClick={() => setAlertPopup(null)} />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
