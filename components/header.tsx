@@ -3,48 +3,32 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { Menu, X, Star } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
-type NavStyle = "home" | "mentorship" | "vip" | "glitter" | "highlight" | "community" | "contact" | "faq" | "default"
-
-
+type NavStyle = "highlight" | "default"
 
 function navClass(style: NavStyle): string {
-  const base = "relative shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 whitespace-nowrap "
+  const base = "relative shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-150 whitespace-nowrap "
   switch (style) {
-    case "home":
-      return base + "text-foreground bg-white/10 hover:bg-white/20 border border-white/20"
-    case "mentorship":
-      return base + "text-white bg-purple-700/70 hover:bg-purple-600/80 border border-purple-500/40"
-    case "vip":
-      return base + "text-foreground hover:text-foreground hover:bg-white/5"
-    case "glitter":
-      return base + "nav-glitter text-[#848E9C] hover:text-foreground bg-white/5 hover:bg-white/10 border border-white/10"
     case "highlight":
       return base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
-    case "community":
-      return base + "text-white bg-emerald-600/80 hover:bg-emerald-500/90 border border-emerald-500/40 font-semibold"
-    case "faq":
-      return base + "nav-glitter text-[#FCD535] bg-[#FCD535]/10 hover:bg-[#FCD535]/20 border border-[#FCD535]/30 font-semibold"
-    case "contact":
-      return base + "text-white bg-blue-600/70 hover:bg-blue-500/80 border border-blue-500/40"
     default:
-      return base + "text-[#848E9C] hover:text-foreground"
+      return base + "text-[#848E9C] hover:text-foreground hover:bg-white/8"
   }
 }
 
 const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
-  { label: "Home",            href: "/",               style: "home" },
-  { label: "Mentorship",      href: "/mentorship",     style: "mentorship" },
-  { label: "VIP Group",       href: "/vip-group",      style: "vip" },
-  { label: "Trade Dashboard", href: "/trade-dashboard",style: "glitter" },
-  { label: "Intelligence",    href: "/intelligence",   style: "glitter" },
+  { label: "Home",            href: "/",               style: "default" },
+  { label: "Mentorship",      href: "/mentorship",     style: "default" },
+  { label: "VIP Group",       href: "/vip-group",      style: "default" },
+  { label: "Trade Dashboard", href: "/trade-dashboard",style: "default" },
+  { label: "Intelligence",    href: "/intelligence",   style: "default" },
   { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
-  { label: "Community",       href: "/community",      style: "community" },
-  { label: "Funded Tools",    href: "/funded-tools",   style: "glitter" },
-  { label: "Material",        href: "/material",       style: "glitter" },
-  { label: "FAQ",             href: "/faq",            style: "faq" },
-  { label: "Contact",         href: "/contact",        style: "contact" },
+  { label: "Community",       href: "/community",      style: "default" },
+  { label: "Funded Tools",    href: "/funded-tools",   style: "default" },
+  { label: "Material",        href: "/material",       style: "default" },
+  { label: "FAQ",             href: "/faq",            style: "default" },
+  { label: "Contact",         href: "/contact",        style: "default" },
 ]
 
 export function Header() {
@@ -62,11 +46,6 @@ export function Header() {
           <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4">
             {NAV_ITEMS.map((item) => (
               <Link key={item.label} href={item.href} className={navClass(item.style)}>
-                {item.style === "vip" && (
-                  <span className="absolute -top-1 -right-1 star-sparkle">
-                    <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
-                  </span>
-                )}
                 {item.label}
               </Link>
             ))}
@@ -94,11 +73,6 @@ export function Header() {
                   className={navClass(item.style)}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  {item.style === "vip" && (
-                    <span className="absolute -top-1 -right-1 star-sparkle">
-                      <Star className="w-3 h-3 fill-[#FCD535] text-[#FCD535]" />
-                    </span>
-                  )}
                   {item.label}
                 </Link>
               ))}
