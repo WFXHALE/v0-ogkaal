@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-store"
 
 type NavStyle = "highlight" | "default"
@@ -63,6 +64,9 @@ export function Header() {
               </Link>
             ))}
           </nav>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
 
           {/* Notification bell (visible when logged-in to community) */}
           {userId && <NotificationBell userId={userId} />}
