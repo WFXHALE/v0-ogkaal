@@ -1,9 +1,9 @@
 "use client"
 
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { VipAccessFlow, useVipAccessFlow } from "@/components/vip-access-flow"
-import { FundedAccountFlow, useFundedAccountFlow } from "@/components/funded-account-flow"
 import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
 import { useState } from "react"
 
@@ -20,7 +20,6 @@ const vipFeatures = [
 
 export default function VipGroupPage() {
   const { isOpen, initialUserType, openFlow, closeFlow } = useVipAccessFlow()
-  const { isOpen: isFundedOpen, openFlow: openFundedFlow, closeFlow: closeFundedFlow } = useFundedAccountFlow()
   const [copiedCode, setCopiedCode] = useState(false)
 
   const handleCopyCode = () => {
@@ -31,31 +30,31 @@ export default function VipGroupPage() {
 
   const pricingOptions = [
     {
-      title: "XM Partner Account",
-      price: "$25",
+      title: "XM Existing User",
+      price: "₹2500 / $30",
+      description: "For traders who already have an XM trading account.",
+      requirements: "Deposit minimum $50 under partner code XV3F9 and submit your Trader ID.",
+      highlight: false,
+      cta: "Continue",
+      onClick: () => openFlow("existing"),
+    },
+    {
+      title: "XM New User",
+      price: "₹3500 / $40",
       description: "For new XM users",
-      requirements: "User must open an XM account using the provided referral link.",
+      requirements: "Create XM account using partner link, deposit minimum $50.",
       highlight: true,
       cta: "Open XM Account",
       onClick: () => openFlow("new"),
     },
     {
-      title: "XM Existing User",
-      price: "$20",
-      description: "For current XM traders",
-      requirements: "For users already trading with XM.",
+      title: "Funded Account User",
+      price: "₹4500 / $50",
+      description: "For funded traders",
+      requirements: "For traders using funded accounts. Select your account size.",
       highlight: false,
-      cta: "Join VIP Group",
-      onClick: () => openFlow("existing"),
-    },
-    {
-      title: "Funded Account Traders",
-      price: "$50",
-      description: "Without XM account",
-      requirements: "For traders using funded accounts or other brokers.",
-      highlight: false,
-      cta: "Request Funded Access",
-      onClick: openFundedFlow,
+      cta: "Get Funded Access",
+      onClick: () => openFlow("funded"),
     },
   ]
 
@@ -89,25 +88,31 @@ export default function VipGroupPage() {
         </section>
 
         {/* Partner Code Banner */}
-        <section className="py-6 bg-primary/10 border-y border-primary/30">
-          <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <p className="text-foreground font-medium text-center sm:text-left">
-              Use Partner Code to qualify for VIP access:
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="px-4 py-2 bg-card rounded-lg border border-primary/50">
-                <span className="font-mono font-bold text-primary text-xl">{PARTNER_CODE}</span>
+        <section className="py-8 bg-primary border-y border-primary">
+          <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-center sm:text-left">
+            <div>
+              <p className="text-primary-foreground font-bold text-lg">XM Partner Code</p>
+              <p className="text-primary-foreground/80 text-sm">Enter this code when opening your XM account to qualify for VIP access</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="px-6 py-3 bg-primary-foreground rounded-xl border-4 border-primary-foreground/20 shadow-lg">
+                <span className="font-mono font-black text-primary text-3xl tracking-widest">{PARTNER_CODE}</span>
               </div>
               <Button
-                size="sm"
-                variant="outline"
+                size="lg"
                 onClick={handleCopyCode}
-                className="border-primary/50 hover:bg-primary/10"
+                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold border-0"
               >
                 {copiedCode ? (
-                  <Check className="w-4 h-4 text-green-500" />
+                  <>
+                    <Check className="w-4 h-4 mr-2 text-green-600" />
+                    Copied!
+                  </>
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Code
+                  </>
                 )}
               </Button>
             </div>
@@ -301,12 +306,7 @@ export default function VipGroupPage() {
         onClose={closeFlow} 
         initialUserType={initialUserType}
       />
-
-      {/* Funded Account Flow Modal */}
-      <FundedAccountFlow
-        isOpen={isFundedOpen}
-        onClose={closeFundedFlow}
-      />
+      <Footer />
     </div>
   )
 }

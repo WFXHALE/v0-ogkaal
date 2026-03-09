@@ -1,132 +1,56 @@
 import { NextResponse } from "next/server"
 
-interface IndianMarketAsset {
-  symbol: string
-  name: string
-  price: string
-  change: string
-  isPositive: boolean
-  tradingViewSymbol: string
-  isMarketOpen?: boolean
-}
-
-const INDIAN_INDICES = [
-  { symbol: "NIFTY50", name: "NIFTY 50", tradingView: "NSE:NIFTY" },
-  { symbol: "BANKNIFTY", name: "BANK NIFTY", tradingView: "NSE:BANKNIFTY" },
+// TwelveData: NSE indices — NIFTY 50 (NIFTY) and Bank NIFTY (BANKNIFTY) on NSE exchange
+const INDICES = [
+  { td: "NIFTY",     exchange: "NSE", symbol: "NIFTY50",   name: "NIFTY 50"   },
+  { td: "BANKNIFTY", exchange: "NSE", symbol: "BANKNIFTY", name: "Bank NIFTY" },
 ]
 
-function isIndianMarketOpen(): boolean {
-  const now = new Date()
-  // Convert to IST (UTC+5:30)
-  const istOffset = 5.5 * 60 * 60 * 1000
-  const istTime = new Date(now.getTime() + istOffset)
-  
-  const day = istTime.getUTCDay()
-  const hour = istTime.getUTCHours()
-  const minute = istTime.getUTCMinutes()
-  const timeInMinutes = hour * 60 + minute
-  
-  // Market hours: Mon-Fri, 9:15 AM - 3:30 PM IST
-  const marketOpen = 9 * 60 + 15 // 9:15 AM
-  const marketClose = 15 * 60 + 30 // 3:30 PM
-  
-  const isWeekday = day >= 1 && day <= 5
-  const isDuringHours = timeInMinutes >= marketOpen && timeInMinutes <= marketClose
-  
-  return isWeekday && isDuringHours
-}
-
-async function fetchNSEData(): Promise<IndianMarketAsset[] | null> {
-  try {
-    // NSE India API (may have CORS restrictions, so we use a proxy approach)
-    // This is a fallback that provides reasonable estimates
-    const isMarketOpen = isIndianMarketOpen()
-    
-    // Try to fetch from Yahoo Finance API as a proxy
-    const symbols = ["^NSEI", "^NSEBANK"]
-    const results: IndianMarketAsset[] = []
-    
-    for (let i = 0; i < symbols.length; i++) {
-      const yahooSymbol = symbols[i]
-      const index = INDIAN_INDICES[i]
-      
-      try {
-        const response = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=2d`,
-          { 
-            next: { revalidate: 60 },
-            headers: {
-              "User-Agent": "Mozilla/5.0"
-            }
-          }
-        )
-        
-        if (response.ok) {
-          const data = await response.json()
-          const quote = data.chart?.result?.[0]?.meta
-          
-          if (quote) {
-            const currentPrice = quote.regularMarketPrice || quote.previousClose
-            const previousClose = quote.chartPreviousClose || quote.previousClose
-            const change = previousClose ? ((currentPrice - previousClose) / previousClose) * 100 : 0
-            
-            results.push({
-              symbol: index.symbol,
-              name: index.name,
-              price: currentPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 }),
-              change: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
-              isPositive: change >= 0,
-              tradingViewSymbol: index.tradingView,
-              rawPrice: currentPrice,
-              isMarketOpen,
-            })
-          }
-        }
-      } catch {
-        // Continue to next symbol
-      }
-    }
-    
-    if (results.length > 0) return results
-    return null
-  } catch {
-    return null
-  }
-}
-
-async function getFallbackData(): Promise<IndianMarketAsset[]> {
-  const isMarketOpen = isIndianMarketOpen()
-  
-  return [
-    {
-      symbol: "NIFTY50",
-      name: "NIFTY 50",
-      price: "24,850.00",
-      change: isMarketOpen ? "+0.45%" : "Market Closed",
-      isPositive: true,
-      tradingViewSymbol: "NSE:NIFTY",
-      rawPrice: 24850.00,
-      isMarketOpen,
-    },
-    {
-      symbol: "BANKNIFTY",
-      name: "BANK NIFTY",
-      price: "53,200.00",
-      change: isMarketOpen ? "+0.62%" : "Market Closed",
-      isPositive: true,
-      tradingViewSymbol: "NSE:BANKNIFTY",
-      rawPrice: 53200.00,
-      isMarketOpen,
-    },
-  ]
+function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
+  if (pct > 0.3) return "Bullish"
+  if (pct < -0.3) return "Bearish"
+  return "Neutral"
 }
 
 export async function GET() {
-  let data = await fetchNSEData()
-  
-  if (!data || data.length === 0) {
-    data = await getFallbackData()
+  const apiKey = process.env.TWELVE_DATA_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ success: false, data: [], error: "TWELVE_DATA_API_KEY not set" }, { status: 500 })
   }
-  
-  return NextResponse.json({ data, isMarketOpen: isIndianMarketOpen() })
+
+  try {
+    // Batch quote: symbol:exchange format, comma-separated
+    const tickers = INDICES.map(i => `${i.td}:${i.exchange}`).join(",")
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(tickers)}&apikey=${apiKey}`
+
+    const res = await fetch(url, { next: { revalidate: 60 } })
+    if (!res.ok) throw new Error(`TwelveData responded ${res.status}`)
+
+    const json = await res.json()
+
+    const data = INDICES.map(idx => {
+      const key = `${idx.td}:${idx.exchange}`
+      const q = json[key] ?? json[idx.td] ?? {}
+      if (q.status === "error") return null
+
+      const price     = parseFloat(q.close ?? "0")
+      const changePct = parseFloat(q.percent_change ?? "0")
+      if (!price) return null
+
+      return {
+        symbol: idx.symbol,
+        name:   idx.name,
+        price:  `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
+        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+        isPositive: changePct >= 0,
+        bias: bias(changePct),
+      }
+    }).filter(Boolean)
+
+    return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
+  } catch (err) {
+    console.error("[indian market route]", err)
+    return NextResponse.json({ success: false, data: [], error: String(err) }, { status: 500 })
+  }
 }

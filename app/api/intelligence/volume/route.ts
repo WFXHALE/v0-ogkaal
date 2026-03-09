@@ -1,104 +1,76 @@
 import { NextResponse } from "next/server"
 
-interface VolumeData {
-  symbol: string
-  name: string
-  volume24h: string
-  volumeChange: string
-  isIncreasing: boolean
-  avgVolume: string
-  activity: "Very High" | "High" | "Normal" | "Low"
+const SYMBOLS = [
+  { symbol: "BTC", name: "Bitcoin", bin: "BTCUSDT" },
+  { symbol: "ETH", name: "Ethereum", bin: "ETHUSDT" },
+  { symbol: "SOL", name: "Solana", bin: "SOLUSDT" },
+  { symbol: "XRP", name: "XRP", bin: "XRPUSDT" },
+  { symbol: "BNB", name: "BNB", bin: "BNBUSDT" },
+  { symbol: "ADA", name: "Cardano", bin: "ADAUSDT" },
+  { symbol: "DOGE", name: "Dogecoin", bin: "DOGEUSDT" },
+]
+
+function fmt(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
+  return `$${(v / 1e3).toFixed(2)}K`
 }
 
-async function fetchBinanceVolume(): Promise<VolumeData[]> {
-  try {
-    const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT"]
-    const response = await fetch(
-      `https://api.binance.com/api/v3/ticker/24hr?symbols=${JSON.stringify(symbols)}`,
-      { next: { revalidate: 15 } }
-    )
-    
-    if (!response.ok) return []
-    const data = await response.json()
-    
-    return data.map((ticker: { symbol: string; quoteVolume: string; priceChangePercent: string }) => {
-      const volume = parseFloat(ticker.quoteVolume)
-      const avgVolume = volume * 0.85 // Estimate average as 85% of current
-      const volumeRatio = volume / avgVolume
-      
-      let activity: VolumeData["activity"]
-      if (volumeRatio > 1.5) activity = "Very High"
-      else if (volumeRatio > 1.2) activity = "High"
-      else if (volumeRatio > 0.8) activity = "Normal"
-      else activity = "Low"
-      
-      const symbolName = ticker.symbol.replace("USDT", "")
-      const names: Record<string, string> = {
-        BTC: "Bitcoin",
-        ETH: "Ethereum",
-        SOL: "Solana",
-        XRP: "XRP",
-        BNB: "BNB",
-      }
-      
-      return {
-        symbol: symbolName,
-        name: names[symbolName] || symbolName,
-        volume24h: formatVolume(volume),
-        volumeChange: `${parseFloat(ticker.priceChangePercent) >= 0 ? "+" : ""}${parseFloat(ticker.priceChangePercent).toFixed(1)}%`,
-        isIncreasing: parseFloat(ticker.priceChangePercent) >= 0,
-        avgVolume: formatVolume(avgVolume),
-        activity,
-      }
-    })
-  } catch {
-    return []
-  }
-}
-
-function formatVolume(volume: number): string {
-  if (volume >= 1e9) return `$${(volume / 1e9).toFixed(2)}B`
-  if (volume >= 1e6) return `$${(volume / 1e6).toFixed(2)}M`
-  if (volume >= 1e3) return `$${(volume / 1e3).toFixed(2)}K`
-  return `$${volume.toFixed(2)}`
+function activity(ratio: number): "Very High" | "High" | "Normal" | "Low" {
+  if (ratio > 1.4) return "Very High"
+  if (ratio > 1.1) return "High"
+  if (ratio > 0.75) return "Normal"
+  return "Low"
 }
 
 export async function GET() {
   try {
-    const volumeData = await fetchBinanceVolume()
-    
-    // Fallback data if API fails
-    const finalData = volumeData.length > 0 ? volumeData : [
-      {
-        symbol: "BTC",
-        name: "Bitcoin",
-        volume24h: "$28.5B",
-        volumeChange: "+12.3%",
-        isIncreasing: true,
-        avgVolume: "$24.2B",
-        activity: "High" as const,
-      },
-      {
-        symbol: "ETH",
-        name: "Ethereum",
-        volume24h: "$12.8B",
-        volumeChange: "+8.7%",
-        isIncreasing: true,
-        avgVolume: "$11.5B",
-        activity: "Normal" as const,
-      },
-    ]
-    
-    return NextResponse.json({
-      success: true,
-      data: finalData,
-      timestamp: new Date().toISOString(),
-    })
-  } catch (error) {
-    console.error("Volume API error:", error)
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch volume data" },
-      { status: 500 }
+    // Fetch each symbol individually — the batch `?symbols=[...]` endpoint is
+    // blocked by Binance when called from a server (no browser CORS headers).
+    const results = await Promise.all(
+      SYMBOLS.map(async (s) => {
+        const [tickerRes, klinesRes] = await Promise.all([
+          fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s.bin}`, {
+            next: { revalidate: 10 },
+          }),
+          fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${s.bin}&interval=1d&limit=7`,
+            { next: { revalidate: 300 } }
+          ),
+        ])
+
+        if (!tickerRes.ok) throw new Error(`Binance ticker failed for ${s.bin}`)
+        const t: {
+          quoteVolume: string
+          priceChangePercent: string
+        } = await tickerRes.json()
+
+        const vol24 = parseFloat(t.quoteVolume)
+        const changePct = parseFloat(t.priceChangePercent)
+
+        let avg = vol24 * 0.9
+        if (klinesRes.ok) {
+          const klines: string[][] = await klinesRes.json()
+          const total = klines.reduce((acc, row) => acc + parseFloat(row[7]), 0)
+          avg = total / klines.length
+        }
+
+        const ratio = avg > 0 ? vol24 / avg : 1
+        return {
+          symbol: s.symbol,
+          name: s.name,
+          volume24h: fmt(vol24),
+          volumeChange: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(1)}%`,
+          isIncreasing: changePct >= 0,
+          avgVolume: fmt(avg),
+          activity: activity(ratio),
+        }
+      })
     )
+
+    return NextResponse.json({ success: true, data: results, timestamp: new Date().toISOString() })
+  } catch (err) {
+    console.error("[volume route]", err)
+    return NextResponse.json({ success: false, data: [], error: "Volume fetch failed" }, { status: 500 })
   }
 }

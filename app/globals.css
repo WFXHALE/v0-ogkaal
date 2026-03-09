@@ -1,59 +1,69 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Optimize critical rendering path */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Light theme — warm off-white background, dark text, gold primary */
+  --background: oklch(0.97 0.004 80);
+  --foreground: oklch(0.12 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.12 0 0);
+  --primary: #F0B90B;
+  --primary-foreground: #0B0E11;
+  --secondary: oklch(0.93 0.003 80);
+  --secondary-foreground: oklch(0.15 0 0);
+  --muted: oklch(0.93 0.003 80);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: #F0B90B;
+  --accent-foreground: #0B0E11;
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --destructive-foreground: #fff;
+  --border: oklch(0.87 0.004 80);
+  --input: oklch(0.87 0.004 80);
+  --ring: oklch(0.75 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.95 0.004 80);
+  --sidebar-foreground: oklch(0.12 0 0);
+  --sidebar-primary: #F0B90B;
+  --sidebar-primary-foreground: #0B0E11;
+  --sidebar-accent: oklch(0.93 0.003 80);
+  --sidebar-accent-foreground: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.87 0.004 80);
+  --sidebar-ring: oklch(0.75 0 0);
 }
 
 .dark {
   --background: oklch(0.12 0 0);
-  --foreground: oklch(0.985 0 0);
+  --foreground: #FFFFFF;
   --card: oklch(0.16 0.005 250);
-  --card-foreground: oklch(0.985 0 0);
+  --card-foreground: #FFFFFF;
   --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.8 0.15 85);
-  --primary-foreground: oklch(0.15 0 0);
+  --popover-foreground: #FFFFFF;
+  --primary: #FCD535;
+  --primary-foreground: #0B0E11;
   --secondary: oklch(0.22 0.005 250);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: #FFFFFF;
   --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.8 0.15 85);
-  --accent-foreground: oklch(0.15 0 0);
+  --muted-foreground: #848E9C;
+  --accent: #FCD535;
+  --accent-foreground: #0B0E11;
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.269 0 0);
@@ -75,8 +85,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,4 +132,132 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ─── OG KAAL TRADER branded loader ─────────────────────────────────── */
+
+/* 1. Gold gradient text shimmer */
+@keyframes og-shimmer {
+  0%   { background-position: -300% center; }
+  100% { background-position:  300% center; }
+}
+
+/* 2. Outer glow pulse ring */
+@keyframes og-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.55; }
+  50%       { transform: scale(1.12); opacity: 1;    }
+}
+
+/* 3. Soft halo breathe */
+@keyframes og-halo {
+  0%, 100% { box-shadow: 0 0 28px 8px rgba(252, 213, 53, 0.25); }
+  50%       { box-shadow: 0 0 56px 18px rgba(252, 213, 53, 0.55); }
+}
+
+.og-loader-text {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-sans);
+  font-size: clamp(5rem, 14vw, 10rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+
+  /* Gold shimmer gradient */
+  background: linear-gradient(
+    105deg,
+    #b8820a 0%,
+    #FCD535 25%,
+    #ffe680 40%,
+    #FCD535 55%,
+    #F0B90B 75%,
+    #b8820a 100%
+  );
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: og-shimmer 2s linear infinite;
+
+  /* Text glow */
+  filter: drop-shadow(0 0 24px rgba(252, 213, 53, 0.7));
+}
+
+.og-loader-ring {
+  position: absolute;
+  inset: -28px;
+  border-radius: 9999px;
+  border: 2px solid rgba(252, 213, 53, 0.35);
+  animation: og-pulse 1.8s ease-in-out infinite, og-halo 1.8s ease-in-out infinite;
+}
+
+/* ─── Horizontal ticker scroll ───────────────────────────────────────── */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Logo shine sweep animation */
+@keyframes logo-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.logo-shine {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 60%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: logo-shine 3.5s linear infinite;
+}
+
+/* Glitter shimmer for nav buttons */
+@keyframes glitter-move {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.nav-glitter {
+  position: relative;
+  overflow: hidden;
+}
+.nav-glitter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  animation: glitter-move 2.8s linear infinite;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* VIP Group gold star sparkle */
+@keyframes sparkle-spin {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.3) rotate(180deg); opacity: 0.7; }
+}
+
+.star-sparkle {
+  animation: sparkle-spin 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Hide scrollbar for nav overflow */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

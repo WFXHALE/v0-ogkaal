@@ -60,22 +60,22 @@ export function NavigationCardsSection() {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
           {navigationCards.map((card) => (
             <Link key={card.title} href={card.href} className="group">
-              <div className="h-full p-6 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
-                  <card.icon className="w-7 h-7 text-primary" />
+              <div className="h-full p-4 sm:p-6 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+                <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-3 sm:mb-5 group-hover:scale-110 transition-transform`}>
+                  <card.icon className="w-5 h-5 sm:w-7 sm:h-7 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
+                <h3 className="text-sm sm:text-xl font-bold text-foreground mb-1 sm:mb-2 group-hover:text-primary transition-colors">
                   {card.title}
                 </h3>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-xs sm:text-base text-muted-foreground mb-3 sm:mb-4 hidden sm:block">
                   {card.description}
                 </p>
-                <Button variant="ghost" className="p-0 h-auto text-primary hover:bg-transparent group-hover:translate-x-1 transition-transform">
+                <Button variant="ghost" className="p-0 h-auto text-primary hover:bg-transparent group-hover:translate-x-1 transition-transform text-xs sm:text-sm">
                   Explore
-                  <ArrowRight className="w-4 h-4 ml-1" />
+                  <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                 </Button>
               </div>
             </Link>
