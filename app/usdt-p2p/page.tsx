@@ -372,7 +372,7 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">
                             {sellRateRange.min === sellRateRange.max 
                               ? `₹${sellRateRange.min}` 
-                              : `₹${sellRateRange.min}–₹${sellRateRange.max}`} per USDT
+                              : `₹${sellRateRange.min}��₹${sellRateRange.max}`} per USDT
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
@@ -887,24 +887,26 @@ export default function UsdtP2PPage() {
                       {/* Payment Details */}
                       {formData.paymentMethod && (
                         <div className="space-y-4">
-                          {/* QR Code - Different for UPI/IMPS vs e-Rupee */}
-                          <div className="p-6 rounded-xl bg-secondary/50 border border-border text-center">
-                            <p className="text-sm text-muted-foreground mb-4">
-                              {formData.paymentMethod === "erupee" 
-                                ? "Scan QR Code to Pay via Digital Rupee" 
-                                : "Scan QR Code to Pay via UPI"}
-                            </p>
-                            <div className="w-64 mx-auto bg-white rounded-xl overflow-hidden mb-4">
-                              <img 
-                                src={formData.paymentMethod === "erupee" 
-                                  ? PAYMENT_DETAILS.erupeeQrCodeUrl 
-                                  : PAYMENT_DETAILS.upiQrCodeUrl}
-                                alt={formData.paymentMethod === "erupee" ? "e-Rupee QR Code" : "UPI QR Code"}
-                                className="w-full h-auto"
-                              />
+                          {/* QR Code - Only for UPI and e-Rupee, NOT for IMPS */}
+                          {(formData.paymentMethod === "upi" || formData.paymentMethod === "erupee") && (
+                            <div className="p-6 rounded-xl bg-secondary/50 border border-border text-center">
+                              <p className="text-sm text-muted-foreground mb-4">
+                                {formData.paymentMethod === "erupee" 
+                                  ? "Scan QR Code to Pay via Digital Rupee" 
+                                  : "Scan QR Code to Pay via UPI"}
+                              </p>
+                              <div className="w-64 mx-auto bg-white rounded-xl overflow-hidden mb-4">
+                                <img 
+                                  src={formData.paymentMethod === "erupee" 
+                                    ? PAYMENT_DETAILS.erupeeQrCodeUrl 
+                                    : PAYMENT_DETAILS.upiQrCodeUrl}
+                                  alt={formData.paymentMethod === "erupee" ? "e-Rupee QR Code" : "UPI QR Code"}
+                                  className="w-full h-auto"
+                                />
+                              </div>
+                              <p className="text-sm font-medium text-foreground">Amount: ₹{totalAmount.toLocaleString()}</p>
                             </div>
-                            <p className="text-sm font-medium text-foreground">Amount: ₹{totalAmount.toLocaleString()}</p>
-                          </div>
+                          )}
 
                           {/* UPI ID - Show for UPI */}
                           {formData.paymentMethod === "upi" && (
@@ -929,23 +931,74 @@ export default function UsdtP2PPage() {
                           {/* IMPS Bank Details - Show for IMPS */}
                           {formData.paymentMethod === "imps" && (
                             <div className="p-4 rounded-xl bg-secondary/50 border border-border">
-                              <p className="text-sm text-muted-foreground mb-3">Bank Transfer Details (IMPS/NEFT):</p>
+                              <div className="flex justify-between items-center mb-3">
+                                <p className="text-sm text-muted-foreground">Bank Transfer Details (IMPS/NEFT):</p>
+                                <p className="text-sm font-medium text-primary">Amount: ₹{totalAmount.toLocaleString()}</p>
+                              </div>
                               <div className="space-y-3">
-                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
-                                  <span className="text-sm text-muted-foreground">Account Holder:</span>
-                                  <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.accountHolder}</span>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
+                                  <div>
+                                    <span className="text-xs text-muted-foreground block">Account Holder</span>
+                                    <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.accountHolder}</span>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(PAYMENT_DETAILS.imps.accountHolder)
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
-                                  <span className="text-sm text-muted-foreground">Account Number:</span>
-                                  <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.accountNumber}</span>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
+                                  <div>
+                                    <span className="text-xs text-muted-foreground block">Account Number</span>
+                                    <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.accountNumber}</span>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(PAYMENT_DETAILS.imps.accountNumber)
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
-                                  <span className="text-sm text-muted-foreground">IFSC Code:</span>
-                                  <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.ifsc}</span>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
+                                  <div>
+                                    <span className="text-xs text-muted-foreground block">IFSC Code</span>
+                                    <span className="font-mono font-medium text-foreground">{PAYMENT_DETAILS.imps.ifsc}</span>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(PAYMENT_DETAILS.imps.ifsc)
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                                <div className="flex justify-between items-center p-3 rounded-lg bg-background border border-border">
-                                  <span className="text-sm text-muted-foreground">Bank Name:</span>
-                                  <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.bankName}</span>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
+                                  <div>
+                                    <span className="text-xs text-muted-foreground block">Bank Name</span>
+                                    <span className="font-medium text-foreground">{PAYMENT_DETAILS.imps.bankName}</span>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(PAYMENT_DETAILS.imps.bankName)
+                                    }}
+                                    className="shrink-0"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -958,6 +1011,8 @@ export default function UsdtP2PPage() {
                               <p className="text-sm text-amber-200">
                                 {formData.paymentMethod === "erupee"
                                   ? "Complete the payment using the Digital Rupee QR code above. After payment, you will need to upload proof in the next step."
+                                  : formData.paymentMethod === "imps"
+                                  ? "Complete the bank transfer using the account details above. After payment, you will need to upload proof in the next step."
                                   : "Complete the payment using the QR code or UPI ID above. After payment, you will need to upload proof in the next step."}
                               </p>
                             </div>
