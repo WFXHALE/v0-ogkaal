@@ -108,53 +108,53 @@ export default function IntelligencePage() {
     setLastRefresh(new Date())
   }, [])
 
-  // Fetch crypto prices from Binance
+  // Fetch crypto prices from Binance — 3s refresh
   const { data: cryptoData, mutate: mutateCrypto, isValidating: cryptoLoading } = useSWR(
     activeTab === "crypto" ? "https://api.binance.com/api/v3/ticker/24hr" : null,
     fetcher,
-    { refreshInterval: 5000 }
+    { refreshInterval: 3000 }
   )
 
-  // Fetch forex data
+  // Fetch forex data — 60s (exchangerate.host + metals.live rate-limit friendly)
   const { data: forexData, mutate: mutateForex, isValidating: forexLoading } = useSWR(
     activeTab === "forex" ? "/api/intelligence/forex" : null,
     fetcher,
-    { refreshInterval: 30000 }
+    { refreshInterval: 60000 }
   )
 
-  // Fetch Indian market data
+  // Fetch Indian market data — 30s
   const { data: indianData, mutate: mutateIndian, isValidating: indianLoading } = useSWR(
     activeTab === "indian" ? "/api/market/indian" : null,
     fetcher,
     { refreshInterval: 30000 }
   )
 
-  // Fetch news
+  // Fetch news — 3 min
   const { data: newsData, mutate: mutateNews, isValidating: newsLoading } = useSWR(
     `/api/intelligence/news?category=${activeTab}`,
     fetcher,
-    { refreshInterval: 60000 }
+    { refreshInterval: 180000 }
   )
 
-  // Fetch calendar
+  // Fetch calendar — 10 min
   const { data: calendarData, mutate: mutateCalendar, isValidating: calendarLoading } = useSWR(
     "/api/intelligence/calendar",
     fetcher,
-    { refreshInterval: 300000 }
+    { refreshInterval: 600000 }
   )
 
-  // Fetch volume
+  // Fetch volume — 15s (Binance 24hr stats)
   const { data: volumeData, mutate: mutateVolume, isValidating: volumeLoading } = useSWR(
-    `/api/intelligence/volume?category=${activeTab}`,
+    "/api/intelligence/volume",
     fetcher,
-    { refreshInterval: 20000 }
+    { refreshInterval: 15000 }
   )
 
-  // Fetch liquidity
+  // Fetch liquidity — 15s (Binance order book)
   const { data: liquidityData, mutate: mutateLiquidity, isValidating: liquidityLoading } = useSWR(
-    activeTab === "forex" ? "/api/intelligence/liquidity" : null,
+    "/api/intelligence/liquidity",
     fetcher,
-    { refreshInterval: 30000 }
+    { refreshInterval: 15000 }
   )
 
   // Process crypto data

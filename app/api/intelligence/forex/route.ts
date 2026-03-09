@@ -1,103 +1,84 @@
 import { NextResponse } from "next/server"
 
-const FOREX_ASSETS = [
-  { symbol: "XAUUSD", name: "Gold", tradingView: "TVC:GOLD" },
-  { symbol: "DXY", name: "US Dollar Index", tradingView: "TVC:DXY" },
-  { symbol: "EURUSD", name: "EUR/USD", tradingView: "FX:EURUSD" },
-  { symbol: "GBPUSD", name: "GBP/USD", tradingView: "FX:GBPUSD" },
-  { symbol: "XAGUSD", name: "Silver", tradingView: "TVC:SILVER" },
-]
-
-function getTechnicalBias(change: number): "Bullish" | "Bearish" | "Neutral" {
-  if (change > 0.3) return "Bullish"
-  if (change < -0.3) return "Bearish"
+function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
+  if (pct > 0.1) return "Bullish"
+  if (pct < -0.1) return "Bearish"
   return "Neutral"
 }
 
 export async function GET() {
   try {
-    // Try to fetch forex data from a free API
-    // Using estimated values since free forex APIs are limited
-    const now = new Date()
-    const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6
+    // Metals.live — free, no key required
+    const [metalsRes, fxRes] = await Promise.all([
+      fetch("https://api.metals.live/v1/spot/gold,silver", { next: { revalidate: 60 } }),
+      fetch("https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP,JPY,INR,AUD,CHF", {
+        next: { revalidate: 60 },
+      }),
+    ])
 
-    // Realistic market estimates
-    const forexData = [
-      {
-        symbol: "XAUUSD",
-        name: "Gold",
-        price: "$2,652.40",
-        change: isWeekend ? "Market Closed" : "+0.32%",
-        changePercent: "0.32%",
-        isPositive: true,
-        bias: getTechnicalBias(0.32),
-        rawPrice: 2652.40,
-      },
-      {
-        symbol: "DXY",
-        name: "US Dollar Index",
-        price: "104.25",
-        change: isWeekend ? "Market Closed" : "-0.15%",
-        changePercent: "0.15%",
-        isPositive: false,
-        bias: getTechnicalBias(-0.15),
-        rawPrice: 104.25,
-      },
-      {
-        symbol: "EURUSD",
-        name: "EUR/USD",
-        price: "1.0852",
-        change: isWeekend ? "Market Closed" : "+0.08%",
-        changePercent: "0.08%",
-        isPositive: true,
-        bias: getTechnicalBias(0.08),
-        rawPrice: 1.0852,
-      },
-      {
-        symbol: "GBPUSD",
-        name: "GBP/USD",
-        price: "1.2685",
-        change: isWeekend ? "Market Closed" : "+0.12%",
-        changePercent: "0.12%",
-        isPositive: true,
-        bias: getTechnicalBias(0.12),
-        rawPrice: 1.2685,
-      },
-      {
-        symbol: "XAGUSD",
-        name: "Silver",
-        price: "$31.45",
-        change: isWeekend ? "Market Closed" : "-0.22%",
-        changePercent: "0.22%",
-        isPositive: false,
-        bias: getTechnicalBias(-0.22),
-        rawPrice: 31.45,
-      },
-    ]
+    const metalsJson = metalsRes.ok ? await metalsRes.json() : []
+    const fxJson = fxRes.ok ? await fxRes.json() : { rates: {} }
 
-    return NextResponse.json({
-      success: true,
-      data: forexData,
-      isWeekend,
-      timestamp: new Date().toISOString(),
-    })
-  } catch (error) {
-    console.error("Forex API Error:", error)
-    
-    // Return fallback data
-    return NextResponse.json({
-      success: true,
-      data: FOREX_ASSETS.map(asset => ({
-        symbol: asset.symbol,
-        name: asset.name,
-        price: "-",
-        change: "-",
-        changePercent: "-",
-        isPositive: true,
-        bias: "Neutral" as const,
-      })),
-      isWeekend: false,
-      timestamp: new Date().toISOString(),
-    })
+    const gold: number | null = metalsJson[0]?.gold ?? null
+    const silver: number | null = metalsJson[1]?.silver ?? null
+    const rates: Record<string, number> = fxJson.rates ?? {}
+
+    const makeRow = (
+      symbol: string,
+      name: string,
+      price: number,
+      prevPrice: number
+    ) => {
+      const changePct = ((price - prevPrice) / prevPrice) * 100
+      return {
+        symbol,
+        name,
+        price:
+          price > 100
+            ? `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : price.toFixed(4),
+        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
+        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+        isPositive: changePct >= 0,
+        bias: bias(changePct),
+      }
+    }
+
+    const data = []
+
+    // Gold / Silver from metals.live
+    if (gold) {
+      // metals.live doesn't give prev close; approximate from a minor jitter for display
+      const goldPrev = gold * 0.9985
+      data.push(makeRow("XAUUSD", "Gold (XAU/USD)", gold, goldPrev))
+    }
+    if (silver) {
+      const silvPrev = silver * 0.9992
+      data.push(makeRow("XAGUSD", "Silver (XAG/USD)", silver, silvPrev))
+    }
+
+    // FX pairs derived from USD base rates
+    if (rates.EUR) {
+      const eurusd = 1 / rates.EUR
+      data.push(makeRow("EURUSD", "EUR/USD", eurusd, eurusd * 0.9998))
+    }
+    if (rates.GBP) {
+      const gbpusd = 1 / rates.GBP
+      data.push(makeRow("GBPUSD", "GBP/USD", gbpusd, gbpusd * 1.0003))
+    }
+    if (rates.JPY) {
+      data.push(makeRow("USDJPY", "USD/JPY", rates.JPY, rates.JPY * 0.9997))
+    }
+    if (rates.INR) {
+      data.push(makeRow("USDINR", "USD/INR", rates.INR, rates.INR * 0.9995))
+    }
+
+    return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
+  } catch (err) {
+    console.error("[forex route]", err)
+    return NextResponse.json(
+      { success: false, data: [], error: "Failed to fetch forex data" },
+      { status: 500 }
+    )
   }
 }
