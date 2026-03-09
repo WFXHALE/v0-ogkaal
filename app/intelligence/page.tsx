@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import useSWR from "swr"
 import { 
   TrendingUp, TrendingDown, Minus, RefreshCw, Newspaper, 
-  Calendar, BarChart3, Activity, AlertTriangle, Clock,
+  Calendar, BarChart3, Activity, Clock,
   ArrowUpRight, ArrowDownRight, ExternalLink, DollarSign,
   Bitcoin, IndianRupee
 } from "lucide-react"
@@ -46,25 +46,6 @@ interface EconomicEvent {
   impact: "high" | "medium" | "low"
   forecast: string
   previous: string
-}
-
-interface VolumeData {
-  symbol: string
-  name: string
-  volume24h: string
-  volumeChange: string
-  isIncreasing: boolean
-  avgVolume: string
-  activity: "Very High" | "High" | "Normal" | "Low"
-}
-
-interface LiquidityZone {
-  id: string
-  pair: string
-  type: "buy" | "sell"
-  priceLevel: string
-  strength: "Strong" | "Medium" | "Weak"
-  volume: string
 }
 
 // Forex assets
@@ -143,19 +124,7 @@ export default function IntelligencePage() {
     { refreshInterval: 600000 }
   )
 
-  // Fetch volume — 15s (Binance 24hr stats)
-  const { data: volumeData, mutate: mutateVolume, isValidating: volumeLoading } = useSWR(
-    "/api/intelligence/volume",
-    fetcher,
-    { refreshInterval: 15000 }
-  )
 
-  // Fetch liquidity — 15s (Binance order book)
-  const { data: liquidityData, mutate: mutateLiquidity, isValidating: liquidityLoading } = useSWR(
-    "/api/intelligence/liquidity",
-    fetcher,
-    { refreshInterval: 15000 }
-  )
 
   // Process crypto data
   const cryptoAssets: MarketAsset[] = cryptoData ? CRYPTO_ASSETS.map(asset => {
@@ -200,8 +169,6 @@ export default function IntelligencePage() {
 
   const news: NewsItem[] = newsData?.data || []
   const calendar: EconomicEvent[] = calendarData?.data || []
-  const volume: VolumeData[] = volumeData?.data || []
-  const liquidity: LiquidityZone[] = liquidityData?.data || []
 
   const handleRefreshAll = () => {
     if (activeTab === "crypto") mutateCrypto()
@@ -209,8 +176,6 @@ export default function IntelligencePage() {
     if (activeTab === "indian") mutateIndian()
     mutateNews()
     mutateCalendar()
-    mutateVolume()
-    if (activeTab === "forex") mutateLiquidity()
     setLastRefresh(new Date())
   }
 
@@ -223,7 +188,7 @@ export default function IntelligencePage() {
     })
   }
 
-  const isAnyLoading = cryptoLoading || forexLoading || indianLoading || newsLoading || calendarLoading || volumeLoading || liquidityLoading
+  const isAnyLoading = cryptoLoading || forexLoading || indianLoading || newsLoading || calendarLoading
 
   const getCurrentAssets = () => {
     switch (activeTab) {
@@ -335,53 +300,135 @@ export default function IntelligencePage() {
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               )}
             </div>
-            <div className={`grid gap-4 ${
-              activeTab === "crypto" ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
-            }`}>
-              {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
-                <div
-                  key={item.symbol}
-                  className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-primary">{item.symbol}</span>
-                    {item.isPositive ? (
-                      <ArrowUpRight className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <ArrowDownRight className="w-4 h-4 text-red-500" />
+
+            {/* Forex & Commodities — TradingView Market Overview widget (live prices) */}
+            {activeTab === "forex" && mounted && (
+              <div className="rounded-xl overflow-hidden border border-border">
+                <iframe
+                  key="forex-market-overview"
+                  src={`https://s.tradingview.com/embed-widget/market-overview/?locale=en#${encodeURIComponent(JSON.stringify({
+                    colorTheme: "dark",
+                    dateRange: "1D",
+                    showChart: false,
+                    locale: "en",
+                    largeChartUrl: "",
+                    isTransparent: false,
+                    showSymbolLogo: true,
+                    showFloatingTooltip: false,
+                    width: "100%",
+                    height: 460,
+                    tabs: [
+                      {
+                        title: "Forex & Metals",
+                        symbols: [
+                          { s: "TVC:GOLD", d: "Gold" },
+                          { s: "TVC:SILVER", d: "Silver" },
+                          { s: "FX:EURUSD", d: "EUR/USD" },
+                          { s: "FX:GBPUSD", d: "GBP/USD" },
+                          { s: "FX:USDJPY", d: "USD/JPY" },
+                          { s: "FX:GBPJPY", d: "GBP/JPY" },
+                          { s: "FX:USDINR", d: "USD/INR" },
+                          { s: "TVC:DXY", d: "DXY" },
+                          { s: "TVC:USOIL", d: "Crude Oil" },
+                        ],
+                        originalTitle: "Forex",
+                      },
+                    ],
+                    utm_source: "",
+                    utm_medium: "widget",
+                    utm_campaign: "market-overview",
+                  }))}`}
+                  style={{ width: "100%", height: "460px", border: "none" }}
+                  allowFullScreen
+                />
+              </div>
+            )}
+
+            {/* Crypto — Binance cards */}
+            {activeTab === "crypto" && (
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                {getCurrentAssets().length > 0 ? getCurrentAssets().map((item) => (
+                  <div
+                    key={item.symbol}
+                    className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-primary">{item.symbol}</span>
+                      {item.isPositive ? (
+                        <ArrowUpRight className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <ArrowDownRight className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-1">{item.name}</p>
+                    <p className="text-xl font-bold text-foreground">{item.price}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
+                        {item.change}
+                      </p>
+                      {item.bias && (
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
+                          item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {item.bias}
+                        </span>
+                      )}
+                    </div>
+                    {item.volume && (
+                      <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">{item.name}</p>
-                  <p className="text-xl font-bold text-foreground">{item.price}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className={`text-sm font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
-                      {item.change}
-                    </p>
-                    {item.bias && (
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        item.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
-                        item.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {item.bias}
-                      </span>
-                    )}
-                  </div>
-                  {item.volume && (
-                    <p className="text-xs text-muted-foreground mt-1">Vol: {item.volume}</p>
-                  )}
-                </div>
-              )) : (
-                Array.from({ length: activeTab === "crypto" ? 10 : 5 }).map((_, i) => (
-                  <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
-                    <div className="h-4 w-12 bg-muted rounded mb-2" />
-                    <div className="h-3 w-20 bg-muted rounded mb-2" />
-                    <div className="h-6 w-24 bg-muted rounded mb-1" />
-                    <div className="h-4 w-16 bg-muted rounded" />
-                  </div>
-                ))
-              )}
-            </div>
+                )) : (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-card border border-border animate-pulse">
+                      <div className="h-4 w-12 bg-muted rounded mb-2" />
+                      <div className="h-3 w-20 bg-muted rounded mb-2" />
+                      <div className="h-6 w-24 bg-muted rounded mb-1" />
+                      <div className="h-4 w-16 bg-muted rounded" />
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Indian Markets — TradingView Market Overview widget */}
+            {activeTab === "indian" && mounted && (
+              <div className="rounded-xl overflow-hidden border border-border">
+                <iframe
+                  key="indian-market-overview"
+                  src={`https://s.tradingview.com/embed-widget/market-overview/?locale=en#${encodeURIComponent(JSON.stringify({
+                    colorTheme: "dark",
+                    dateRange: "1D",
+                    showChart: false,
+                    locale: "en",
+                    isTransparent: false,
+                    showSymbolLogo: true,
+                    showFloatingTooltip: false,
+                    width: "100%",
+                    height: 340,
+                    tabs: [
+                      {
+                        title: "Indian Markets",
+                        symbols: [
+                          { s: "NSE:NIFTY", d: "NIFTY 50" },
+                          { s: "BSE:SENSEX", d: "SENSEX" },
+                          { s: "NSE:BANKNIFTY", d: "Bank NIFTY" },
+                          { s: "NSE:FINNIFTY", d: "Fin NIFTY" },
+                        ],
+                        originalTitle: "Indian",
+                      },
+                    ],
+                    utm_source: "",
+                    utm_medium: "widget",
+                    utm_campaign: "market-overview",
+                  }))}`}
+                  style={{ width: "100%", height: "340px", border: "none" }}
+                  allowFullScreen
+                />
+              </div>
+            )}
           </section>
 
           {/* TradingView Chart */}
@@ -575,192 +622,7 @@ export default function IntelligencePage() {
             )}
           </div>
 
-          {/* Volume Activity */}
-          <section className="mt-8">
-            <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold text-foreground">Volume Activity</h2>
-              {volumeLoading && (
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              )}
-            </div>
-            <div className="rounded-xl bg-card border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-secondary/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Asset</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">24h Volume</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Avg Volume</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Change</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Activity</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {activeTab === "crypto" && cryptoAssets.length > 0 ? (
-                      cryptoAssets.slice(0, 5).map((item) => (
-                        <tr key={item.symbol} className="hover:bg-secondary/30">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-foreground">{item.symbol}</span>
-                              <span className="text-sm text-muted-foreground">{item.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-foreground">{item.volume || "-"}</td>
-                          <td className="px-4 py-3 text-muted-foreground">-</td>
-                          <td className={`px-4 py-3 font-medium ${item.isPositive ? "text-green-500" : "text-red-500"}`}>
-                            {item.change}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              item.bias === "Bullish"
-                                ? "bg-green-500/20 text-green-400"
-                                : item.bias === "Bearish"
-                                ? "bg-red-500/20 text-red-400"
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {item.bias === "Bullish" ? "High" : item.bias === "Bearish" ? "Very High" : "Normal"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : volume.length > 0 ? volume.map((item) => (
-                      <tr key={item.symbol} className="hover:bg-secondary/30">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">{item.symbol}</span>
-                            <span className="text-sm text-muted-foreground">{item.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-foreground">{item.volume24h}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{item.avgVolume}</td>
-                        <td className={`px-4 py-3 font-medium ${item.isIncreasing ? "text-green-500" : "text-red-500"}`}>
-                          {item.volumeChange}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            item.activity === "Very High"
-                              ? "bg-red-500/20 text-red-400"
-                              : item.activity === "High"
-                              ? "bg-primary/20 text-primary"
-                              : item.activity === "Normal"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-muted text-muted-foreground"
-                          }`}>
-                            {item.activity}
-                          </span>
-                        </td>
-                      </tr>
-                    )) : (
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <tr key={i}>
-                          <td colSpan={5} className="px-4 py-3">
-                            <div className="h-6 bg-muted rounded animate-pulse" />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
 
-          {/* Liquidity Zones - only for Forex */}
-          {activeTab === "forex" && (
-            <section className="mt-8">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-foreground">Liquidity Zones</h2>
-                {liquidityLoading && (
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                )}
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Buy Zones */}
-                <div className="p-4 rounded-xl bg-card border border-border">
-                  <h3 className="text-lg font-semibold text-green-500 mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    Buy Zones (Support)
-                  </h3>
-                  {liquidity.filter(z => z.type === "buy").length > 0 ? (
-                    <div className="space-y-3">
-                      {liquidity.filter(z => z.type === "buy").map((zone) => (
-                        <div
-                          key={zone.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20"
-                        >
-                          <div>
-                            <p className="font-semibold text-foreground">{zone.pair}</p>
-                            <p className="text-lg font-bold text-green-500">{zone.priceLevel}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              zone.strength === "Strong"
-                                ? "bg-green-500/30 text-green-400"
-                                : zone.strength === "Medium"
-                                ? "bg-yellow-500/30 text-yellow-400"
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {zone.strength}
-                            </span>
-                            <p className="text-sm text-muted-foreground mt-1">{zone.volume}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Sell Zones */}
-                <div className="p-4 rounded-xl bg-card border border-border">
-                  <h3 className="text-lg font-semibold text-red-500 mb-4 flex items-center gap-2">
-                    <TrendingDown className="w-5 h-5" />
-                    Sell Zones (Resistance)
-                  </h3>
-                  {liquidity.filter(z => z.type === "sell").length > 0 ? (
-                    <div className="space-y-3">
-                      {liquidity.filter(z => z.type === "sell").map((zone) => (
-                        <div
-                          key={zone.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20"
-                        >
-                          <div>
-                            <p className="font-semibold text-foreground">{zone.pair}</p>
-                            <p className="text-lg font-bold text-red-500">{zone.priceLevel}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              zone.strength === "Strong"
-                                ? "bg-red-500/30 text-red-400"
-                                : zone.strength === "Medium"
-                                ? "bg-yellow-500/30 text-yellow-400"
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {zone.strength}
-                            </span>
-                            <p className="text-sm text-muted-foreground mt-1">{zone.volume}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
         </div>
       </main>
       <Footer />
