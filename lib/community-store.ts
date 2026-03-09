@@ -213,14 +213,11 @@ async function fetchPostsWithData(postRows: Record<string, unknown>[]): Promise<
 
 export async function getPosts(): Promise<Post[]> {
   const sb = createClient()
-  console.log("[v0] getPosts: calling Supabase, url =", process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 50))
   const { data, error } = await sb
     .from("community_posts")
     .select("*")
     .order("created_at", { ascending: false })
-  console.log("[v0] getPosts: rows =", data?.length ?? 0, "error =", error?.message ?? "none")
   if (error) {
-    console.error("[v0] getPosts Supabase error:", error)
     return []
   }
   if (!data || data.length === 0) return []
@@ -272,7 +269,6 @@ export async function createPost(data: Omit<Post, "id" | "likes" | "comments" | 
     comments:  [],
     createdAt: new Date().toISOString(),
   }
-  console.log("[v0] createPost: inserting id =", post.id, "to Supabase")
   const { error } = await sb.from("community_posts").insert({
     id:            post.id,
     type:          post.type,
@@ -288,7 +284,6 @@ export async function createPost(data: Omit<Post, "id" | "likes" | "comments" | 
     hashtags:      post.hashtags,
     created_at:    post.createdAt,
   })
-  console.log("[v0] createPost: result error =", error?.message ?? "none (success)")
   return post
 }
 

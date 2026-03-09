@@ -43,7 +43,7 @@ export function SocialMediaSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6" suppressHydrationWarning>
           {socialPlatforms.map((platform) => (
             <Link
               key={platform.name}
@@ -51,6 +51,7 @@ export function SocialMediaSection() {
               target="_blank"
               rel="noopener noreferrer"
               className={`group relative bg-card border border-border/50 rounded-xl p-6 transition-all duration-300 hover:border-primary/50 hover:shadow-xl ${platform.hoverGlow}`}
+              suppressHydrationWarning
             >
               <div className="flex flex-col items-center text-center">
                 <div
