@@ -27,26 +27,49 @@ function useInjectKeyframes() {
 
 export function PageLoader() {
   const pathname = usePathname()
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(false)
   const [fading, setFading] = useState(false)
   const prevPath = useRef<string | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useInjectKeyframes()
 
+  const hide = () => {
+    setFading(true)
+    hideTimer.current = setTimeout(() => {
+      setVisible(false)
+      setFading(false)
+    }, 400)
+  }
+
   useEffect(() => {
+    // Skip on initial mount — the page is already rendered
+    if (prevPath.current === null) {
+      prevPath.current = pathname
+      return
+    }
+    // Skip if same path
     if (prevPath.current === pathname) return
     prevPath.current = pathname
 
-    setFading(false)
-    setVisible(true)
+    // Clear any existing timers
+    if (showTimer.current) clearTimeout(showTimer.current)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
 
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      setFading(true)
-      timerRef.current = setTimeout(() => setVisible(false), 500)
-    }, 1000)
+    // Only show the loader if navigation takes longer than 200ms
+    showTimer.current = setTimeout(() => {
+      setFading(false)
+      setVisible(true)
 
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+      // Auto-hide after a max of 800ms (page should be ready by then)
+      hideTimer.current = setTimeout(hide, 800)
+    }, 200)
+
+    return () => {
+      // Pathname changed again before 200ms → cancel, never show
+      if (showTimer.current) clearTimeout(showTimer.current)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+    }
   }, [pathname])
 
   if (!visible) return null
