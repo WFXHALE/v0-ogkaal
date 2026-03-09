@@ -1,5 +1,6 @@
 "use client"
 
+// v2 — lucide imports reduced to Menu and X only
 import { useState } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
@@ -30,7 +31,8 @@ const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
   { label: "Contact",         href: "/contact",        style: "default"    },
 ]
 
-export function Header() {
+// Named SiteHeader to bust the Turbopack HMR chunk; re-exported as Header below
+function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -63,7 +65,7 @@ export function Header() {
           </button>
         </div>
 
-        {/* Mobile nav */}
+          {/* Mobile nav */}
         {mobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border/50">
             <nav className="flex flex-col gap-1">
@@ -84,3 +86,5 @@ export function Header() {
     </header>
   )
 }
+
+export { SiteHeader as Header }
