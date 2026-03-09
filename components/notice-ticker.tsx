@@ -26,7 +26,7 @@ export function NoticeTicker() {
   )
 
   return (
-    <div className="mt-20 w-full bg-[#0B0E11] border-b border-[#FCD535]/20 overflow-hidden py-2.5">
+    <div className="mt-20 w-full bg-background border-b border-primary/20 overflow-hidden py-2.5">
       <div
         className="flex whitespace-nowrap"
         style={{ animation: "ticker-scroll 35s linear infinite" }}

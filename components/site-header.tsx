@@ -16,7 +16,7 @@ function navClass(style: NavStyle): string {
   if (style === "highlight") {
     return base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
   }
-  return base + "text-[#848E9C] hover:text-foreground hover:bg-white/[0.08]"
+  return base + "text-muted-foreground hover:text-foreground hover:bg-secondary"
 }
 
 const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
@@ -92,7 +92,7 @@ export function Header() {
                   className={
                     item.style === "highlight"
                       ? "block w-full px-4 py-3.5 text-sm font-bold rounded-lg bg-[#FCD535] text-[#0B0E11] active:bg-[#F0B90B] text-center"
-                      : "block w-full px-4 py-3.5 text-sm font-medium rounded-lg text-[#848E9C] hover:text-foreground hover:bg-white/[0.08] active:bg-white/[0.12]"
+                      : "block w-full px-4 py-3.5 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary active:bg-secondary/80"
                   }
                   onClick={() => setMobileMenuOpen(false)}
                 >
