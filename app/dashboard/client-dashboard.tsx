@@ -557,10 +557,15 @@ export default function ClientDashboard() {
   if (timedOut) return <TimeoutOverlay onDismiss={() => setTimedOut(false)} />
 
   if (!session) return (
-    <AuthScreen
-      onAuth={handleAuth}
-      onBackupCode={(code) => setStoredBackup(code)}
-    />
+    <>
+      <div className="fixed top-0 left-0 right-0 z-40">
+        <BackButton />
+      </div>
+      <AuthScreen
+        onAuth={handleAuth}
+        onBackupCode={(code) => setStoredBackup(code)}
+      />
+    </>
   )
 
   return (
