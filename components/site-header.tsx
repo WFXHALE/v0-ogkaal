@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
-import { Menu, X } from "lucide-react"
+import { Menu, X, ChevronDown } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
@@ -12,33 +11,131 @@ import { UserAvatar } from "@/components/user-avatar"
 
 type NavStyle = "highlight" | "default"
 
-function navClass(style: NavStyle): string {
-  const base =
-    "relative shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-150 whitespace-nowrap "
-  if (style === "highlight") {
-    return base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
-  }
-  return base + "text-muted-foreground hover:text-foreground hover:bg-secondary"
-}
+interface NavItem { label: string; href: string; style: NavStyle }
 
-const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
-  { label: "Home",            href: "/",               style: "default"   },
-  { label: "About",           href: "/about",          style: "default"   },
-  { label: "Mentorship",      href: "/mentorship",     style: "default"   },
-  { label: "VIP Group",       href: "/vip-group",      style: "default"   },
-  { label: "Client Dashboard", href: "/dashboard",      style: "default"   },
-  { label: "Trade Dashboard", href: "/trade-dashboard",style: "default"   },
-  { label: "Intelligence",    href: "/intelligence",   style: "default"   },
-  { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
-  { label: "Community",       href: "/community",      style: "default"   },
-  { label: "Funded Tools",    href: "/funded-tools",   style: "default"   },
-  { label: "Material",        href: "/material",       style: "default"   },
-  { label: "Blog",            href: "/blog",           style: "default"   },
-  { label: "SMC Guide",       href: "/smc-guide",      style: "default"   },
-  { label: "FAQ",             href: "/faq",            style: "default"   },
-  { label: "Contact",         href: "/contact",        style: "default"   },
+// ── Central nav item list — add new pages here and they appear automatically ──
+const NAV_ITEMS: NavItem[] = [
+  { label: "Home",             href: "/",                style: "default"   },
+  { label: "About",            href: "/about",           style: "default"   },
+  { label: "Mentorship",       href: "/mentorship",      style: "default"   },
+  { label: "VIP Group",        href: "/vip-group",       style: "default"   },
+  { label: "Dashboard",        href: "/dashboard",       style: "default"   },
+  { label: "Trade Dashboard",  href: "/trade-dashboard", style: "default"   },
+  { label: "Intelligence",     href: "/intelligence",    style: "default"   },
+  { label: "USDT P2P",         href: "/usdt-p2p",        style: "highlight" },
+  { label: "Community",        href: "/community",       style: "default"   },
+  { label: "Funded Tools",     href: "/funded-tools",    style: "default"   },
+  { label: "Material",         href: "/material",        style: "default"   },
+  { label: "Blog",             href: "/blog",            style: "default"   },
+  { label: "SMC Guide",        href: "/smc-guide",       style: "default"   },
+  { label: "Profile",          href: "/profile",         style: "default"   },
+  { label: "FAQ",              href: "/faq",             style: "default"   },
+  { label: "Contact",          href: "/contact",         style: "default"   },
 ]
 
+function navItemClass(style: NavStyle) {
+  const base = "shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-150 whitespace-nowrap "
+  return style === "highlight"
+    ? base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
+    : base + "text-muted-foreground hover:text-foreground hover:bg-secondary"
+}
+
+// ── Overflow nav: measures which items fit and puts the rest in "More" ────────
+function OverflowNav({ items }: { items: NavItem[] }) {
+  const navRef   = useRef<HTMLElement>(null)
+  const [visibleCount, setVisibleCount] = useState(items.length)
+  const [moreOpen, setMoreOpen]         = useState(false)
+
+  const measure = useCallback(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const children = Array.from(nav.querySelectorAll<HTMLElement>("[data-navitem]"))
+    if (children.length === 0) return
+
+    // Temporarily show all items to measure widths
+    children.forEach(el => { el.style.display = "" })
+
+    const available = nav.offsetWidth - 72 // reserve ~72px for the "More" button
+    let total = 0
+    let count = 0
+    for (const el of children) {
+      total += el.offsetWidth + 2 // 2px gap
+      if (total > available) break
+      count++
+    }
+    setVisibleCount(count < items.length ? count : items.length)
+  }, [items.length])
+
+  useEffect(() => {
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (navRef.current) ro.observe(navRef.current)
+    return () => ro.disconnect()
+  }, [measure])
+
+  // Close "More" on outside click
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e: MouseEvent) => {
+      if (!(e.target as Element).closest("[data-more-menu]")) setMoreOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    return () => document.removeEventListener("mousedown", close)
+  }, [moreOpen])
+
+  const visible  = items.slice(0, visibleCount)
+  const overflow = items.slice(visibleCount)
+
+  return (
+    <nav ref={navRef} className="hidden lg:flex items-center gap-0.5 flex-1 min-w-0 mx-3">
+      {/* Render ALL items but hide overflowed ones — so ResizeObserver can measure */}
+      {items.map((item, i) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          data-navitem
+          className={navItemClass(item.style)}
+          style={{ display: i < visibleCount ? undefined : "none" }}
+        >
+          {item.label}
+        </Link>
+      ))}
+
+      {/* "More" dropdown for items that don't fit */}
+      {overflow.length > 0 && (
+        <div className="relative shrink-0" data-more-menu>
+          <button
+            onClick={() => setMoreOpen(v => !v)}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors whitespace-nowrap"
+            aria-expanded={moreOpen}
+          >
+            More <ChevronDown className={`w-3 h-3 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
+          </button>
+          {moreOpen && (
+            <div className="absolute top-full right-0 mt-1.5 w-44 bg-background border border-border rounded-xl shadow-lg py-1 z-50">
+              {overflow.map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={
+                    item.style === "highlight"
+                      ? "flex items-center px-3 py-2 text-xs font-bold text-[#0B0E11] bg-[#FCD535] mx-1 my-0.5 rounded-lg"
+                      : "flex items-center px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg mx-1 my-0.5 transition-colors"
+                  }
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </nav>
+  )
+}
+
+// ── Main Header ───────────────────────────────────────────────────────────────
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -54,15 +151,15 @@ export function Header() {
       suppressHydrationWarning
       className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Left: back button + logo */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+        <div className="flex items-center h-16 gap-2">
+
+          {/* Left: back button + logo — fixed width so nav gets the rest */}
           <div className="flex items-center gap-2 shrink-0">
             <BackButton inline />
-            {/* Logo: icon → /admin-login (hidden entry), text → home */}
             <Link href="/admin-login" aria-label="Admin Panel">
-              <div className="relative w-10 h-10 rounded-lg bg-[#FCD535] flex items-center justify-center overflow-hidden">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <div className="relative w-9 h-9 rounded-lg bg-[#FCD535] flex items-center justify-center overflow-hidden">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="5" y="10" width="4" height="8" fill="#0B0E11" rx="0.5" />
                   <rect x="6.5" y="7" width="1" height="3" fill="#0B0E11" />
                   <rect x="6.5" y="18" width="1" height="2" fill="#0B0E11" />
@@ -73,54 +170,43 @@ export function Header() {
                 <span className="absolute inset-0 z-20 pointer-events-none" style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)", backgroundSize: "200% 100%", animation: "logo-shine 3.5s linear infinite" }} />
               </div>
             </Link>
-            <Link href="/" className="text-xl font-bold text-foreground whitespace-nowrap">
+            {/* Site name — hidden on medium screens to give nav more room */}
+            <Link href="/" className="hidden xl:block text-base font-bold text-foreground whitespace-nowrap">
               OG <span className="text-[#FCD535]">KAAL</span> TRADER
             </Link>
           </div>
 
-          {/* Desktop nav */}
-          <nav
-            suppressHydrationWarning
-            className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 mx-4"
-          >
-            {NAV_ITEMS.map((item) => (
-              <Link key={item.href} href={item.href} className={navClass(item.style)}>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Desktop overflow nav — takes all remaining space */}
+          <OverflowNav items={NAV_ITEMS} />
 
-          {/* Theme toggle */}
-          <ThemeToggle />
-
-          {/* Notification bell (visible when logged-in to community) */}
-          {userId && <NotificationBell userId={userId} />}
-
-          {/* Dashboard user avatar / profile dropdown */}
-          <UserAvatar />
-
-          {/* Hamburger */}
-          <button
-            className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* Right actions */}
+          <div className="flex items-center gap-1 shrink-0">
+            <ThemeToggle />
+            {userId && <NotificationBell userId={userId} />}
+            <UserAvatar />
+            {/* Hamburger — mobile only */}
+            <button
+              className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(v => !v)}
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
-        {/* Mobile nav */}
+        {/* Mobile nav — all items always visible */}
         {mobileMenuOpen && (
           <div className="lg:hidden py-3 border-t border-border/50">
-            <nav className="flex flex-col gap-0.5">
-              {NAV_ITEMS.map((item) => (
+            <nav className="flex flex-col gap-0.5 max-h-[75vh] overflow-y-auto">
+              {NAV_ITEMS.map(item => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={
                     item.style === "highlight"
-                      ? "block w-full px-4 py-3.5 text-sm font-bold rounded-lg bg-[#FCD535] text-[#0B0E11] active:bg-[#F0B90B] text-center"
-                      : "block w-full px-4 py-3.5 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary active:bg-secondary/80"
+                      ? "block px-4 py-3 text-sm font-bold rounded-lg bg-[#FCD535] text-[#0B0E11] text-center"
+                      : "block px-4 py-3 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
                   }
                   onClick={() => setMobileMenuOpen(false)}
                 >
