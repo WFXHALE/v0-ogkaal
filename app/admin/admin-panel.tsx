@@ -19,7 +19,7 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getMemberships, updateMembershipStatus,
+  getMemberships, updateMembershipStatus, approveMembership,
   getVipSignals, createSignal, updateSignalStatus, deleteSignal,
   getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
@@ -287,9 +287,37 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
   }
 
-  const updateStatus = (id: string, status: Submission["status"]) => {
+  const updateStatus = async (id: string, status: Submission["status"]) => {
     saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
+
+    // When approving a VIP or Mentorship payment, also activate the membership in Supabase
+    if (status === "approved") {
+      const sub = submissions.find(s => s.id === id)
+      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "mentorship")) {
+        const email = sub.email ?? String(sub.details?.email ?? "")
+        if (email) {
+          const supabase = (await import("@/lib/supabase/client")).createClient()
+
+          // Find the pending membership record for this user
+          const { data: rows } = await supabase
+            .from("memberships")
+            .select("id, plan")
+            .eq("email", email)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(1)
+
+          if (rows && rows.length > 0) {
+            const mem = rows[0]
+            await approveMembership(String(mem.id), String(mem.plan), id)
+          } else {
+            // No pending membership row — just mark submission approved in Supabase too
+            await supabase.from("admin_submissions").update({ status: "approved" }).eq("id", id)
+          }
+        }
+      }
+    }
   }
 
   const deleteSubmission = (id: string) => {
@@ -1564,9 +1592,12 @@ export default function AdminPanel() {
                           {m.status !== "active" && (
                             <button
                               onClick={async () => {
-                                const exp = new Date(); exp.setFullYear(exp.getFullYear() + 1)
-                                await updateMembershipStatus(m.id, "active", exp.toISOString())
-                                setMembershipsData(p => p.map(x => x.id === m.id ? { ...x, status: "active" as const, expiryDate: exp.toISOString() } : x))
+                                const result = await approveMembership(m.id, m.plan)
+                                if (result) {
+                                  setMembershipsData(p => p.map(x => x.id === m.id
+                                    ? { ...x, status: "active" as const, joinDate: result.joinedAt, expiryDate: result.expiresAt }
+                                    : x))
+                                }
                               }}
                               className="px-2 py-1 rounded text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
                             >Activate</button>

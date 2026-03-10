@@ -136,13 +136,56 @@ export async function getMembershipByUserId(userId: string): Promise<Membership 
   return data ? mapMembership(data) : null
 }
 
-export async function updateMembershipStatus(id: string, status: MembershipStatus, expiresAt?: string): Promise<boolean> {
+export async function updateMembershipStatus(id: string, status: MembershipStatus, expiresAt?: string, joinedAt?: string): Promise<boolean> {
   const supabase = createClient()
   const updates: Record<string, unknown> = { status }
   if (expiresAt) updates.expires_at = expiresAt
+  if (joinedAt)  updates.joined_at  = joinedAt
   const { error } = await supabase.from("memberships").update(updates).eq("id", id)
   if (error) { console.error("[membership-store] updateMembershipStatus:", error); return false }
   return true
+}
+
+// ── Approve payment → activate membership with correct dates ──────────────────
+
+const PLAN_DURATIONS_MONTHS: Record<string, number> = {
+  "VIP":           1,
+  "VIP Group":     1,
+  "Mentorship 1.0": 2,
+  "Mentorship 2.0": 3,
+  "Mentorship":    2, // default fallback for generic mentorship
+}
+
+export async function approveMembership(
+  membershipId: string,
+  plan: string,
+  submissionId?: string,
+): Promise<{ joinedAt: string; expiresAt: string } | null> {
+  const supabase = createClient()
+  const now = new Date()
+  const joinedAt = now.toISOString()
+
+  const durationMonths = PLAN_DURATIONS_MONTHS[plan] ?? 1
+  const exp = new Date(now)
+  exp.setMonth(exp.getMonth() + durationMonths)
+  const expiresAt = exp.toISOString()
+
+  const { error } = await supabase
+    .from("memberships")
+    .update({ status: "active", joined_at: joinedAt, expires_at: expiresAt })
+    .eq("id", membershipId)
+
+  if (error) { console.error("[membership-store] approveMembership:", error); return null }
+
+  // Also mark the admin_submission as approved if provided
+  if (submissionId) {
+    await supabase
+      .from("admin_submissions")
+      .update({ status: "approved" })
+      .eq("id", submissionId)
+  }
+
+  return { joinedAt, expiresAt }
 }
 
 function mapMembership(row: Record<string, unknown>): Membership {
