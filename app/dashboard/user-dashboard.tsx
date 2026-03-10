@@ -7,8 +7,8 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { getSession, setSession } from "@/lib/community-utils"
 import type { CommunityUser } from "@/lib/community-utils"
-import { getMembershipByEmail, getMembershipByUserId } from "@/lib/membership-store"
-import type { Membership } from "@/lib/membership-store"
+import { getMembershipByEmail, getMembershipByUserId, getTradingAccounts, createTradingAccount, deleteTradingAccount, getJournalEntries, createJournalEntry, deleteJournalEntry } from "@/lib/membership-store"
+import type { Membership, TradingAccount, JournalEntry } from "@/lib/membership-store"
 import { createClient } from "@/lib/supabase/client"
 import {
   User,
@@ -34,6 +34,10 @@ import {
   ChevronUp,
   Pencil,
   RefreshCw,
+  Wallet,
+  BookOpen,
+  Plus,
+  Trash2,
 } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -124,6 +128,18 @@ export default function UserDashboard() {
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [settingsEditing, setSettingsEditing] = useState(false)
 
+  // Trading Accounts
+  const [accounts, setAccounts] = useState<TradingAccount[]>([])
+  const [showAccForm, setShowAccForm] = useState(false)
+  const [accSaving, setAccSaving] = useState(false)
+  const [accForm, setAccForm] = useState({ broker: "", accountType: "live" as TradingAccount["accountType"], accountNumber: "", balance: "", deposit: "", profit: "", currency: "USD", notes: "" })
+
+  // Trading Journal
+  const [journal, setJournal] = useState<JournalEntry[]>([])
+  const [showJForm, setShowJForm] = useState(false)
+  const [jSaving, setJSaving] = useState(false)
+  const [jForm, setJForm] = useState({ pair: "", direction: "BUY" as "BUY" | "SELL", entryPrice: "", exitPrice: "", lotSize: "", pnl: "", result: "" as JournalEntry["result"] | "", notes: "", tradeDate: new Date().toISOString().slice(0, 10) })
+
   const loadData = useCallback(async (u: CommunityUser) => {
     setLoading(true)
     let m = await getMembershipByUserId(u.id)
@@ -141,6 +157,13 @@ export default function UserDashboard() {
     } catch {
       setPayments([])
     }
+    const userId = u.id ?? u.email
+    const [accs, jrnl] = await Promise.all([
+      getTradingAccounts(userId),
+      getJournalEntries(userId),
+    ])
+    setAccounts(accs)
+    setJournal(jrnl)
     setLoading(false)
   }, [])
 
@@ -386,6 +409,193 @@ export default function UserDashboard() {
                 </div>
               </Card>
             )}
+
+            {/* 3b. Trading Accounts */}
+            <Card title="Trading Accounts" icon={<Wallet className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
+              <div className="space-y-4 pt-1">
+                {accounts.length > 0 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {accounts.map(acc => {
+                      const pct = acc.deposit > 0 ? ((acc.profit / acc.deposit) * 100).toFixed(1) : "0"
+                      return (
+                        <div key={acc.id} className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-foreground text-sm">{acc.broker}</p>
+                              {acc.accountNumber && <p className="text-xs text-muted-foreground">#{acc.accountNumber}</p>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs px-2 py-0.5 rounded border border-border bg-secondary text-muted-foreground capitalize">{acc.accountType}</span>
+                              <button onClick={() => deleteTradingAccount(acc.id).then(ok => ok && setAccounts(p => p.filter(a => a.id !== acc.id)))} className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border/40">
+                            <div><p className="text-xs text-muted-foreground">Balance</p><p className="font-bold text-foreground text-sm">{acc.currency} {acc.balance.toLocaleString()}</p></div>
+                            <div><p className="text-xs text-muted-foreground">Deposit</p><p className="font-semibold text-foreground text-sm">{acc.currency} {acc.deposit.toLocaleString()}</p></div>
+                            <div><p className="text-xs text-muted-foreground">Return</p><p className={`font-bold text-sm ${acc.profit >= 0 ? "text-green-400" : "text-red-400"}`}>{acc.profit >= 0 ? "+" : ""}{pct}%</p></div>
+                          </div>
+                          {acc.notes && <p className="text-xs text-muted-foreground">{acc.notes}</p>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {showAccForm ? (
+                  <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+                    <p className="font-semibold text-foreground text-sm">Add Trading Account</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {([
+                        { k: "broker",        label: "Broker / Firm",   ph: "XM, FTMO..." },
+                        { k: "accountNumber", label: "Account # (opt)", ph: "1234567" },
+                        { k: "balance",       label: "Balance",         ph: "10000" },
+                        { k: "deposit",       label: "Deposit",         ph: "10000" },
+                        { k: "profit",        label: "Total Profit",    ph: "850" },
+                        { k: "currency",      label: "Currency",        ph: "USD" },
+                      ] as const).map(({ k, label, ph }) => (
+                        <div key={k}>
+                          <label className="text-xs text-muted-foreground block mb-1">{label}</label>
+                          <input value={(accForm as Record<string, string>)[k]} onChange={e => setAccForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Type</label>
+                      <select value={accForm.accountType} onChange={e => setAccForm(f => ({ ...f, accountType: e.target.value as TradingAccount["accountType"] }))} className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+                        {["live", "demo", "funded", "prop"].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={accSaving || !accForm.broker}
+                        onClick={async () => {
+                          if (!user) return
+                          setAccSaving(true)
+                          const a = await createTradingAccount({ userId: user.id, broker: accForm.broker, accountType: accForm.accountType, accountNumber: accForm.accountNumber || undefined, balance: Number(accForm.balance) || 0, deposit: Number(accForm.deposit) || 0, profit: Number(accForm.profit) || 0, currency: accForm.currency || "USD", notes: accForm.notes || undefined })
+                          if (a) { setAccounts(p => [a, ...p]); setShowAccForm(false); setAccForm({ broker: "", accountType: "live", accountNumber: "", balance: "", deposit: "", profit: "", currency: "USD", notes: "" }) }
+                          setAccSaving(false)
+                        }}
+                        className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >{accSaving ? "Saving..." : "Add Account"}</button>
+                      <button onClick={() => setShowAccForm(false)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-secondary transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowAccForm(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors">
+                    <Plus className="w-4 h-4" /> Add Trading Account
+                  </button>
+                )}
+              </div>
+            </Card>
+
+            {/* 3c. Trading Journal */}
+            <Card title="Trading Journal" icon={<BookOpen className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
+              <div className="space-y-4 pt-1">
+                {journal.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Trades", value: String(journal.length), color: "text-foreground" },
+                        { label: "Win Rate", value: `${journal.length > 0 ? Math.round((journal.filter(j => j.result === "win").length / journal.length) * 100) : 0}%`, color: "text-green-400" },
+                        { label: "Net P&L", value: `$${journal.reduce((s, j) => s + (j.pnl ?? 0), 0).toFixed(2)}`, color: journal.reduce((s, j) => s + (j.pnl ?? 0), 0) >= 0 ? "text-green-400" : "text-red-400" },
+                        { label: "W / L", value: `${journal.filter(j => j.result === "win").length} / ${journal.filter(j => j.result === "loss").length}`, color: "text-foreground" },
+                      ].map(s => (
+                        <div key={s.label} className="rounded-xl bg-secondary/40 border border-border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">{s.label}</p>
+                          <p className={`font-bold text-base ${s.color}`}>{s.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-secondary/30 border-b border-border">
+                              {["Date", "Pair", "Dir", "Entry", "Exit", "P&L", "Result", ""].map(h => (
+                                <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {journal.map(j => (
+                              <tr key={j.id} className="border-b border-border/40 hover:bg-secondary/20">
+                                <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{j.tradeDate}</td>
+                                <td className="px-3 py-2 font-medium text-foreground">{j.pair}</td>
+                                <td className="px-3 py-2"><span className={`text-xs font-bold px-1.5 py-0.5 rounded ${j.direction === "BUY" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{j.direction}</span></td>
+                                <td className="px-3 py-2 text-xs text-foreground">{j.entryPrice}</td>
+                                <td className="px-3 py-2 text-xs text-muted-foreground">{j.exitPrice ?? "—"}</td>
+                                <td className={`px-3 py-2 font-semibold text-xs ${(j.pnl ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>{j.pnl != null ? `$${j.pnl >= 0 ? "+" : ""}${j.pnl.toFixed(2)}` : "—"}</td>
+                                <td className="px-3 py-2"><span className={`text-xs capitalize ${j.result === "win" ? "text-green-400" : j.result === "loss" ? "text-red-400" : "text-muted-foreground"}`}>{j.result ?? "—"}</span></td>
+                                <td className="px-3 py-2"><button onClick={() => deleteJournalEntry(j.id).then(ok => ok && setJournal(p => p.filter(x => x.id !== j.id)))} className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {showJForm ? (
+                  <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+                    <p className="font-semibold text-foreground text-sm">Log New Trade</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {([
+                        { k: "pair",       label: "Pair",        ph: "XAUUSD" },
+                        { k: "entryPrice", label: "Entry Price", ph: "2365.00" },
+                        { k: "exitPrice",  label: "Exit Price",  ph: "2385.00" },
+                        { k: "lotSize",    label: "Lot Size",    ph: "0.1" },
+                        { k: "pnl",        label: "P&L ($)",     ph: "50.00" },
+                        { k: "tradeDate",  label: "Date",        ph: "" },
+                      ] as const).map(({ k, label, ph }) => (
+                        <div key={k}>
+                          <label className="text-xs text-muted-foreground block mb-1">{label}</label>
+                          <input type={k === "tradeDate" ? "date" : "text"} value={(jForm as Record<string, string>)[k]} onChange={e => setJForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Direction</label>
+                        <select value={jForm.direction} onChange={e => setJForm(f => ({ ...f, direction: e.target.value as "BUY" | "SELL" }))} className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+                          <option value="BUY">BUY</option>
+                          <option value="SELL">SELL</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground block mb-1">Result</label>
+                        <select value={jForm.result} onChange={e => setJForm(f => ({ ...f, result: e.target.value as JournalEntry["result"] | "" }))} className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+                          <option value="">— select —</option>
+                          <option value="win">Win</option>
+                          <option value="loss">Loss</option>
+                          <option value="be">Break Even</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Notes (opt)</label>
+                      <input value={jForm.notes} onChange={e => setJForm(f => ({ ...f, notes: e.target.value }))} placeholder="Reasoning, emotions, lessons..." className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={jSaving || !jForm.pair || !jForm.entryPrice}
+                        onClick={async () => {
+                          if (!user) return
+                          setJSaving(true)
+                          const entry = await createJournalEntry({ userId: user.id, pair: jForm.pair, direction: jForm.direction, entryPrice: Number(jForm.entryPrice), exitPrice: jForm.exitPrice ? Number(jForm.exitPrice) : undefined, lotSize: jForm.lotSize ? Number(jForm.lotSize) : undefined, pnl: jForm.pnl ? Number(jForm.pnl) : undefined, result: (jForm.result || undefined) as JournalEntry["result"] | undefined, notes: jForm.notes || undefined, tradeDate: jForm.tradeDate })
+                          if (entry) { setJournal(p => [entry, ...p]); setShowJForm(false); setJForm({ pair: "", direction: "BUY", entryPrice: "", exitPrice: "", lotSize: "", pnl: "", result: "", notes: "", tradeDate: new Date().toISOString().slice(0, 10) }) }
+                          setJSaving(false)
+                        }}
+                        className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >{jSaving ? "Saving..." : "Log Trade"}</button>
+                      <button onClick={() => setShowJForm(false)} className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-secondary transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowJForm(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors">
+                    <Plus className="w-4 h-4" /> Log New Trade
+                  </button>
+                )}
+              </div>
+            </Card>
 
             {/* 4. Referral System */}
             <Card title="Referral System" icon={<Link2 className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>

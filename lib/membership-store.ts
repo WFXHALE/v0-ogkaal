@@ -366,3 +366,152 @@ function mapCertificate(row: Record<string, unknown>): Certificate {
     createdAt: String(row.created_at ?? ""),
   }
 }
+
+// ── Trading Accounts ────────────────────────────────────────────────────────────
+
+export interface TradingAccount {
+  id: string
+  userId: string
+  broker: string
+  accountType: "live" | "demo" | "funded" | "prop"
+  accountNumber?: string
+  balance: number
+  deposit: number
+  profit: number
+  currency: string
+  notes?: string
+  createdAt: string
+}
+
+export async function getTradingAccounts(userId: string): Promise<TradingAccount[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("trading_accounts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+  if (error) { console.error("[membership-store] getTradingAccounts:", error); return [] }
+  return (data || []).map(mapTradingAccount)
+}
+
+export async function createTradingAccount(a: Omit<TradingAccount, "id" | "createdAt">): Promise<TradingAccount | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("trading_accounts")
+    .insert({
+      user_id: a.userId,
+      broker: a.broker,
+      account_type: a.accountType,
+      account_number: a.accountNumber,
+      balance: a.balance,
+      deposit: a.deposit,
+      profit: a.profit,
+      currency: a.currency,
+      notes: a.notes,
+    })
+    .select()
+    .single()
+  if (error) { console.error("[membership-store] createTradingAccount:", error); return null }
+  return data ? mapTradingAccount(data) : null
+}
+
+export async function deleteTradingAccount(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("trading_accounts").delete().eq("id", id)
+  return !error
+}
+
+function mapTradingAccount(row: Record<string, unknown>): TradingAccount {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id ?? ""),
+    broker: String(row.broker ?? ""),
+    accountType: (row.account_type as TradingAccount["accountType"]) ?? "live",
+    accountNumber: row.account_number ? String(row.account_number) : undefined,
+    balance: Number(row.balance ?? 0),
+    deposit: Number(row.deposit ?? 0),
+    profit: Number(row.profit ?? 0),
+    currency: String(row.currency ?? "USD"),
+    notes: row.notes ? String(row.notes) : undefined,
+    createdAt: String(row.created_at ?? ""),
+  }
+}
+
+// ── Trading Journal ─────────────────────────────────────────────────────────────
+
+export interface JournalEntry {
+  id: string
+  userId: string
+  accountId?: string
+  pair: string
+  direction: "BUY" | "SELL"
+  entryPrice: number
+  exitPrice?: number
+  lotSize?: number
+  pnl?: number
+  result?: "win" | "loss" | "be"
+  notes?: string
+  screenshotUrl?: string
+  tradeDate: string
+  createdAt: string
+}
+
+export async function getJournalEntries(userId: string): Promise<JournalEntry[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("trading_journal")
+    .select("*")
+    .eq("user_id", userId)
+    .order("trade_date", { ascending: false })
+  if (error) { console.error("[membership-store] getJournalEntries:", error); return [] }
+  return (data || []).map(mapJournalEntry)
+}
+
+export async function createJournalEntry(e: Omit<JournalEntry, "id" | "createdAt">): Promise<JournalEntry | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("trading_journal")
+    .insert({
+      user_id: e.userId,
+      account_id: e.accountId,
+      pair: e.pair,
+      direction: e.direction,
+      entry_price: e.entryPrice,
+      exit_price: e.exitPrice,
+      lot_size: e.lotSize,
+      pnl: e.pnl,
+      result: e.result,
+      notes: e.notes,
+      screenshot_url: e.screenshotUrl,
+      trade_date: e.tradeDate,
+    })
+    .select()
+    .single()
+  if (error) { console.error("[membership-store] createJournalEntry:", error); return null }
+  return data ? mapJournalEntry(data) : null
+}
+
+export async function deleteJournalEntry(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("trading_journal").delete().eq("id", id)
+  return !error
+}
+
+function mapJournalEntry(row: Record<string, unknown>): JournalEntry {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id ?? ""),
+    accountId: row.account_id ? String(row.account_id) : undefined,
+    pair: String(row.pair ?? ""),
+    direction: (row.direction as "BUY" | "SELL") ?? "BUY",
+    entryPrice: Number(row.entry_price ?? 0),
+    exitPrice: row.exit_price != null ? Number(row.exit_price) : undefined,
+    lotSize: row.lot_size != null ? Number(row.lot_size) : undefined,
+    pnl: row.pnl != null ? Number(row.pnl) : undefined,
+    result: row.result ? (row.result as JournalEntry["result"]) : undefined,
+    notes: row.notes ? String(row.notes) : undefined,
+    screenshotUrl: row.screenshot_url ? String(row.screenshot_url) : undefined,
+    tradeDate: String(row.trade_date ?? ""),
+    createdAt: String(row.created_at ?? ""),
+  }
+}
