@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, KeyRound, CheckCircle, XCircle, Loader2 } from "lucide-react"
-import { resetPasswordWithToken } from "@/lib/dashboard-auth"
+import { resetPasswordWithToken } from "@/lib/dash-auth"
 
 function ResetPasswordForm() {
   const router      = useRouter()

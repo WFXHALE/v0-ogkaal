@@ -14,8 +14,8 @@ import {
   getSession, logout, touchActivity, isSessionTimedOut,
   login, loginWithBackupCode, registerDashboardUser, sendPasswordReset,
   storeBackupCode, getStoredBackupCode, fetchBackupCode,
-} from "@/lib/dashboard-auth"
-import type { DashboardSession } from "@/lib/dashboard-auth"
+} from "@/lib/dash-auth"
+import type { DashboardSession } from "@/lib/dash-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
 import type { VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { createClient } from "@/lib/supabase/client"
