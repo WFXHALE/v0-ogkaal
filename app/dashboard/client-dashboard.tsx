@@ -437,8 +437,11 @@ export default function ClientDashboard() {
     if (s && !isSessionTimedOut()) {
       setSessionState(s)
       scheduleCheck()
+      // Prefer backup code stored in session (from DB), fall back to localStorage
+      setStoredBackup(s.backupCode ?? getStoredBackupCode())
+    } else {
+      setStoredBackup(getStoredBackupCode())
     }
-    setStoredBackup(getStoredBackupCode())
     setBooting(false)
   }, [scheduleCheck])
 
@@ -484,6 +487,7 @@ export default function ClientDashboard() {
 
   const handleAuth = (s: DashboardSession) => {
     setSessionState(s); setTimedOut(false); scheduleCheck()
+    if (s.backupCode) { setStoredBackup(s.backupCode); storeBackupCode(s.backupCode) }
   }
 
   const handleLogout = () => {
