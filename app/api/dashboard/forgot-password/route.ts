@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const resetLink = `${baseUrl}/dashboard/reset-password?token=${token}`
 
   const { error: emailError } = await resend.emails.send({
-    from: "OG Kaal <noreply@ogkaal.com>",
+    from: "onboarding@resend.dev",
     to: normalised,
     subject: "Reset Your Client Dashboard Password",
     html: `
