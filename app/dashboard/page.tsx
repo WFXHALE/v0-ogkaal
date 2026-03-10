@@ -1,2 +1,1 @@
-// dashboard entry
-export { default } from "./user-dashboard"
+export { default } from "./client-dashboard"
