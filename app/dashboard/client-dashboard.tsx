@@ -121,7 +121,7 @@ function AuthScreen({
     if (regPw !== regPw2) { setError("Passwords do not match."); return }
     if (regPw.length < 8) { setError("Password must be at least 8 characters."); return }
     setLoading(true)
-    const res = await registerDashboardUser({ userId: regId, email: regEmail, fullName: regName, password: regPw })
+    const res = await registerDashboardUser({ userId: regId, email: regEmail.trim().toLowerCase(), fullName: regName, password: regPw })
     setLoading(false)
     if (!res.success) { setError(res.error); return }
     setGeneratedBackup(res.backupCode)
@@ -228,7 +228,8 @@ function AuthScreen({
                   <label className="text-xs font-medium text-muted-foreground block mb-1.5">{label}</label>
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                     {icon}
-                    <input type={type} value={val} onChange={e => (set as (v: string) => void)(e.target.value)}
+                    <input type={type} value={val}
+                      onChange={e => (set as (v: string) => void)(type === "email" ? e.target.value.trim().toLowerCase() : e.target.value)}
                       placeholder={ph} required
                       className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                   </div>
@@ -248,7 +249,7 @@ function AuthScreen({
                 <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <input type="email" value={bkEmail} onChange={e => setBkEmail(e.target.value)} placeholder="you@email.com" required
+                  <input type="email" value={bkEmail} onChange={e => setBkEmail(e.target.value.trim().toLowerCase())} placeholder="you@email.com" required
                     className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 </div>
               </div>
@@ -275,7 +276,7 @@ function AuthScreen({
                 <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <input type="email" value={fgEmail} onChange={e => setFgEmail(e.target.value)} placeholder="you@email.com" required
+                  <input type="email" value={fgEmail} onChange={e => setFgEmail(e.target.value.trim().toLowerCase())} placeholder="you@email.com" required
                     className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 </div>
               </div>
