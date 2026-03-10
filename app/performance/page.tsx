@@ -17,7 +17,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   Tooltip, Cell, LineChart, Line, CartesianGrid,
 } from "recharts"
-import { getCommunitySession } from "@/lib/community-utils"
+import { getSession } from "@/lib/community-utils"
 
 // ── Stat Card ──────────────────────────────────────────────────────────────────
 function StatCard({
@@ -130,7 +130,7 @@ export default function PerformancePage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const session = getCommunitySession()
+    const session = getSession()
     const uid = session?.id ?? null
     setUserId(uid)
 
