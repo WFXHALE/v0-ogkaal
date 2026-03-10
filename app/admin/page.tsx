@@ -1,1 +1,1 @@
-export { default } from "./admin-dashboard"
+export { default } from "./admin-panel"

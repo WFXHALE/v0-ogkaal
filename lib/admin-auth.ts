@@ -51,7 +51,7 @@ export interface LoginAttempts {
 
 export interface SecurityLog {
   id: string
-  type: "login_success" | "login_failed" | "logout" | "password_reset"
+  type: "login_success" | "login_failed" | "logout" | "password_reset" | "password_change"
   email?: string
   ipAddress: string
   location: string
