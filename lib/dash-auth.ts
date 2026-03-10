@@ -40,7 +40,8 @@ export interface DashboardUser {
 
 export interface DashboardSession extends DashboardUser {
   loggedInAt: number
-  backupCode?: string
+  backupCode?: string   // plain-text, loaded from DB on login
+  avatarUrl?: string    // user profile picture URL
 }
 
 // ── Password hashing (SHA-256 via Web Crypto API) ─────────────────────────────
@@ -136,7 +137,8 @@ export async function login(
   const session: DashboardSession = {
     ...user,
     loggedInAt: Date.now(),
-    backupCode: data.backup_code ? String(data.backup_code) : undefined,
+    backupCode: data.backup_code  ? String(data.backup_code)  : undefined,
+    avatarUrl:  data.avatar_url   ? String(data.avatar_url)   : undefined,
   }
   setSession(session)
   return { success: true, user }
@@ -169,7 +171,8 @@ export async function loginWithBackupCode(
   const session: DashboardSession = {
     ...user,
     loggedInAt: Date.now(),
-    backupCode: data.backup_code ? String(data.backup_code) : undefined,
+    backupCode: data.backup_code  ? String(data.backup_code)  : undefined,
+    avatarUrl:  data.avatar_url   ? String(data.avatar_url)   : undefined,
   }
   setSession(session)
   return { success: true, user }

@@ -8,6 +8,7 @@ import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
 import { BackButton } from "@/components/back-button"
+import { UserAvatar } from "@/components/user-avatar"
 
 type NavStyle = "highlight" | "default"
 
@@ -94,6 +95,9 @@ export function Header() {
 
           {/* Notification bell (visible when logged-in to community) */}
           {userId && <NotificationBell userId={userId} />}
+
+          {/* Dashboard user avatar / profile dropdown */}
+          <UserAvatar />
 
           {/* Hamburger */}
           <button
