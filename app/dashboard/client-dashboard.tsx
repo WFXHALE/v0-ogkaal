@@ -142,9 +142,10 @@ function AuthScreen({
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true)
-    await sendPasswordReset(fgEmail)
+    const res = await sendPasswordReset(fgEmail)
     setLoading(false)
-    setSuccess("If that email is registered, a reset link has been sent.")
+    if (!res.success) { setError(res.error ?? "Something went wrong.") }
+    else setSuccess("Reset link sent! Check your email inbox.")
   }
 
   return (
@@ -411,7 +412,7 @@ function MembershipBlock({
   )
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// ── Main Dashboard ─────��──────────────────────────────────────────────────────
 
 export default function ClientDashboard() {
   const [session, setSessionState]          = useState<DashboardSession | null>(null)

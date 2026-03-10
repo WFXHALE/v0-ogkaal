@@ -184,19 +184,19 @@ export async function loginWithBackupCode(
 export async function sendPasswordReset(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
-
-  // Verify the email exists in dashboard_users
-  const { data, error } = await supabase
-    .from("dashboard_users")
-    .select("id, email")
-    .eq("email", email.trim().toLowerCase())
-    .single()
-
-  if (error || !data) {
-    // Return success anyway to avoid email enumeration
+  try {
+    const res = await fetch("/api/dashboard/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    })
+    const json = await res.json()
+    if (!res.ok) return { success: false, error: json.error ?? "Failed to send reset email." }
     return { success: true }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
   }
+}
 
   // Generate a reset token and store it
   const token = crypto.randomUUID()
