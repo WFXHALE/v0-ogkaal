@@ -6,9 +6,28 @@ import { createClient } from "@/lib/supabase/client"
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const SESSION_KEY    = "og_dashboard_session"
-const TIMEOUT_MS     = 5 * 60 * 1000   // 5 minutes inactivity
+const SESSION_KEY     = "og_dashboard_session"
+const TIMEOUT_MS      = 5 * 60 * 1000   // 5 minutes inactivity
 const LAST_ACTIVE_KEY = "og_dashboard_last_active"
+const BACKUP_CODE_KEY = "og_dashboard_backup_code"
+
+// ── Backup code plain-text storage ────────────────────────────────────────────
+// Stored in localStorage after registration so the user can reveal it later.
+
+export function storeBackupCode(code: string): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(BACKUP_CODE_KEY, code)
+}
+
+export function getStoredBackupCode(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(BACKUP_CODE_KEY)
+}
+
+export function clearStoredBackupCode(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(BACKUP_CODE_KEY)
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

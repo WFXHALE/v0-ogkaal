@@ -13,6 +13,7 @@ import {
 import {
   getSession, logout, touchActivity, isSessionTimedOut,
   login, loginWithBackupCode, registerDashboardUser, sendPasswordReset,
+  storeBackupCode, getStoredBackupCode, clearStoredBackupCode,
 } from "@/lib/dashboard-auth"
 import type { DashboardSession } from "@/lib/dashboard-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
@@ -90,6 +91,9 @@ function AuthScreen({ onAuth }: { onAuth: (s: DashboardSession) => void }) {
   const [success, setSuccess] = useState("")
   const [generatedBackup, setGeneratedBackup] = useState("")
   const [backupCopied, setBackupCopied] = useState(false)
+  const [storedBackup, setStoredBackup]   = useState<string | null>(null)
+  const [showBackup, setShowBackup]       = useState(false)
+  const [backupCleared, setBackupCleared] = useState(false)
 
   const [loginId, setLoginId] = useState("")
   const [loginPw, setLoginPw] = useState("")
@@ -119,6 +123,8 @@ function AuthScreen({ onAuth }: { onAuth: (s: DashboardSession) => void }) {
     setLoading(false)
     if (!res.success) { setError(res.error); return }
     setGeneratedBackup(res.backupCode)
+    storeBackupCode(res.backupCode)
+    setStoredBackup(res.backupCode)
     setMode("backup_shown")
     // Auto-login
     const loginRes = await login(regId, regPw)
@@ -429,6 +435,7 @@ export default function UserDashboard() {
   useEffect(() => {
     const s = getSession()
     if (s && !isSessionTimedOut()) { setSessionState(s); scheduleCheck() }
+    setStoredBackup(getStoredBackupCode())
     setBooting(false)
   }, [scheduleCheck])
 
@@ -832,12 +839,53 @@ export default function UserDashboard() {
                   <p className="font-medium text-foreground text-sm text-right truncate">{f.value}</p>
                 </div>
               ))}
-              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-border bg-secondary/20 mt-2">
-                <KeyRound className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-foreground">Backup Code</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Shown once at registration. Lost it? Contact support to reset your account securely.</p>
+              <div className="px-4 py-3 rounded-xl border border-border bg-secondary/20">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <p className="text-xs font-medium text-foreground">Backup Code</p>
+                  </div>
+                  {storedBackup && !backupCleared && (
+                    <button
+                      type="button"
+                      onClick={() => setShowBackup(v => !v)}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showBackup ? "Hide backup code" : "Show backup code"}
+                    >
+                      {showBackup ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
+                {storedBackup && !backupCleared ? (
+                  <>
+                    <div className={`font-mono text-sm tracking-widest transition-all select-all px-2 py-1.5 rounded bg-secondary border border-border text-center ${showBackup ? "text-foreground" : "blur-sm select-none pointer-events-none"}`}>
+                      {storedBackup}
+                    </div>
+                    {showBackup && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(storedBackup) }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-secondary border border-border text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Copy
+                        </button>
+                        <button
+                          onClick={() => { clearStoredBackupCode(); setStoredBackup(null); setShowBackup(false); setBackupCleared(true) }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-secondary border border-border text-muted-foreground hover:text-red-400 transition-colors"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Clear from device
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">Store this code somewhere safe. It can only be cleared, not recovered.</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {backupCleared
+                      ? "Backup code cleared from this device. Contact support if you need a reset."
+                      : "Not stored on this device. It was shown once at registration — contact support to reset if lost."}
+                  </p>
+                )}
               </div>
               <button onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-500/20 text-red-400 text-sm hover:bg-red-500/10 transition-colors mt-2">
