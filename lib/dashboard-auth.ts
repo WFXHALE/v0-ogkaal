@@ -198,21 +198,6 @@ export async function sendPasswordReset(
   }
 }
 
-  // Generate a reset token and store it
-  const token = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour
-
-  await supabase
-    .from("dashboard_password_resets")
-    .upsert({ email: email.trim().toLowerCase(), token, expires_at: expiresAt }, { onConflict: "email" })
-
-  // In a real app this would send an email — for now we store the reset link
-  // The reset link would be: /dashboard/reset-password?token=<token>
-  console.log("[dashboard-auth] Reset token for", email, ":", token)
-
-  return { success: true }
-}
-
 export async function resetPasswordWithToken(
   token: string,
   newPassword: string
