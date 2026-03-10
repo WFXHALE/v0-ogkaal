@@ -33,25 +33,20 @@ import { saveSubmission } from "@/lib/admin-submissions"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const PAYMENT_DETAILS = {
-  upiId: "cxewankuss@ybl",
-  upiQrCodeUrl:
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/paytm-uNxomWsKUWCUbHXNJTECcGuJiEsvB9.jpg",
-  imps: {
-    accountNumber: "259541281829",
-    ifsc: "INDB0000136",
-    bankName: "Indusind Bank",
-    accountHolder: "Shahid Bashir",
-  },
+const UPI_LINKS = {
+  "1.0": "https://payments.cashfree.com/forms/OGMENTOR1",
+  "2.0": "https://payments.cashfree.com/forms/MENTOR2",
 }
+
+const ERUPEE_QR = "/erupee-qr.png"
 
 const CRYPTO_OPTIONS = [
   {
-    key: "binance",
-    label: "Binance ID",
-    network: "Binance",
-    address: "1125271626",
-    isBinance: true,
+    key: "trc20",
+    label: "USDT TRC20",
+    network: "TRC20",
+    address: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF",
+    isBinance: false,
   },
   {
     key: "bep20",
@@ -61,11 +56,11 @@ const CRYPTO_OPTIONS = [
     isBinance: false,
   },
   {
-    key: "trc20",
-    label: "USDT TRC20",
-    network: "TRC20",
-    address: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF",
-    isBinance: false,
+    key: "binance",
+    label: "Binance ID",
+    network: "Binance",
+    address: "1125271626",
+    isBinance: true,
   },
 ]
 
@@ -126,7 +121,7 @@ const mentorship2Features = [
 
 type ProgramType = "1.0" | "2.0" | null
 type FlowStep = "idle" | "contact" | "payment" | "success"
-type PaymentMethod = "imps" | "upi" | "crypto" | null
+type PaymentMethod = "upi" | "crypto" | "erupee" | null
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -182,7 +177,8 @@ export default function MentorshipPage() {
   const isPaymentValid = () => {
     if (!paymentMethod || !screenshot) return false
     if (paymentMethod === "crypto") return !!cryptoOption
-    return !!utr
+    if (paymentMethod === "erupee") return true
+    return !!utr // upi requires UTR
   }
 
   const handlePaymentSubmit = async () => {
@@ -317,9 +313,9 @@ export default function MentorshipPage() {
                 {/* Method selector */}
                 <div className="grid grid-cols-3 gap-3 mb-6">
                   {[
-                    { key: "imps", label: "IMPS", icon: CreditCard },
                     { key: "upi", label: "UPI", icon: QrCode },
                     { key: "crypto", label: "Crypto", icon: Bitcoin },
+                    { key: "erupee", label: "E-Rupee", icon: CreditCard },
                   ].map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
@@ -340,52 +336,31 @@ export default function MentorshipPage() {
                   ))}
                 </div>
 
-                {/* ── IMPS ── */}
-                {paymentMethod === "imps" && (
-                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-3">
-                    <p className="text-sm font-medium text-foreground mb-1">Bank Transfer Details (IMPS/NEFT)</p>
-                    {[
-                      { key: "holder", label: "Account Holder", value: PAYMENT_DETAILS.imps.accountHolder },
-                      { key: "acc", label: "Account Number", value: PAYMENT_DETAILS.imps.accountNumber, mono: true },
-                      { key: "ifsc", label: "IFSC Code", value: PAYMENT_DETAILS.imps.ifsc, mono: true },
-                      { key: "bank", label: "Bank Name", value: PAYMENT_DETAILS.imps.bankName },
-                    ].map(({ key, label, value, mono }) => (
-                      <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                        <div>
-                          <span className="text-xs text-muted-foreground block">{label}</span>
-                          <span className={`text-sm font-medium text-foreground ${mono ? "font-mono" : ""}`}>{value}</span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopy(key, value)}
-                        >
-                          {copiedField === key ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    ))}
+                {/* ── UPI ── */}
+                {paymentMethod === "upi" && (
+                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-3 text-center">
+                    <p className="text-sm font-medium text-foreground">Pay via UPI (Cashfree)</p>
+                    <p className="text-xs text-muted-foreground">Click the button below to open the secure payment page. After paying, enter your UTR number and upload the screenshot.</p>
+                    <a
+                      href={selectedProgram ? UPI_LINKS[selectedProgram] : "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Open UPI Payment Page
+                    </a>
                   </div>
                 )}
 
-                {/* ── UPI ── */}
-                {paymentMethod === "upi" && (
-                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-4">
-                    <div className="bg-white rounded-xl overflow-hidden w-56 mx-auto">
-                      <img
-                        src={PAYMENT_DETAILS.upiQrCodeUrl}
-                        alt="UPI QR Code"
-                        className="w-full h-auto"
-                      />
+                {/* ── E-Rupee ── */}
+                {paymentMethod === "erupee" && (
+                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-3 text-center">
+                    <p className="text-sm font-medium text-foreground">Pay via E-Rupee (Digital Rupee)</p>
+                    <div className="bg-white rounded-xl overflow-hidden w-56 mx-auto border border-border">
+                      <img src={ERUPEE_QR} alt="E-Rupee QR Code — Reserve Bank of India Digital Rupee for Shahid Bashir" className="w-full h-auto" />
                     </div>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                      <div>
-                        <span className="text-xs text-muted-foreground block">UPI ID</span>
-                        <span className="font-mono text-sm font-medium text-foreground">{PAYMENT_DETAILS.upiId}</span>
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={() => handleCopy("upi", PAYMENT_DETAILS.upiId)}>
-                        {copiedField === "upi" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
+                    <p className="text-xs text-muted-foreground">Scan the QR to pay via E-Rupee. After payment, upload your screenshot below.</p>
                   </div>
                 )}
 
@@ -467,8 +442,8 @@ export default function MentorshipPage() {
                   </div>
                 )}
 
-                {/* UTR — only for IMPS and UPI */}
-                {(paymentMethod === "imps" || paymentMethod === "upi") && (
+                {/* UTR — only for UPI */}
+                {paymentMethod === "upi" && (
                   <div className="mb-5">
                     <label className="block text-sm font-medium text-foreground mb-2">UTR / Transaction ID</label>
                     <input
@@ -497,14 +472,11 @@ export default function MentorshipPage() {
                 <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mx-auto mb-6">
                   <Check className="w-10 h-10 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-4">Request Submitted!</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Payment Submitted</h2>
+                <p className="text-lg font-semibold text-primary mb-4">Under Review</p>
                 <div className="p-6 rounded-xl bg-card border border-border text-left space-y-3 mb-8 max-w-md mx-auto">
-                  <p className="text-foreground text-sm font-medium text-center">Your request is under review.</p>
-                  <p className="text-muted-foreground text-sm text-center">
-                    You will be added to the mentorship group soon.
-                  </p>
-                  <p className="text-muted-foreground text-sm text-center">
-                    You will be notified via your phone number and WhatsApp.
+                  <p className="text-foreground text-sm font-medium text-center">
+                    Your payment is being verified. After successful verification, you will be added and granted access shortly.
                   </p>
                 </div>
                 <Button onClick={handleReset} variant="outline" className="border-primary/50 hover:bg-primary/10">

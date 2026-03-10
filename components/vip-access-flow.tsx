@@ -29,16 +29,8 @@ const XM_AFFILIATE_LINK = "https://clicks.pipaffiliates.com/c?c=820817&l=en&p=0"
 // Admin-replaceable video URL
 const INSTRUCTION_VIDEO_URL = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vdo-l2LpwT1vHX45Ajs8hW1JIaEt2M5Ut5.MP4"
 
-const PAYMENT_DETAILS = {
-  upiId: "cxewankuss@ybl",
-  upiQrCodeUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/paytm-uNxomWsKUWCUbHXNJTECcGuJiEsvB9.jpg",
-  imps: {
-    accountNumber: "259541281829",
-    ifsc: "INDB0000136",
-    bankName: "Indusind Bank",
-    accountHolder: "Shahid Bashir",
-  },
-}
+const VIP_UPI_LINK = "https://payments.cashfree.com/forms/OGMENTOR1"
+const ERUPEE_QR = "/erupee-qr.png"
 
 const PRICES = {
   existing: "₹2500 / $30",
@@ -90,8 +82,7 @@ interface VipAccessFlowProps {
 export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAccessFlowProps) {
   const [step, setStep] = useState<FlowStep>("card-selection")
   const [cardType, setCardType] = useState<CardType>(initialUserType)
-  const [copiedUpi, setCopiedUpi] = useState(false)
-  const [copiedImpsField, setCopiedImpsField] = useState<string | null>(null)
+
 
   const [xmFormData, setXmFormData] = useState({
     traderId: "",
@@ -100,7 +91,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const [fundedAccountSize, setFundedAccountSize] = useState("")
 
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "imps" | "crypto" | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "crypto" | "erupee" | null>(null)
   const [cryptoOption, setCryptoOption] = useState<string | null>(null)
   const [copiedCrypto, setCopiedCrypto] = useState(false)
   const [paymentData, setPaymentData] = useState({
@@ -116,18 +107,6 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const depositFileRef = useRef<HTMLInputElement>(null)
   const paymentFileRef = useRef<HTMLInputElement>(null)
-
-  const handleCopyUpi = () => {
-    navigator.clipboard.writeText(PAYMENT_DETAILS.upiId)
-    setCopiedUpi(true)
-    setTimeout(() => setCopiedUpi(false), 2000)
-  }
-
-  const handleCopyImps = (key: string, value: string) => {
-    navigator.clipboard.writeText(value)
-    setCopiedImpsField(key)
-    setTimeout(() => setCopiedImpsField(null), 2000)
-  }
 
   const handleCopyCrypto = (address: string) => {
     navigator.clipboard.writeText(address)
@@ -202,8 +181,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     setCopiedCrypto(false)
     setPaymentData({ screenshot: null, utr: "" })
     setContactData({ telegramId: "", instagramId: "", phoneNumber: "" })
-    setCopiedUpi(false)
-    setCopiedImpsField(null)
+
   }
 
   const handleClose = () => {
@@ -229,7 +207,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
   const isPaymentValid = () => {
     if (!paymentMethod || !paymentData.screenshot) return false
     if (paymentMethod === "crypto") return !!cryptoOption
-    return !!paymentData.utr
+    if (paymentMethod === "erupee") return true
+    return !!paymentData.utr // upi requires UTR
   }
 
   if (!isOpen) return null
@@ -505,12 +484,12 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
                   { value: "upi", label: "UPI", icon: QrCode },
-                  { value: "imps", label: "IMPS/Bank", icon: CreditCard },
                   { value: "crypto", label: "Crypto", icon: Bitcoin },
+                  { value: "erupee", label: "E-Rupee", icon: CreditCard },
                 ].map((method) => (
                   <button
                     key={method.value}
-                    onClick={() => setPaymentMethod(method.value as "upi" | "imps" | "crypto")}
+                    onClick={() => setPaymentMethod(method.value as "upi" | "crypto" | "erupee")}
                     className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                       paymentMethod === method.value
                         ? "border-primary bg-primary/10"
@@ -529,68 +508,29 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
               {/* UPI Details */}
               {paymentMethod === "upi" && (
-                <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-6">
-                  <p className="text-sm text-muted-foreground mb-3 text-center">
-                    Scan QR Code to Pay via UPI
-                  </p>
-                  <div className="w-56 mx-auto bg-white rounded-xl overflow-hidden mb-4">
-                    <img
-                      src={PAYMENT_DETAILS.upiQrCodeUrl}
-                      alt="UPI QR Code"
-                      className="w-full h-auto"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background border border-border">
-                    <span className="text-sm text-muted-foreground">UPI ID:</span>
-                    <code className="flex-1 font-mono font-medium text-foreground">
-                      {PAYMENT_DETAILS.upiId}
-                    </code>
-                    <Button size="sm" variant="ghost" onClick={handleCopyUpi}>
-                      {copiedUpi ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-6 text-center space-y-3">
+                  <p className="text-sm font-medium text-foreground">Pay via UPI (Cashfree)</p>
+                  <p className="text-xs text-muted-foreground">Click below to open the secure payment page. After paying, enter your UTR number and upload the screenshot.</p>
+                  <a
+                    href={VIP_UPI_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    Open UPI Payment Page
+                  </a>
                 </div>
               )}
 
-              {/* IMPS Details */}
-              {paymentMethod === "imps" && (
-                <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-6">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Bank Transfer Details (IMPS/NEFT):
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { key: "holder", label: "Account Holder", value: PAYMENT_DETAILS.imps.accountHolder },
-                      { key: "account", label: "Account Number", value: PAYMENT_DETAILS.imps.accountNumber },
-                      { key: "ifsc", label: "IFSC Code", value: PAYMENT_DETAILS.imps.ifsc },
-                      { key: "bank", label: "Bank Name", value: PAYMENT_DETAILS.imps.bankName },
-                    ].map((item) => (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between p-3 rounded-lg bg-background border border-border"
-                      >
-                        <div>
-                          <span className="text-xs text-muted-foreground block">{item.label}</span>
-                          <span className="font-mono font-medium text-foreground">{item.value}</span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopyImps(item.key, item.value)}
-                        >
-                          {copiedImpsField === item.key ? (
-                            <Check className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+              {/* E-Rupee Details */}
+              {paymentMethod === "erupee" && (
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-6 text-center space-y-3">
+                  <p className="text-sm font-medium text-foreground">Pay via E-Rupee (Digital Rupee)</p>
+                  <div className="bg-white rounded-xl overflow-hidden w-56 mx-auto border border-border">
+                    <img src={ERUPEE_QR} alt="E-Rupee QR Code — Reserve Bank of India Digital Rupee for Shahid Bashir" className="w-full h-auto" />
                   </div>
+                  <p className="text-xs text-muted-foreground">Scan the QR to pay via E-Rupee. After payment, upload your screenshot below.</p>
                 </div>
               )}
 
@@ -695,8 +635,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                     </Button>
                   </div>
 
-                  {/* UTR only required for UPI and IMPS */}
-                  {(paymentMethod === "upi" || paymentMethod === "imps") && (
+                  {/* UTR only required for UPI */}
+                  {paymentMethod === "upi" && (
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                         <Hash className="w-4 h-4 text-primary" />
@@ -819,16 +759,11 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
               <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-500" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Payment Submitted!</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Payment Submitted</h2>
+              <p className="text-lg font-semibold text-primary mb-4">Under Review</p>
               <div className="p-5 rounded-xl bg-secondary/50 border border-border text-center space-y-2 mb-8 max-w-md mx-auto">
                 <p className="text-foreground text-sm font-medium">
-                  Payment submitted successfully.
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  Please wait while our team reviews your submission.
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  You will be added shortly after confirmation.
+                  Your payment is being verified. After successful verification, you will be added to the VIP group and granted access shortly.
                 </p>
               </div>
               <Button
