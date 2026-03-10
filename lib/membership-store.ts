@@ -245,3 +245,124 @@ function mapStat(row: Record<string, unknown>): PerformanceStat {
     createdAt: String(row.created_at ?? ""),
   }
 }
+
+// ── User Performance Overrides ─────────────────────────────────────────────────
+
+export interface UserPerformanceOverride {
+  id: string
+  userId: string
+  fundedAccountsPassed: number
+  fundedAccountsBreached: number
+  totalPayouts: number   // in USD
+  totalReturn: number    // in %
+  winRate: number        // in %
+  totalTrades: number
+  updatedAt: string
+}
+
+export async function getUserPerformanceOverride(userId: string): Promise<UserPerformanceOverride | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("user_performance_overrides")
+    .select("*")
+    .eq("user_id", userId)
+    .single()
+  if (error) return null
+  return data ? mapOverride(data) : null
+}
+
+export async function upsertUserPerformanceOverride(
+  o: Omit<UserPerformanceOverride, "id" | "updatedAt">
+): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("user_performance_overrides").upsert({
+    user_id: o.userId,
+    funded_accounts_passed: o.fundedAccountsPassed,
+    funded_accounts_breached: o.fundedAccountsBreached,
+    total_payouts: o.totalPayouts,
+    total_return: o.totalReturn,
+    win_rate: o.winRate,
+    total_trades: o.totalTrades,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" })
+  return !error
+}
+
+function mapOverride(row: Record<string, unknown>): UserPerformanceOverride {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id ?? ""),
+    fundedAccountsPassed: Number(row.funded_accounts_passed ?? 0),
+    fundedAccountsBreached: Number(row.funded_accounts_breached ?? 0),
+    totalPayouts: Number(row.total_payouts ?? 0),
+    totalReturn: Number(row.total_return ?? 0),
+    winRate: Number(row.win_rate ?? 0),
+    totalTrades: Number(row.total_trades ?? 0),
+    updatedAt: String(row.updated_at ?? ""),
+  }
+}
+
+// ── Certificates ───────────────────────────────────────────────────────────────
+
+export interface Certificate {
+  id: string
+  userId: string
+  title: string
+  description?: string
+  imageUrl: string
+  createdAt: string
+}
+
+export async function getCertificates(userId: string): Promise<Certificate[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("certificates")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+  if (error) { console.error("[membership-store] getCertificates:", error); return [] }
+  return (data || []).map(mapCertificate)
+}
+
+export async function getAllCertificates(): Promise<Certificate[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("certificates")
+    .select("*")
+    .order("created_at", { ascending: false })
+  if (error) { console.error("[membership-store] getAllCertificates:", error); return [] }
+  return (data || []).map(mapCertificate)
+}
+
+export async function createCertificate(c: Omit<Certificate, "id" | "createdAt">): Promise<Certificate | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("certificates")
+    .insert({
+      user_id: c.userId,
+      title: c.title,
+      description: c.description,
+      image_url: c.imageUrl,
+    })
+    .select()
+    .single()
+  if (error) { console.error("[membership-store] createCertificate:", error); return null }
+  return data ? mapCertificate(data) : null
+}
+
+export async function deleteCertificate(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("certificates").delete().eq("id", id)
+  return !error
+}
+
+function mapCertificate(row: Record<string, unknown>): Certificate {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id ?? ""),
+    title: String(row.title ?? ""),
+    description: row.description ? String(row.description) : undefined,
+    imageUrl: String(row.image_url ?? ""),
+    createdAt: String(row.created_at ?? ""),
+  }
+}
