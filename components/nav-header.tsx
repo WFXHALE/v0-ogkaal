@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Menu, X, ChevronDown } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -9,56 +10,87 @@ import { getSession } from "@/lib/community-utils"
 import { BackButton } from "@/components/back-button"
 import { UserAvatar } from "@/components/user-avatar"
 
-type NavStyle = "highlight" | "default"
-interface NavItem { label: string; href: string; style: NavStyle }
+// ── Nav items — Profile is NOT here; it lives in the UserAvatar dropdown ──────
+interface NavItem { label: string; href: string }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Home",            href: "/",               style: "default"   },
-  { label: "About",           href: "/about",          style: "default"   },
-  { label: "Mentorship",      href: "/mentorship",     style: "default"   },
-  { label: "VIP Group",       href: "/vip-group",      style: "default"   },
-  { label: "Dashboard",       href: "/dashboard",      style: "default"   },
-  { label: "Trade Dashboard", href: "/trade-dashboard",style: "default"   },
-  { label: "Intelligence",    href: "/intelligence",   style: "default"   },
-  { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
-  { label: "Community",       href: "/community",      style: "default"   },
-  { label: "Funded Tools",    href: "/funded-tools",   style: "default"   },
-  { label: "Material",        href: "/material",       style: "default"   },
-  { label: "Blog",            href: "/blog",           style: "default"   },
-  { label: "SMC Guide",       href: "/smc-guide",      style: "default"   },
-  { label: "Profile",         href: "/profile",        style: "default"   },
-  { label: "FAQ",             href: "/faq",            style: "default"   },
-  { label: "Contact",         href: "/contact",        style: "default"   },
+  { label: "Home",            href: "/"                },
+  { label: "USDT P2P",        href: "/usdt-p2p"        },
+  { label: "Mentorship",      href: "/mentorship"      },
+  { label: "VIP Group",       href: "/vip-group"       },
+  { label: "Intelligence",    href: "/intelligence"    },
+  { label: "Funded Tools",    href: "/funded-tools"    },
+  { label: "Dashboard",       href: "/dashboard"       },
+  { label: "Trade Dashboard", href: "/trade-dashboard" },
+  { label: "Material",        href: "/material"        },
+  { label: "Community",       href: "/community"       },
+  { label: "SMC Guide",       href: "/smc-guide"       },
+  { label: "Blog",            href: "/blog"            },
+  { label: "About",           href: "/about"           },
+  { label: "Contact",         href: "/contact"         },
+  { label: "FAQ",             href: "/faq"             },
 ]
 
-function navItemClass(style: NavStyle) {
-  const base = "shrink-0 px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-150 whitespace-nowrap "
-  return style === "highlight"
-    ? base + "font-bold bg-[#FCD535] text-[#0B0E11] hover:bg-[#F0B90B]"
-    : base + "text-muted-foreground hover:text-foreground hover:bg-secondary"
+// ── Single nav link with gold underline for active page ───────────────────────
+function NavLink({
+  item,
+  active,
+  onClick,
+}: {
+  item: NavItem
+  active: boolean
+  onClick?: () => void
+}) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      data-navitem
+      className={[
+        "relative shrink-0 px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-150",
+        "pb-[14px]", // extra bottom padding so the underline sits at the bar bottom
+        active
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground",
+      ].join(" ")}
+    >
+      {item.label}
+      {/* Gold underline — shown on active, faint on hover */}
+      <span
+        className={[
+          "absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] rounded-full bg-[#FCD535] transition-all duration-200",
+          active ? "w-[80%] opacity-100" : "w-0 opacity-0 group-hover:w-[80%] group-hover:opacity-30",
+        ].join(" ")}
+      />
+    </Link>
+  )
 }
 
-function OverflowNav({ items }: { items: NavItem[] }) {
-  const navRef = useRef<HTMLElement>(null)
+// ── Overflow nav — measures fitted items; puts extras in "More" dropdown ───────
+function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }) {
+  const navRef      = useRef<HTMLElement>(null)
   const [visibleCount, setVisibleCount] = useState(items.length)
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [moreOpen, setMoreOpen]         = useState(false)
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
 
   const measure = useCallback(() => {
     const nav = navRef.current
     if (!nav) return
-    const children = Array.from(nav.querySelectorAll<HTMLElement>("[data-navitem]"))
-    if (children.length === 0) return
-    children.forEach(el => { el.style.display = "" })
-    const available = nav.offsetWidth - 72
+    const els = Array.from(nav.querySelectorAll<HTMLElement>("[data-navitem]"))
+    if (!els.length) return
+    els.forEach(el => { el.style.visibility = "visible" })
+    const available = nav.offsetWidth - 80 // reserve for "More" button
     let total = 0
     let count = 0
-    for (const el of children) {
-      total += el.offsetWidth + 2
+    for (const el of els) {
+      total += el.offsetWidth + 4
       if (total > available) break
       count++
     }
-    setVisibleCount(count < items.length ? count : items.length)
-  }, [items.length])
+    setVisibleCount(Math.max(1, count))
+  }, [])
 
   useEffect(() => {
     measure()
@@ -76,46 +108,63 @@ function OverflowNav({ items }: { items: NavItem[] }) {
     return () => document.removeEventListener("mousedown", close)
   }, [moreOpen])
 
-  const overflow = items.slice(visibleCount)
+  const overflow     = items.slice(visibleCount)
+  const moreHasActive = overflow.some(i => isActive(i.href))
 
   return (
-    <nav ref={navRef} className="hidden lg:flex items-center gap-0.5 flex-1 min-w-0 mx-3">
+    <nav ref={navRef} className="hidden lg:flex items-center flex-1 min-w-0 overflow-hidden">
       {items.map((item, i) => (
-        <Link
+        <NavLink
           key={item.href}
-          href={item.href}
-          data-navitem
-          className={navItemClass(item.style)}
-          style={{ display: i < visibleCount ? undefined : "none" }}
-        >
-          {item.label}
-        </Link>
+          item={item}
+          active={isActive(item.href)}
+          onClick={undefined}
+        />
       ))}
+
+      {/* We hide overflow items via CSS after measurement so widths stay accurate */}
+      <style>{`
+        nav [data-navitem]:nth-child(n+${visibleCount + 1}) { display: none; }
+      `}</style>
+
       {overflow.length > 0 && (
-        <div className="relative shrink-0" data-more-menu>
+        <div className="relative shrink-0 ml-1" data-more-menu>
           <button
             onClick={() => setMoreOpen(v => !v)}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors whitespace-nowrap"
             aria-expanded={moreOpen}
+            className={[
+              "flex items-center gap-0.5 px-2 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-150",
+              moreHasActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            ].join(" ")}
           >
-            More <ChevronDown className={`w-3 h-3 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
+            More
+            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`} />
+            {moreHasActive && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-[2px] rounded-full bg-[#FCD535]" />
+            )}
           </button>
+
           {moreOpen && (
-            <div className="absolute top-full right-0 mt-1.5 w-44 bg-background border border-border rounded-xl shadow-lg py-1 z-50">
-              {overflow.map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className={
-                    item.style === "highlight"
-                      ? "flex items-center px-3 py-2 text-xs font-bold text-[#0B0E11] bg-[#FCD535] mx-1 my-0.5 rounded-lg"
-                      : "flex items-center px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg mx-1 my-0.5 transition-colors"
-                  }
-                >
-                  {item.label}
-                </Link>
-              ))}
+            <div className="absolute top-full right-0 mt-1.5 w-48 bg-background border border-border rounded-xl shadow-xl py-1 z-50">
+              {overflow.map(item => {
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={[
+                      "flex items-center justify-between px-3 py-2.5 text-xs font-medium transition-colors",
+                      active
+                        ? "text-foreground bg-secondary/60"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                    {active && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
@@ -124,7 +173,9 @@ function OverflowNav({ items }: { items: NavItem[] }) {
   )
 }
 
+// ── Header ────────────────────────────────────────────────────────────────────
 export function Header() {
+  const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -133,6 +184,12 @@ export function Header() {
     if (session) setUserId(session.id)
   }, [])
 
+  // Close mobile menu on route change
+  useEffect(() => { setMobileMenuOpen(false) }, [pathname])
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
+
   return (
     <>
       <header
@@ -140,8 +197,9 @@ export function Header() {
         className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50"
       >
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
-          <div className="flex items-center h-16 gap-2">
+          <div className="flex items-center h-16 gap-3">
 
+            {/* Left: back button + logo */}
             <div className="flex items-center gap-2 shrink-0">
               <BackButton inline />
               <Link href="/admin-login" aria-label="Admin Panel">
@@ -162,12 +220,15 @@ export function Header() {
               </Link>
             </div>
 
-            <OverflowNav items={NAV_ITEMS} />
+            {/* Desktop overflow nav */}
+            <OverflowNav items={NAV_ITEMS} pathname={pathname} />
 
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Right actions: Theme | Notifications | Profile avatar | Hamburger */}
+            <div className="flex items-center gap-1.5 shrink-0 ml-auto lg:ml-0">
               <ThemeToggle />
               {userId && <NotificationBell userId={userId} />}
               <UserAvatar />
+              {/* Hamburger — mobile only */}
               <button
                 className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
                 onClick={() => setMobileMenuOpen(v => !v)}
@@ -178,23 +239,43 @@ export function Header() {
             </div>
           </div>
 
+          {/* Mobile nav */}
           {mobileMenuOpen && (
             <div className="lg:hidden py-3 border-t border-border/50">
               <nav className="flex flex-col gap-0.5 max-h-[75vh] overflow-y-auto">
-                {NAV_ITEMS.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={
-                      item.style === "highlight"
-                        ? "block px-4 py-3 text-sm font-bold rounded-lg bg-[#FCD535] text-[#0B0E11] text-center"
-                        : "block px-4 py-3 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    }
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {NAV_ITEMS.map(item => {
+                  const active = isActive(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={[
+                        "flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                        active
+                          ? "text-foreground bg-secondary/60 border-l-2 border-[#FCD535] pl-3"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                      {active && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
+                    </Link>
+                  )
+                })}
+                {/* Profile link in mobile nav too */}
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={[
+                    "flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                    isActive("/profile")
+                      ? "text-foreground bg-secondary/60 border-l-2 border-[#FCD535] pl-3"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                  ].join(" ")}
+                >
+                  My Profile
+                  {isActive("/profile") && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
+                </Link>
               </nav>
             </div>
           )}
