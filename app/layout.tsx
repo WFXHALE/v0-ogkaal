@@ -62,6 +62,12 @@ export default function RootLayout({
         <link rel="prefetch" href="/usdt-p2p" />
         <link rel="prefetch" href="/contact" />
         <link rel="prefetch" href="/material" />
+        <link rel="prefetch" href="/dashboard" />
+        <link rel="prefetch" href="/performance" />
+        <link rel="prefetch" href="/vip-signals" />
+        <link rel="prefetch" href="/about" />
+        <link rel="prefetch" href="/blog" />
+        <link rel="prefetch" href="/smc-guide" />
         
         {/* Optimize rendering */}
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />

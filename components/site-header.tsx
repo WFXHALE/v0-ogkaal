@@ -21,14 +21,19 @@ function navClass(style: NavStyle): string {
 
 const NAV_ITEMS: { label: string; href: string; style: NavStyle }[] = [
   { label: "Home",            href: "/",               style: "default"   },
+  { label: "About",           href: "/about",          style: "default"   },
   { label: "Mentorship",      href: "/mentorship",     style: "default"   },
   { label: "VIP Group",       href: "/vip-group",      style: "default"   },
+  { label: "Dashboard",       href: "/dashboard",      style: "default"   },
+  { label: "Performance",     href: "/performance",    style: "default"   },
   { label: "Trade Dashboard", href: "/trade-dashboard",style: "default"   },
   { label: "Intelligence",    href: "/intelligence",   style: "default"   },
   { label: "USDT P2P",        href: "/usdt-p2p",       style: "highlight" },
   { label: "Community",       href: "/community",      style: "default"   },
   { label: "Funded Tools",    href: "/funded-tools",   style: "default"   },
   { label: "Material",        href: "/material",       style: "default"   },
+  { label: "Blog",            href: "/blog",           style: "default"   },
+  { label: "SMC Guide",       href: "/smc-guide",      style: "default"   },
   { label: "FAQ",             href: "/faq",            style: "default"   },
   { label: "Contact",         href: "/contact",        style: "default"   },
 ]
