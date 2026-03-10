@@ -295,6 +295,22 @@ export async function logout(): Promise<void> {
   localStorage.removeItem(SESSION_STORAGE_KEY)
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (typeof window === "undefined") return { success: false, error: "Cannot process on server" }
+  const admin = getAdminAccount()
+  if (!admin) return { success: false, error: "Admin account not found" }
+  const currentHash = await hashPassword(currentPassword)
+  if (currentHash !== admin.passwordHash) return { success: false, error: "Current password is incorrect" }
+  if (newPassword.length < 8) return { success: false, error: "Password must be at least 8 characters" }
+  admin.passwordHash = await hashPassword(newPassword)
+  localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(admin))
+  await addSecurityLog("password_change", admin.email, "Password changed successfully")
+  return { success: true }
+}
+
 export function deleteAdminAccount(): void {
   if (typeof window === "undefined") return
   ;[ADMIN_STORAGE_KEY, SESSION_STORAGE_KEY, LOGIN_ATTEMPTS_KEY, SECURITY_LOGS_KEY, "og_reset_code"].forEach(k =>

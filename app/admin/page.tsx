@@ -1076,7 +1076,7 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // ── System Control ───────────────────────────────────────────────────────────
+  // ── System Control ───────────────────────────────��───────────────────────────
 
   const renderSystemControl = () => (
     <div className="space-y-6">
@@ -1163,8 +1163,8 @@ export default function AdminDashboardPage() {
         setSecMsg({ type: "err", text: "New passwords do not match." }); return
       }
       if (secForm.newPw) {
-        const ok = await changePassword(secForm.oldPw, secForm.newPw)
-        if (!ok) { setSecMsg({ type: "err", text: "Current password incorrect." }); return }
+        const result = await changePassword(secForm.oldPw, secForm.newPw)
+        if (!result.success) { setSecMsg({ type: "err", text: result.error ?? "Current password incorrect." }); return }
       }
       setSecMsg({ type: "ok", text: "Settings saved successfully." })
       setTimeout(() => setSecMsg(null), 3000)
