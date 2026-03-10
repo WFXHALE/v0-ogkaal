@@ -1,8 +1,11 @@
 // Membership and user dashboard data — Supabase-backed
+// All column names match the LIVE database schema exactly.
 import { createClient } from "@/lib/supabase/client"
 
 export type MembershipPlan = "VIP" | "Mentorship" | "VIP Group" | "Free"
 export type MembershipStatus = "active" | "pending" | "expired" | "none"
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface Membership {
   id: string
@@ -11,10 +14,9 @@ export interface Membership {
   userName: string
   plan: MembershipPlan
   status: MembershipStatus
-  joinDate: string
-  expiryDate: string | null
-  paymentMethod?: string
-  amountPaid?: string
+  joinDate: string       // maps to joined_at
+  expiryDate: string | null // maps to expires_at
+  amountPaid?: string    // maps to amount
   notes?: string
   createdAt: string
 }
@@ -23,27 +25,76 @@ export interface VipSignal {
   id: string
   pair: string
   entry: string
-  stopLoss: string
-  takeProfit1: string
-  takeProfit2?: string
-  takeProfit3?: string
+  stopLoss: string      // maps to stop_loss
+  takeProfit: string    // maps to take_profit (single col)
   direction: "BUY" | "SELL"
   status: "active" | "hit_tp" | "hit_sl" | "cancelled"
   result?: string
+  pips?: number
+  source?: string
   notes?: string
-  postedAt: string
   createdAt: string
 }
 
 export interface PerformanceStat {
   id: string
-  month: string      // "2025-01"
-  monthLabel: string // "January 2025"
-  profitPercent: number
-  winRate: number
-  totalTrades: number
-  winningTrades: number
-  losingTrades: number
+  month: string         // "Jan", "Feb", etc — maps to month col
+  year: number          // maps to year col
+  profitPercent: number // maps to profit_pct
+  winRate: number       // maps to win_rate
+  totalTrades: number   // maps to total_trades
+  wins: number          // maps to wins
+  losses: number        // maps to losses
+  notes?: string
+  createdAt: string
+}
+
+export interface UserPerformanceOverride {
+  id: string
+  userEmail: string      // maps to user_email
+  fundedPassed: number   // maps to funded_passed
+  fundedBreached: number // maps to funded_breached
+  totalPayouts: number   // maps to total_payouts
+  totalReturn: number    // maps to total_return
+  avgWinRate: number     // maps to avg_win_rate
+  totalTrades: number    // maps to total_trades
+  updatedAt: string
+}
+
+export interface Certificate {
+  id: string
+  userEmail: string  // maps to user_email
+  title: string
+  description?: string
+  imageUrl: string   // maps to image_url
+  createdAt: string
+}
+
+export interface TradingAccount {
+  id: string
+  userId: string
+  userEmail: string
+  brokerName: string      // maps to broker_name
+  accountType: string     // maps to account_type
+  accountBalance: number  // maps to account_balance
+  initialDeposit: number  // maps to initial_deposit
+  currentProfit: number   // maps to current_profit
+  profitTarget: number    // maps to profit_target
+  notes?: string
+  createdAt: string
+}
+
+export interface JournalEntry {
+  id: string
+  userId: string
+  userEmail: string
+  pair: string
+  entryPrice: number    // maps to entry_price
+  exitPrice?: number    // maps to exit_price
+  profitLoss?: number   // maps to profit_loss
+  tradeNotes?: string   // maps to trade_notes
+  screenshotUrl?: string // maps to screenshot_url
+  tradeDate: string     // maps to trade_date
   createdAt: string
 }
 
@@ -64,7 +115,7 @@ export async function getMembershipByEmail(email: string): Promise<Membership | 
   const { data, error } = await supabase
     .from("memberships")
     .select("*")
-    .eq("user_email", email)
+    .eq("email", email)
     .order("created_at", { ascending: false })
     .limit(1)
     .single()
@@ -85,35 +136,10 @@ export async function getMembershipByUserId(userId: string): Promise<Membership 
   return data ? mapMembership(data) : null
 }
 
-export async function upsertMembership(m: Partial<Membership> & { userEmail: string; plan: MembershipPlan }): Promise<Membership | null> {
-  const supabase = createClient()
-  const payload: Record<string, unknown> = {
-    user_email: m.userEmail,
-    user_name: m.userName ?? "",
-    plan: m.plan,
-    status: m.status ?? "pending",
-    join_date: m.joinDate ?? new Date().toISOString(),
-    expiry_date: m.expiryDate ?? null,
-    payment_method: m.paymentMethod,
-    amount_paid: m.amountPaid,
-    notes: m.notes,
-  }
-  if (m.userId) payload.user_id = m.userId
-  if (m.id) payload.id = m.id
-
-  const { data, error } = await supabase
-    .from("memberships")
-    .upsert(payload, { onConflict: "id" })
-    .select()
-    .single()
-  if (error) { console.error("[membership-store] upsertMembership:", error); return null }
-  return data ? mapMembership(data) : null
-}
-
-export async function updateMembershipStatus(id: string, status: MembershipStatus, expiryDate?: string): Promise<boolean> {
+export async function updateMembershipStatus(id: string, status: MembershipStatus, expiresAt?: string): Promise<boolean> {
   const supabase = createClient()
   const updates: Record<string, unknown> = { status }
-  if (expiryDate) updates.expiry_date = expiryDate
+  if (expiresAt) updates.expires_at = expiresAt
   const { error } = await supabase.from("memberships").update(updates).eq("id", id)
   if (error) { console.error("[membership-store] updateMembershipStatus:", error); return false }
   return true
@@ -123,14 +149,13 @@ function mapMembership(row: Record<string, unknown>): Membership {
   return {
     id: String(row.id),
     userId: String(row.user_id ?? ""),
-    userEmail: String(row.user_email ?? ""),
-    userName: String(row.user_name ?? ""),
+    userEmail: String(row.email ?? ""),
+    userName: String(row.name ?? ""),
     plan: (row.plan as MembershipPlan) ?? "Free",
     status: (row.status as MembershipStatus) ?? "none",
-    joinDate: String(row.join_date ?? ""),
-    expiryDate: row.expiry_date ? String(row.expiry_date) : null,
-    paymentMethod: row.payment_method ? String(row.payment_method) : undefined,
-    amountPaid: row.amount_paid ? String(row.amount_paid) : undefined,
+    joinDate: String(row.joined_at ?? row.created_at ?? ""),
+    expiryDate: row.expires_at ? String(row.expires_at) : null,
+    amountPaid: row.amount ? String(row.amount) : undefined,
     notes: row.notes ? String(row.notes) : undefined,
     createdAt: String(row.created_at ?? ""),
   }
@@ -143,7 +168,7 @@ export async function getVipSignals(): Promise<VipSignal[]> {
   const { data, error } = await supabase
     .from("vip_signals")
     .select("*")
-    .order("posted_at", { ascending: false })
+    .order("created_at", { ascending: false })
   if (error) { console.error("[membership-store] getVipSignals:", error); return [] }
   return (data || []).map(mapSignal)
 }
@@ -156,14 +181,13 @@ export async function createSignal(s: Omit<VipSignal, "id" | "createdAt">): Prom
       pair: s.pair,
       entry: s.entry,
       stop_loss: s.stopLoss,
-      take_profit_1: s.takeProfit1,
-      take_profit_2: s.takeProfit2,
-      take_profit_3: s.takeProfit3,
+      take_profit: s.takeProfit,
       direction: s.direction,
       status: s.status ?? "active",
       result: s.result,
+      pips: s.pips,
+      source: s.source,
       notes: s.notes,
-      posted_at: s.postedAt,
     })
     .select()
     .single()
@@ -192,14 +216,13 @@ function mapSignal(row: Record<string, unknown>): VipSignal {
     pair: String(row.pair ?? ""),
     entry: String(row.entry ?? ""),
     stopLoss: String(row.stop_loss ?? ""),
-    takeProfit1: String(row.take_profit_1 ?? ""),
-    takeProfit2: row.take_profit_2 ? String(row.take_profit_2) : undefined,
-    takeProfit3: row.take_profit_3 ? String(row.take_profit_3) : undefined,
+    takeProfit: String(row.take_profit ?? ""),
     direction: (row.direction as "BUY" | "SELL") ?? "BUY",
     status: (row.status as VipSignal["status"]) ?? "active",
     result: row.result ? String(row.result) : undefined,
+    pips: row.pips != null ? Number(row.pips) : undefined,
+    source: row.source ? String(row.source) : undefined,
     notes: row.notes ? String(row.notes) : undefined,
-    postedAt: String(row.posted_at ?? ""),
     createdAt: String(row.created_at ?? ""),
   }
 }
@@ -211,7 +234,7 @@ export async function getPerformanceStats(): Promise<PerformanceStat[]> {
   const { data, error } = await supabase
     .from("performance_stats")
     .select("*")
-    .order("month", { ascending: true })
+    .order("year", { ascending: true })
   if (error) { console.error("[membership-store] getPerformanceStats:", error); return [] }
   return (data || []).map(mapStat)
 }
@@ -222,13 +245,14 @@ export async function upsertPerformanceStat(s: Omit<PerformanceStat, "id" | "cre
     .from("performance_stats")
     .upsert({
       month: s.month,
-      month_label: s.monthLabel,
-      profit_percent: s.profitPercent,
+      year: s.year,
+      profit_pct: s.profitPercent,
       win_rate: s.winRate,
       total_trades: s.totalTrades,
-      winning_trades: s.winningTrades,
-      losing_trades: s.losingTrades,
-    }, { onConflict: "month" })
+      wins: s.wins,
+      losses: s.losses,
+      notes: s.notes,
+    }, { onConflict: "month,year" })
   return !error
 }
 
@@ -236,89 +260,67 @@ function mapStat(row: Record<string, unknown>): PerformanceStat {
   return {
     id: String(row.id),
     month: String(row.month ?? ""),
-    monthLabel: String(row.month_label ?? ""),
-    profitPercent: Number(row.profit_percent ?? 0),
+    year: Number(row.year ?? new Date().getFullYear()),
+    profitPercent: Number(row.profit_pct ?? 0),
     winRate: Number(row.win_rate ?? 0),
     totalTrades: Number(row.total_trades ?? 0),
-    winningTrades: Number(row.winning_trades ?? 0),
-    losingTrades: Number(row.losing_trades ?? 0),
+    wins: Number(row.wins ?? 0),
+    losses: Number(row.losses ?? 0),
+    notes: row.notes ? String(row.notes) : undefined,
     createdAt: String(row.created_at ?? ""),
   }
 }
 
-// ── User Performance Overrides ─────────────────────────────────────────────────
+// ── User Performance Overrides ────────────────────────────────────────────────
 
-export interface UserPerformanceOverride {
-  id: string
-  userId: string
-  fundedAccountsPassed: number
-  fundedAccountsBreached: number
-  totalPayouts: number   // in USD
-  totalReturn: number    // in %
-  winRate: number        // in %
-  totalTrades: number
-  updatedAt: string
-}
-
-export async function getUserPerformanceOverride(userId: string): Promise<UserPerformanceOverride | null> {
+export async function getUserPerformanceOverride(userEmail: string): Promise<UserPerformanceOverride | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("user_performance_overrides")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_email", userEmail)
     .single()
   if (error) return null
   return data ? mapOverride(data) : null
 }
 
-export async function upsertUserPerformanceOverride(
-  o: Omit<UserPerformanceOverride, "id" | "updatedAt">
-): Promise<boolean> {
+export async function upsertUserPerformanceOverride(o: Omit<UserPerformanceOverride, "id" | "updatedAt">): Promise<boolean> {
   const supabase = createClient()
   const { error } = await supabase.from("user_performance_overrides").upsert({
-    user_id: o.userId,
-    funded_accounts_passed: o.fundedAccountsPassed,
-    funded_accounts_breached: o.fundedAccountsBreached,
+    user_email: o.userEmail,
+    funded_passed: o.fundedPassed,
+    funded_breached: o.fundedBreached,
     total_payouts: o.totalPayouts,
     total_return: o.totalReturn,
-    win_rate: o.winRate,
+    avg_win_rate: o.avgWinRate,
     total_trades: o.totalTrades,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id" })
+  }, { onConflict: "user_email" })
   return !error
 }
 
 function mapOverride(row: Record<string, unknown>): UserPerformanceOverride {
   return {
     id: String(row.id),
-    userId: String(row.user_id ?? ""),
-    fundedAccountsPassed: Number(row.funded_accounts_passed ?? 0),
-    fundedAccountsBreached: Number(row.funded_accounts_breached ?? 0),
+    userEmail: String(row.user_email ?? ""),
+    fundedPassed: Number(row.funded_passed ?? 0),
+    fundedBreached: Number(row.funded_breached ?? 0),
     totalPayouts: Number(row.total_payouts ?? 0),
     totalReturn: Number(row.total_return ?? 0),
-    winRate: Number(row.win_rate ?? 0),
+    avgWinRate: Number(row.avg_win_rate ?? 0),
     totalTrades: Number(row.total_trades ?? 0),
     updatedAt: String(row.updated_at ?? ""),
   }
 }
 
-// ── Certificates ───────────────────────────────────────────────────────────────
+// ── Certificates ──────────────────────────────────────────────────────────────
 
-export interface Certificate {
-  id: string
-  userId: string
-  title: string
-  description?: string
-  imageUrl: string
-  createdAt: string
-}
-
-export async function getCertificates(userId: string): Promise<Certificate[]> {
+export async function getCertificates(userEmail: string): Promise<Certificate[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("certificates")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_email", userEmail)
     .order("created_at", { ascending: false })
   if (error) { console.error("[membership-store] getCertificates:", error); return [] }
   return (data || []).map(mapCertificate)
@@ -338,12 +340,7 @@ export async function createCertificate(c: Omit<Certificate, "id" | "createdAt">
   const supabase = createClient()
   const { data, error } = await supabase
     .from("certificates")
-    .insert({
-      user_id: c.userId,
-      title: c.title,
-      description: c.description,
-      image_url: c.imageUrl,
-    })
+    .insert({ user_email: c.userEmail, title: c.title, description: c.description, image_url: c.imageUrl })
     .select()
     .single()
   if (error) { console.error("[membership-store] createCertificate:", error); return null }
@@ -359,7 +356,7 @@ export async function deleteCertificate(id: string): Promise<boolean> {
 function mapCertificate(row: Record<string, unknown>): Certificate {
   return {
     id: String(row.id),
-    userId: String(row.user_id ?? ""),
+    userEmail: String(row.user_email ?? ""),
     title: String(row.title ?? ""),
     description: row.description ? String(row.description) : undefined,
     imageUrl: String(row.image_url ?? ""),
@@ -367,21 +364,7 @@ function mapCertificate(row: Record<string, unknown>): Certificate {
   }
 }
 
-// ── Trading Accounts ────────────────────────────────────────────────────────────
-
-export interface TradingAccount {
-  id: string
-  userId: string
-  broker: string
-  accountType: "live" | "demo" | "funded" | "prop"
-  accountNumber?: string
-  balance: number
-  deposit: number
-  profit: number
-  currency: string
-  notes?: string
-  createdAt: string
-}
+// ── Trading Accounts ──────────────────────────────────────────────────────────
 
 export async function getTradingAccounts(userId: string): Promise<TradingAccount[]> {
   const supabase = createClient()
@@ -400,13 +383,13 @@ export async function createTradingAccount(a: Omit<TradingAccount, "id" | "creat
     .from("trading_accounts")
     .insert({
       user_id: a.userId,
-      broker: a.broker,
+      user_email: a.userEmail,
+      broker_name: a.brokerName,
       account_type: a.accountType,
-      account_number: a.accountNumber,
-      balance: a.balance,
-      deposit: a.deposit,
-      profit: a.profit,
-      currency: a.currency,
+      account_balance: a.accountBalance,
+      initial_deposit: a.initialDeposit,
+      current_profit: a.currentProfit,
+      profit_target: a.profitTarget,
       notes: a.notes,
     })
     .select()
@@ -425,36 +408,19 @@ function mapTradingAccount(row: Record<string, unknown>): TradingAccount {
   return {
     id: String(row.id),
     userId: String(row.user_id ?? ""),
-    broker: String(row.broker ?? ""),
-    accountType: (row.account_type as TradingAccount["accountType"]) ?? "live",
-    accountNumber: row.account_number ? String(row.account_number) : undefined,
-    balance: Number(row.balance ?? 0),
-    deposit: Number(row.deposit ?? 0),
-    profit: Number(row.profit ?? 0),
-    currency: String(row.currency ?? "USD"),
+    userEmail: String(row.user_email ?? ""),
+    brokerName: String(row.broker_name ?? ""),
+    accountType: String(row.account_type ?? "live"),
+    accountBalance: Number(row.account_balance ?? 0),
+    initialDeposit: Number(row.initial_deposit ?? 0),
+    currentProfit: Number(row.current_profit ?? 0),
+    profitTarget: Number(row.profit_target ?? 0),
     notes: row.notes ? String(row.notes) : undefined,
     createdAt: String(row.created_at ?? ""),
   }
 }
 
-// ── Trading Journal ─────────────────────────────────────────────────────────────
-
-export interface JournalEntry {
-  id: string
-  userId: string
-  accountId?: string
-  pair: string
-  direction: "BUY" | "SELL"
-  entryPrice: number
-  exitPrice?: number
-  lotSize?: number
-  pnl?: number
-  result?: "win" | "loss" | "be"
-  notes?: string
-  screenshotUrl?: string
-  tradeDate: string
-  createdAt: string
-}
+// ── Trading Journal ───────────────────────────────────────────────────────────
 
 export async function getJournalEntries(userId: string): Promise<JournalEntry[]> {
   const supabase = createClient()
@@ -473,15 +439,12 @@ export async function createJournalEntry(e: Omit<JournalEntry, "id" | "createdAt
     .from("trading_journal")
     .insert({
       user_id: e.userId,
-      account_id: e.accountId,
+      user_email: e.userEmail,
       pair: e.pair,
-      direction: e.direction,
       entry_price: e.entryPrice,
       exit_price: e.exitPrice,
-      lot_size: e.lotSize,
-      pnl: e.pnl,
-      result: e.result,
-      notes: e.notes,
+      profit_loss: e.profitLoss,
+      trade_notes: e.tradeNotes,
       screenshot_url: e.screenshotUrl,
       trade_date: e.tradeDate,
     })
@@ -501,15 +464,12 @@ function mapJournalEntry(row: Record<string, unknown>): JournalEntry {
   return {
     id: String(row.id),
     userId: String(row.user_id ?? ""),
-    accountId: row.account_id ? String(row.account_id) : undefined,
+    userEmail: String(row.user_email ?? ""),
     pair: String(row.pair ?? ""),
-    direction: (row.direction as "BUY" | "SELL") ?? "BUY",
     entryPrice: Number(row.entry_price ?? 0),
     exitPrice: row.exit_price != null ? Number(row.exit_price) : undefined,
-    lotSize: row.lot_size != null ? Number(row.lot_size) : undefined,
-    pnl: row.pnl != null ? Number(row.pnl) : undefined,
-    result: row.result ? (row.result as JournalEntry["result"]) : undefined,
-    notes: row.notes ? String(row.notes) : undefined,
+    profitLoss: row.profit_loss != null ? Number(row.profit_loss) : undefined,
+    tradeNotes: row.trade_notes ? String(row.trade_notes) : undefined,
     screenshotUrl: row.screenshot_url ? String(row.screenshot_url) : undefined,
     tradeDate: String(row.trade_date ?? ""),
     createdAt: String(row.created_at ?? ""),
