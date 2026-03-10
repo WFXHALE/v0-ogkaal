@@ -83,7 +83,7 @@ function Card({
 
 type AuthMode = "login" | "register" | "backup" | "forgot" | "backup_shown"
 
-function AuthScreen({ onAuth }: { onAuth: (s: DashboardSession) => void }) {
+function AuthScreen({ onAuth, onBackupCode }: { onAuth: (s: DashboardSession) => void; onBackupCode: (code: string) => void }) {
   const [mode, setMode] = useState<AuthMode>("login")
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -91,9 +91,6 @@ function AuthScreen({ onAuth }: { onAuth: (s: DashboardSession) => void }) {
   const [success, setSuccess] = useState("")
   const [generatedBackup, setGeneratedBackup] = useState("")
   const [backupCopied, setBackupCopied] = useState(false)
-  const [storedBackup, setStoredBackup]   = useState<string | null>(null)
-  const [showBackup, setShowBackup]       = useState(false)
-  const [backupCleared, setBackupCleared] = useState(false)
 
   const [loginId, setLoginId] = useState("")
   const [loginPw, setLoginPw] = useState("")
@@ -124,7 +121,7 @@ function AuthScreen({ onAuth }: { onAuth: (s: DashboardSession) => void }) {
     if (!res.success) { setError(res.error); return }
     setGeneratedBackup(res.backupCode)
     storeBackupCode(res.backupCode)
-    setStoredBackup(res.backupCode)
+    onBackupCode(res.backupCode)
     setMode("backup_shown")
     // Auto-login
     const loginRes = await login(regId, regPw)
@@ -400,6 +397,11 @@ export default function UserDashboard() {
   const [loading, setLoading]          = useState(false)
   const [copied, setCopied]            = useState(false)
 
+  // Backup code (persisted in localStorage after registration)
+  const [storedBackup, setStoredBackup] = useState<string | null>(null)
+  const [showBackup, setShowBackup]     = useState(false)
+  const [backupCleared, setBackupCleared] = useState(false)
+
   // Data
   const [vipMem, setVipMem]           = useState<Record<string, unknown> | null>(null)
   const [mentorMem, setMentorMem]     = useState<Record<string, unknown> | null>(null)
@@ -526,7 +528,7 @@ export default function UserDashboard() {
   )
 
   if (timedOut) return <TimeoutOverlay onDismiss={() => setTimedOut(false)} />
-  if (!session) return <AuthScreen onAuth={handleAuth} />
+  if (!session) return <AuthScreen onAuth={handleAuth} onBackupCode={(code) => { setStoredBackup(code) }} />
 
   return (
     <div className="min-h-screen bg-background">
