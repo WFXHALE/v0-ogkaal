@@ -13,7 +13,7 @@ import {
 import {
   getSession, logout, touchActivity, isSessionTimedOut,
   login, loginWithBackupCode, registerDashboardUser, sendPasswordReset,
-  storeBackupCode, getStoredBackupCode, clearStoredBackupCode,
+  storeBackupCode, getStoredBackupCode, fetchBackupCode,
 } from "@/lib/dashboard-auth"
 import type { DashboardSession } from "@/lib/dashboard-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
@@ -437,10 +437,11 @@ export default function ClientDashboard() {
     if (s && !isSessionTimedOut()) {
       setSessionState(s)
       scheduleCheck()
-      // Prefer backup code stored in session (from DB), fall back to localStorage
-      setStoredBackup(s.backupCode ?? getStoredBackupCode())
-    } else {
-      setStoredBackup(getStoredBackupCode())
+      // Always fetch backup code fresh from DB so it is always available
+      fetchBackupCode(s.id).then(code => {
+        if (code) { setStoredBackup(code); storeBackupCode(code) }
+        else setStoredBackup(getStoredBackupCode())
+      })
     }
     setBooting(false)
   }, [scheduleCheck])
@@ -487,7 +488,10 @@ export default function ClientDashboard() {
 
   const handleAuth = (s: DashboardSession) => {
     setSessionState(s); setTimedOut(false); scheduleCheck()
-    if (s.backupCode) { setStoredBackup(s.backupCode); storeBackupCode(s.backupCode) }
+    // Always fetch fresh from DB — auto-generates if the user has no code yet
+    fetchBackupCode(s.id).then(code => {
+      if (code) { setStoredBackup(code); storeBackupCode(code) }
+    })
   }
 
   const handleLogout = () => {
@@ -840,51 +844,37 @@ export default function ClientDashboard() {
 
               {/* Backup Code */}
               <div className="px-4 py-3 rounded-xl border border-border bg-secondary/20">
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
                     <p className="text-xs font-medium text-foreground">Backup Code</p>
                   </div>
-                  {storedBackup && !backupCleared && (
-                    <button
-                      type="button"
-                      onClick={() => setShowBackup(v => !v)}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={showBackup ? "Hide backup code" : "Show backup code"}
-                    >
-                      {showBackup ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowBackup(v => !v)}
+                    className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showBackup ? "Hide backup code" : "Show backup code"}
+                  >
+                    {showBackup ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-                {storedBackup && !backupCleared ? (
+                {storedBackup ? (
                   <>
-                    <div className={`font-mono text-sm tracking-widest px-2 py-1.5 rounded bg-secondary border border-border text-center transition-all ${showBackup ? "text-foreground select-all" : "blur-sm select-none pointer-events-none"}`}>
+                    <div className={`font-mono text-sm tracking-widest px-2 py-2 rounded bg-secondary border border-border text-center transition-all duration-200 ${showBackup ? "text-foreground select-all" : "blur-sm select-none pointer-events-none"}`}>
                       {storedBackup}
                     </div>
                     {showBackup && (
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => navigator.clipboard.writeText(storedBackup!)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-secondary border border-border text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy
-                        </button>
-                        <button
-                          onClick={() => { clearStoredBackupCode(); setStoredBackup(null); setShowBackup(false); setBackupCleared(true) }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-secondary border border-border text-muted-foreground hover:text-red-400 transition-colors"
-                        >
-                          <XCircle className="w-3.5 h-3.5" /> Clear from device
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(storedBackup!)}
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-secondary border border-border text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy
+                      </button>
                     )}
-                    <p className="text-xs text-muted-foreground mt-2">Store this code somewhere safe. Once cleared, it cannot be recovered from here.</p>
+                    <p className="text-xs text-muted-foreground mt-2">Use this code to recover access to your account if you forget your password.</p>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {backupCleared
-                      ? "Backup code cleared from this device. Contact support if you need an account reset."
-                      : "Not stored on this device. It was shown once at registration — contact support to reset if lost."}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Loading backup code...</p>
                 )}
               </div>
 

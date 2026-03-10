@@ -242,6 +242,32 @@ export async function resetPasswordWithToken(
   return { success: true }
 }
 
+// ── Fetch backup code from DB (auto-generates if missing) ─────────────────────
+
+export async function fetchBackupCode(userId: string): Promise<string | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("dashboard_users")
+    .select("backup_code")
+    .eq("id", userId)
+    .single()
+
+  if (error || !data) return null
+
+  // If backup code already exists, return it
+  if (data.backup_code) return String(data.backup_code)
+
+  // Auto-generate and save a new one if missing
+  const newCode = generateBackupCode()
+  await supabase
+    .from("dashboard_users")
+    .update({ backup_code: newCode })
+    .eq("id", userId)
+
+  return newCode
+}
+
 export async function registerDashboardUser(params: {
   userId: string
   email: string
