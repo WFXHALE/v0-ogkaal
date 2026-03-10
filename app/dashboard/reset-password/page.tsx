@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, KeyRound, CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { resetPasswordWithToken } from "@/lib/dash-auth"
+import { BackButton } from "@/components/back-button"
 
 function ResetPasswordForm() {
   const router      = useRouter()
@@ -41,6 +42,8 @@ function ResetPasswordForm() {
   }
 
   return (
+    <>
+    <div className="fixed top-16 left-0 right-0 z-40"><BackButton /></div>
     <main className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
@@ -144,6 +147,7 @@ function ResetPasswordForm() {
         </div>
       </div>
     </main>
+    </>
   )
 }
 

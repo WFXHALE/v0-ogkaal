@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
+import { BackButton } from "@/components/back-button"
 
 type NavStyle = "highlight" | "default"
 
@@ -47,6 +48,7 @@ export function Header() {
   }, [])
 
   return (
+    <>
     <header
       suppressHydrationWarning
       className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50"
@@ -124,5 +126,9 @@ export function Header() {
         )}
       </div>
     </header>
+    <div className="fixed top-16 left-0 right-0 z-40">
+      <BackButton />
+    </div>
+    </>
   )
 }
