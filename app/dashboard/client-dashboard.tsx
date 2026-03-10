@@ -570,11 +570,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed back-nav strip sits just below the main header */}
-      <div className="fixed top-16 left-0 right-0 z-40">
-        <BackButton />
-      </div>
-      <div className="max-w-3xl mx-auto px-4 pt-28 pb-16">
+      <div className="max-w-3xl mx-auto px-4 pt-24 pb-16">
 
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>

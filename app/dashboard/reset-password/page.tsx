@@ -43,8 +43,8 @@ function ResetPasswordForm() {
 
   return (
     <>
-    <div className="fixed top-16 left-0 right-0 z-40"><BackButton /></div>
-    <main className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="fixed top-0 left-0 right-0 z-40"><BackButton /></div>
+    <main className="min-h-screen flex items-center justify-center bg-background px-4 pt-10">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
