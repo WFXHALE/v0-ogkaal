@@ -201,11 +201,13 @@ const ACCESS_WINDOW_SECONDS = 30
 export function AdminLoginForm() {
   const router = useRouter()
 
+  // isChecking MUST start false so SSR and client render the same initial HTML.
+  // The session check runs only in useEffect (client-only), avoiding hydration mismatch.
   const [showIntro, setShowIntro]                 = useState(true)
   const [secretKey, setSecretKey]                 = useState("")
   const [error, setError]                         = useState("")
   const [isLoading, setIsLoading]                 = useState(false)
-  const [isChecking, setIsChecking]               = useState(true)
+  const [isChecking, setIsChecking]               = useState(false)
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
   const [inputFocused, setInputFocused]           = useState(false)
   const [timeLeft, setTimeLeft]                   = useState(ACCESS_WINDOW_SECONDS)
@@ -251,14 +253,6 @@ export function AdminLoginForm() {
       if (r.attemptsRemaining !== undefined) setRemainingAttempts(r.attemptsRemaining)
     }
     setIsLoading(false)
-  }
-
-  if (isChecking) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-      </div>
-    )
   }
 
   const lock = isAccountLocked()
