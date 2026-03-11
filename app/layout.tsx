@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Quattrocento } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { FirebaseProvider } from '@/components/firebase-provider'
@@ -7,12 +7,11 @@ import { PageLoader } from '@/components/page-loader'
 import { LanguageProvider } from '@/contexts/language-context'
 import './globals.css'
 
-const _quattrocento = Quattrocento({
+const _inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "700"],
   display: "swap",
   preload: true,
-  variable: "--font-quattrocento",
+  variable: "--font-inter",
 })
 
 export const viewport: Viewport = {
