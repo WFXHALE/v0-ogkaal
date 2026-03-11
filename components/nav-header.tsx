@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, ChevronDown } from "lucide-react"
+import { Menu, ChevronDown } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
@@ -244,18 +244,19 @@ export function Header() {
             {/* Desktop overflow nav */}
             <OverflowNav items={NAV_ITEMS} pathname={pathname} />
 
-            {/* Right actions: Theme | Notifications | Profile avatar | Hamburger */}
+            {/* Right actions: Notifications | Profile avatar | Theme toggle | Hamburger */}
             <div className="flex items-center gap-1.5 shrink-0 ml-auto lg:ml-0">
-              <ThemeToggle />
               {userId && <NotificationBell userId={userId} />}
               <UserAvatar />
-              {/* Hamburger — mobile only */}
+              {/* Theme toggle — far right on desktop */}
+              <ThemeToggle />
+              {/* Hamburger — mobile only, always visible, no X icon */}
               <button
-                className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
+                className="lg:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => setMobileMenuOpen(v => !v)}
-                aria-label="Toggle menu"
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <Menu className={`w-5 h-5 transition-transform duration-200 ${mobileMenuOpen ? "rotate-90" : ""}`} />
               </button>
             </div>
           </div>

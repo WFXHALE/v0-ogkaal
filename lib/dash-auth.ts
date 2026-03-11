@@ -7,9 +7,8 @@ import { createClient } from "@/lib/supabase/client"
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const SESSION_KEY     = "og_dashboard_session"
-const TIMEOUT_MS      = 5 * 60 * 1000   // 5 minutes inactivity
-const LAST_ACTIVE_KEY = "og_dashboard_last_active"
 const BACKUP_CODE_KEY = "og_dashboard_backup_code"
+// Sessions are persistent — no timeout. User must manually log out.
 
 // ── Backup code plain-text storage ────────────────────────────────────────────
 
@@ -86,24 +85,9 @@ export function setSession(session: DashboardSession | null): void {
   if (typeof window === "undefined") return
   if (session) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    touchActivity()
   } else {
     localStorage.removeItem(SESSION_KEY)
-    localStorage.removeItem(LAST_ACTIVE_KEY)
   }
-}
-
-export function touchActivity(): void {
-  if (typeof window === "undefined") return
-  localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()))
-}
-
-export function isSessionTimedOut(): boolean {
-  if (typeof window === "undefined") return false
-  const session = getSession()
-  if (!session) return false
-  const lastActive = Number(localStorage.getItem(LAST_ACTIVE_KEY) ?? 0)
-  return Date.now() - lastActive > TIMEOUT_MS
 }
 
 export function logout(): void {
