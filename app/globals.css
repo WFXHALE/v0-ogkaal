@@ -85,19 +85,19 @@ html {
 }
 
 .grey {
-  /* Soft Grey Theme — layered neutral greys, gold accent retained */
+  /* Soft Grey Theme — layered neutral greys, calibrated text hierarchy */
   --background: #f2f2f2;
-  --foreground: #1a1a1a;
+  --foreground: #1f1f1f;           /* headings / primary text — soft black    */
   --card: #d9d9d9;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #1f1f1f;
   --popover: #d9d9d9;
-  --popover-foreground: #1a1a1a;
+  --popover-foreground: #1f1f1f;
   --primary: #F0B90B;
   --primary-foreground: #0B0E11;
   --secondary: #e6e6e6;
-  --secondary-foreground: #2e2e2e;
+  --secondary-foreground: #3a3a3a; /* body copy — medium grey                 */
   --muted: #e6e6e6;
-  --muted-foreground: #595959;
+  --muted-foreground: #6b6b6b;     /* secondary / helper text — soft grey     */
   --accent: #F0B90B;
   --accent-foreground: #0B0E11;
   --destructive: oklch(0.577 0.245 27.325);
@@ -112,11 +112,11 @@ html {
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   --sidebar: #e6e6e6;
-  --sidebar-foreground: #1a1a1a;
+  --sidebar-foreground: #1f1f1f;
   --sidebar-primary: #F0B90B;
   --sidebar-primary-foreground: #0B0E11;
   --sidebar-accent: #d9d9d9;
-  --sidebar-accent-foreground: #2e2e2e;
+  --sidebar-accent-foreground: #3a3a3a;
   --sidebar-border: #c9c9c9;
   --sidebar-ring: #b3b3b3;
 }
