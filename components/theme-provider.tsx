@@ -13,6 +13,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
       defaultTheme="dark"
       enableSystem={false}
       storageKey="theme"
+      themes={["dark", "light", "grey"]}
       {...props}
     >
       {children}
