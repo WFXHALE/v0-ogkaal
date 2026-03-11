@@ -219,76 +219,76 @@ const CORRELATIONS: Correlation[] = [
 ]
 
 function MarketCorrelations() {
-  // Pair into rows of 2
-  const rows: Correlation[][] = []
-  for (let i = 0; i < CORRELATIONS.length; i += 2) {
-    rows.push(CORRELATIONS.slice(i, i + 2))
-  }
-
   return (
-    <section className="space-y-4">
-      {rows.map((row, ri) => (
-        <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {row.map(c => {
-            const isInverse = c.type === "inverse"
-            return (
-              <div
-                key={c.pair.join("-")}
-                className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4 hover:border-primary/30 transition-colors"
-              >
-                {/* Header row: pair names + badge */}
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  {/* Pair tags */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-sm font-bold text-primary bg-primary/8 border border-primary/20 px-2.5 py-1 rounded-lg leading-none">
-                      {c.pair[0]}
-                    </span>
-                    <span className={`text-base font-bold ${isInverse ? "text-red-400" : "text-green-400"}`}>
-                      {isInverse ? "⇄" : "⇄"}
-                    </span>
-                    <span className="font-mono text-sm font-bold text-primary bg-primary/8 border border-primary/20 px-2.5 py-1 rounded-lg leading-none">
-                      {c.pair[1]}
-                    </span>
-                  </div>
-                  {/* Relationship badge */}
-                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shrink-0 ${
+    <section className="space-y-3">
+      {CORRELATIONS.map(c => {
+        const isInverse = c.type === "inverse"
+        const accentColor = isInverse ? "red" : "green"
+        return (
+          <div
+            key={c.pair.join("-")}
+            className={`rounded-2xl border bg-card hover:border-primary/30 transition-colors overflow-hidden ${
+              isInverse ? "border-red-500/20" : "border-green-500/20"
+            }`}
+          >
+            {/* Horizontal layout — all content in one row on desktop */}
+            <div className="flex flex-col sm:flex-row sm:items-stretch">
+
+              {/* LEFT — Asset pair identifiers */}
+              <div className={`flex items-center gap-3 px-5 py-4 sm:min-w-[240px] sm:border-r ${
+                isInverse
+                  ? "bg-red-500/5 border-red-500/15"
+                  : "bg-green-500/5 border-green-500/15"
+              }`}>
+                {/* Asset A */}
+                <div className="text-center">
+                  <span className="block font-mono text-sm font-bold text-primary">{c.pair[0]}</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5 leading-tight max-w-[80px]">{c.pairLabel[0]}</span>
+                </div>
+
+                {/* Arrow connector */}
+                <div className={`flex flex-col items-center gap-0.5 px-1 shrink-0`}>
+                  <span className={`text-lg font-black leading-none ${isInverse ? "text-red-400" : "text-green-400"}`}>⇄</span>
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                     isInverse
-                      ? "bg-red-500/8 border-red-500/25 text-red-400"
-                      : "bg-green-500/8 border-green-500/25 text-green-400"
+                      ? "bg-red-500/10 border-red-500/25 text-red-400"
+                      : "bg-green-500/10 border-green-500/25 text-green-400"
                   }`}>
-                    {isInverse ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />}
+                    {isInverse ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
                     {isInverse ? "Inverse" : "Positive"}
                   </div>
                 </div>
 
-                {/* Human-readable label */}
-                <p className="text-xs font-semibold text-foreground -mt-1">
-                  {c.pairLabel[0]} <span className="text-muted-foreground font-normal">vs</span> {c.pairLabel[1]}
-                </p>
-
-                {/* Direction rules */}
-                <div className={`rounded-xl border p-3 space-y-2 ${
-                  isInverse
-                    ? "bg-red-500/5 border-red-500/15"
-                    : "bg-green-500/5 border-green-500/15"
-                }`}>
-                  {c.rules.map((rule, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInverse ? "bg-red-400" : "bg-green-400"}`} />
-                      <span className={`text-xs font-mono font-semibold ${isInverse ? "text-red-300" : "text-green-300"}`}>
-                        {rule}
-                      </span>
-                    </div>
-                  ))}
+                {/* Asset B */}
+                <div className="text-center">
+                  <span className="block font-mono text-sm font-bold text-primary">{c.pair[1]}</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5 leading-tight max-w-[80px]">{c.pairLabel[1]}</span>
                 </div>
+              </div>
 
-                {/* Explanation */}
+              {/* MIDDLE — Direction rules */}
+              <div className="flex flex-col justify-center gap-2 px-5 py-4 sm:w-[220px] sm:border-r border-border/40 shrink-0">
+                {c.rules.map((rule, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInverse ? "bg-red-400" : "bg-green-400"}`} />
+                    <span className={`text-xs font-mono font-semibold tracking-tight ${
+                      isInverse ? "text-red-300" : "text-green-300"
+                    }`}>
+                      {rule}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* RIGHT — Explanation */}
+              <div className="flex items-center px-5 py-4 flex-1">
                 <p className="text-xs text-muted-foreground leading-relaxed">{c.explanation}</p>
               </div>
-            )
-          })}
-        </div>
-      ))}
+
+            </div>
+          </div>
+        )
+      })}
 
       {/* Disclaimer */}
       <p className="text-[11px] text-muted-foreground italic px-1 pt-1">
