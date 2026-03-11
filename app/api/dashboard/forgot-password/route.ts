@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 import { createClient } from "@/lib/supabase/server"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 const OTP_TTL_MINUTES   = 15
 const MAX_OTP_PER_DAY   = 5
 const DAILY_WINDOW_HRS  = 24
@@ -23,6 +21,7 @@ async function hashOtp(otp: string): Promise<string> {
 // POST /api/dashboard/forgot-password — send OTP to email
 export async function POST(req: NextRequest) {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY)
     const { email } = await req.json()
     if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required." }, { status: 400 })
