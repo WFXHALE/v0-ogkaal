@@ -3,6 +3,7 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { saveSubmission } from "@/lib/admin-submissions"
+import { useSiteConfig } from "@/lib/use-site-config"
 import {
   Check,
   Copy,
@@ -80,6 +81,7 @@ interface VipAccessFlowProps {
 }
 
 export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAccessFlowProps) {
+  const siteConfig = useSiteConfig()
   const [step, setStep] = useState<FlowStep>("card-selection")
   const [cardType, setCardType] = useState<CardType>(initialUserType)
 
@@ -201,6 +203,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const getPaymentPrice = () => {
     if (!cardType) return ""
+    // Use live price from admin config for VIP plans (existing/new use vipPrice)
+    if (cardType === "existing" || cardType === "new") return siteConfig.vipPrice || PRICES[cardType]
     return PRICES[cardType]
   }
 
@@ -282,7 +286,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">XM New User</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-primary">{PRICES.new}</span>
+                      <span className="text-sm font-bold text-primary">{siteConfig.vipPrice || PRICES.new}</span>
                       <ExternalLink className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -480,13 +484,13 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 </div>
               </div>
 
-              {/* Payment Method Selection */}
+              {/* Payment Method Selection — filtered by system config */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
-                  { value: "upi", label: "UPI", icon: QrCode },
-                  { value: "crypto", label: "Crypto", icon: Bitcoin },
-                  { value: "erupee", label: "E-Rupee", icon: CreditCard },
-                ].map((method) => (
+                  { value: "upi",     label: "UPI",     icon: QrCode,     enabled: siteConfig.upiEnabled    },
+                  { value: "crypto",  label: "Crypto",  icon: Bitcoin,    enabled: siteConfig.cryptoEnabled },
+                  { value: "erupee",  label: "E-Rupee", icon: CreditCard, enabled: siteConfig.erupeeEnabled },
+                ].filter(m => m.enabled).map((method) => (
                   <button
                     key={method.value}
                     onClick={() => setPaymentMethod(method.value as "upi" | "crypto" | "erupee")}

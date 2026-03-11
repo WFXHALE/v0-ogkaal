@@ -7,7 +7,7 @@ const LOGIN_ATTEMPTS_KEY  = "og_login_attempts"
 const SECURITY_LOGS_KEY   = "og_security_logs"
 
 const MAX_LOGIN_ATTEMPTS   = 5
-const LOCKOUT_DURATION_MS  = 5 * 60 * 1000  // 5 minutes
+const LOCKOUT_DURATION_MS  = 24 * 60 * 60 * 1000 // 24 hours (per spec)
 const SESSION_DURATION_MS  = 24 * 60 * 60 * 1000 // 24 hours
 
 // ─── Password hashing ────────────────────────────────────────────────────────
@@ -222,6 +222,47 @@ export async function loginAdmin(
   await createSession(admin.email)
   resetLoginAttempts()
   await addSecurityLog("login_success", admin.email, `Login via ${method}`)
+  return { success: true }
+}
+
+// ─── Secret-key login (new primary auth method) ───────────────────────────────
+// Compares the submitted key against NEXT_PUBLIC_ADMIN_SECRET_KEY (env var).
+// Shares the same 5-attempt / 24-hour lockout as password login.
+
+export async function loginWithSecretKey(
+  key: string,
+): Promise<{ success: boolean; error?: string; attemptsRemaining?: number }> {
+  if (typeof window === "undefined") return { success: false, error: "Cannot login on server" }
+
+  const lock = isAccountLocked()
+  if (lock.locked) {
+    await addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts")
+    const hours = lock.remainingSeconds ? Math.ceil(lock.remainingSeconds / 3600) : 24
+    return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
+  }
+
+  const correctKey = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || ""
+  if (!correctKey) {
+    return { success: false, error: "Admin secret key is not configured. Set ADMIN_SECRET_KEY in project environment variables." }
+  }
+
+  if (key.trim() !== correctKey.trim()) {
+    const r = recordFailedAttempt()
+    await addSecurityLog("login_failed", "admin", "Invalid secret key")
+    if (r.locked) {
+      return { success: false, error: "Invalid Key – Access Denied. Account blocked for 24 hours." }
+    }
+    return {
+      success: false,
+      error: `Invalid Key – Access Denied. ${r.attemptsRemaining} attempt${r.attemptsRemaining === 1 ? "" : "s"} remaining.`,
+      attemptsRemaining: r.attemptsRemaining,
+    }
+  }
+
+  // Key correct — create session
+  await createSession("sheikhahmed2724@gmail.com")
+  resetLoginAttempts()
+  await addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key")
   return { success: true }
 }
 

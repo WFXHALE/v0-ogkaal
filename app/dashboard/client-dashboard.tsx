@@ -15,12 +15,16 @@ import {
   login, loginWithBackupCode, registerDashboardUser,
   sendPasswordResetOtp, verifyOtpAndResetPassword,
   storeBackupCode, getStoredBackupCode, fetchBackupCode,
+  sendVerificationEmail, verifyEmailOtp,
 } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
+import { signInWithGoogle } from "@/lib/google-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
 import type { VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { BackButton } from "@/components/back-button"
 import { createClient } from "@/lib/supabase/client"
+import { PushNotificationBell } from "@/components/push-notification-bell"
+import { NotificationSettingsPanel } from "@/components/notification-settings-panel"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -112,12 +116,23 @@ function AuthScreen({
   const [regYearsExp, setRegYearsExp]           = useState("")
   const [showRegPw, setShowRegPw]               = useState(false)
   const [showRegPw2, setShowRegPw2]             = useState(false)
+  const [turnstileToken, setTurnstileToken]     = useState("")
   const [bkEmail, setBkEmail]             = useState("")
   const [bkCode, setBkCode]               = useState("")
   const [fgEmail,  setFgEmail]                  = useState("")
   const [fgOtp,    setFgOtp]                    = useState("")
   const [fgNewPw,  setFgNewPw]                  = useState("")
   const [fgNewPw2, setFgNewPw2]                 = useState("")
+
+  // Listen for Turnstile token from global callback
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const token = (e as CustomEvent<string>).detail
+      if (token) setTurnstileToken(token)
+    }
+    document.addEventListener("turnstile-token", handler)
+    return () => document.removeEventListener("turnstile-token", handler)
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true)
@@ -133,6 +148,7 @@ function AuthScreen({
     if (!/^[a-z0-9_]+$/.test(regId.trim())) { setError("User ID may only contain lowercase letters, numbers, and underscores."); return }
     if (regPw !== regPw2) { setError("Passwords do not match."); return }
     if (regPw.length < 8) { setError("Password must be at least 8 characters."); return }
+    if (!turnstileToken) { setError("Please complete the security check."); return }
     setLoading(true)
     const res = await registerDashboardUser({
       userId:         regId.trim().toLowerCase(),
@@ -163,6 +179,14 @@ function AuthScreen({
   }
 
   // Step 1 — send OTP
+  const handleGoogleLogin = async () => {
+    setError(""); setLoading(true)
+    const res = await signInWithGoogle()
+    setLoading(false)
+    if (!res.success) { setError(res.error ?? "Google sign-in failed."); return }
+    setSession(res.user)
+  }
+
   const handleForgotSend = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true)
     const res = await sendPasswordResetOtp(fgEmail)
@@ -244,6 +268,20 @@ function AuthScreen({
               <button type="submit" disabled={loading}
                 className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
                 {loading ? "Signing in..." : "Sign In"}
+              </button>
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
+                <div className="relative flex justify-center"><span className="px-2 bg-card text-xs text-muted-foreground">or</span></div>
+              </div>
+              <button type="button" onClick={handleGoogleLogin} disabled={loading}
+                className="w-full py-2.5 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 font-semibold text-sm text-foreground transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Continue with Google
               </button>
               <div className="flex justify-between text-xs text-muted-foreground pt-1">
                 <button type="button" onClick={() => { setMode("backup"); setError("") }} className="hover:text-foreground transition-colors">Use backup code</button>
@@ -353,7 +391,32 @@ function AuthScreen({
                 </select>
               </div>
 
-              <button type="submit" disabled={loading}
+              {/* Cloudflare Turnstile CAPTCHA */}
+              {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                <div className="flex justify-center">
+                  {/* Load Turnstile script once */}
+                  <script
+                    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+                    async
+                    defer
+                  />
+                  <div
+                    className="cf-turnstile"
+                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                    data-theme="dark"
+                    data-callback="onTurnstileSuccess"
+                  />
+                  <script
+                    dangerouslySetInnerHTML={{
+                      __html: `window.onTurnstileSuccess = function(token) {
+                        document.dispatchEvent(new CustomEvent('turnstile-token', { detail: token }));
+                      }`,
+                    }}
+                  />
+                </div>
+              )}
+
+              <button type="submit" disabled={loading || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken)}
                 className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 mt-1">
                 {loading ? "Creating account..." : "Create Account"}
               </button>
@@ -484,7 +547,7 @@ function AuthScreen({
   )
 }
 
-// ── Session Timeout Overlay ───────────────────────────────────────────────────
+// ── Session Timeout Overlay �����──────────────────────────────────────────────────
 
 function TimeoutOverlay({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -592,6 +655,15 @@ export default function ClientDashboard() {
   const [loading, setLoading]               = useState(false)
   const [copied, setCopied]                 = useState(false)
 
+  // Email verification
+  const [isVerified, setIsVerified]         = useState<boolean | null>(null)
+  const [verifyOtp, setVerifyOtp]           = useState("")
+  const [verifySending, setVerifySending]   = useState(false)
+  const [verifyChecking, setVerifyChecking] = useState(false)
+  const [verifyError, setVerifyError]       = useState("")
+  const [verifySuccess, setVerifySuccess]   = useState(false)
+  const [verifyEmailSent, setVerifyEmailSent] = useState(false)
+
   // Backup code (persisted in localStorage after registration)
   const [storedBackup, setStoredBackup]     = useState<string | null>(null)
   const [showBackup, setShowBackup]         = useState(false)
@@ -609,7 +681,19 @@ export default function ClientDashboard() {
   useEffect(() => {
     const s = getSession()
     if (s) {
+      // Redirect admin to admin panel silently
+      if (s.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
+        window.location.href = "/admin"
+        return
+      }
       setSessionState(s)
+      // Check email verification status
+      createClient()
+        .from("dashboard_users")
+        .select("is_verified")
+        .eq("user_id", s.userId)
+        .maybeSingle()
+        .then(({ data }) => setIsVerified(data?.is_verified === true))
       // Always fetch backup code fresh from DB so it is always available
       fetchBackupCode(s.id).then(code => {
         if (code) { setStoredBackup(code); storeBackupCode(code) }
@@ -659,7 +743,14 @@ export default function ClientDashboard() {
 
   useEffect(() => { if (session) loadData(session) }, [session, loadData])
 
+  const ADMIN_EMAIL = "sheikhahmed2724@gmail.com"
+
   const handleAuth = (s: DashboardSession) => {
+    // Redirect admin straight to the admin panel
+    if (s.email.trim().toLowerCase() === ADMIN_EMAIL) {
+      window.location.href = "/admin"
+      return
+    }
     setSessionState(s)
     // Always fetch fresh from DB — auto-generates if the user has no code yet
     fetchBackupCode(s.id).then(code => {
@@ -722,6 +813,7 @@ export default function ClientDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-mono hidden sm:inline">ID: {session.userId}</span>
+            <PushNotificationBell userId={session.id} />
             <button onClick={() => loadData(session)}
               className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Refresh">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -732,6 +824,90 @@ export default function ClientDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Email verification banner */}
+        {isVerified === false && !verifySuccess && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 mb-6 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <Mail className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-400 text-sm">Verify your email address</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  A verified email ensures you receive important account notifications and keeps your account secure.
+                </p>
+              </div>
+            </div>
+
+            {!verifyEmailSent ? (
+              <button
+                onClick={async () => {
+                  setVerifySending(true); setVerifyError("")
+                  const r = await sendVerificationEmail(session.email, session.userId)
+                  setVerifySending(false)
+                  if (r.success) setVerifyEmailSent(true)
+                  else setVerifyError(r.error ?? "Failed to send email.")
+                }}
+                disabled={verifySending}
+                className="w-full py-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-semibold hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+              >
+                {verifySending ? "Sending..." : "Send Verification Code"}
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Enter the 6-digit code sent to <span className="text-foreground font-medium">{session.email}</span></p>
+                <div className="flex gap-2">
+                  <input
+                    value={verifyOtp}
+                    onChange={e => setVerifyOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-secondary/20 text-sm text-foreground text-center font-mono tracking-widest focus:outline-none focus:border-amber-500/50"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (verifyOtp.length !== 6) return
+                      setVerifyChecking(true); setVerifyError("")
+                      const r = await verifyEmailOtp(session.email, session.userId, verifyOtp)
+                      setVerifyChecking(false)
+                      if (r.success) { setVerifySuccess(true); setIsVerified(true) }
+                      else setVerifyError(r.error ?? "Invalid code.")
+                    }}
+                    disabled={verifyChecking || verifyOtp.length !== 6}
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {verifyChecking ? "..." : "Verify"}
+                  </button>
+                </div>
+                <button
+                  onClick={async () => {
+                    setVerifySending(true); setVerifyError("")
+                    const r = await sendVerificationEmail(session.email, session.userId)
+                    setVerifySending(false)
+                    if (!r.success) setVerifyError(r.error ?? "Failed to resend.")
+                  }}
+                  disabled={verifySending}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  {verifySending ? "Resending..." : "Resend code"}
+                </button>
+              </div>
+            )}
+
+            {verifyError && (
+              <p className="text-xs text-red-400">{verifyError}</p>
+            )}
+          </div>
+        )}
+
+        {/* Verified success flash */}
+        {(isVerified === true || verifySuccess) && verifySuccess && (
+          <div className="rounded-2xl border border-green-500/30 bg-green-500/5 px-4 py-3 mb-6 flex items-center gap-3">
+            <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+            <p className="text-sm text-green-400 font-medium">Email verified successfully.</p>
+          </div>
+        )}
 
         {/* Sub-section quick links */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
@@ -985,7 +1161,7 @@ export default function ClientDashboard() {
 
           {/* 8. Community Updates */}
           <Card title="Community Updates" icon={<Bell className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
-            <div className="pt-1 space-y-3">
+            <div className="pt-1 space-y-4">
               <p className="text-sm text-muted-foreground">Join the official channels for live updates, signals, and announcements.</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <a href="https://t.me/OGKAALVIP" target="_blank" rel="noopener noreferrer"
@@ -1001,6 +1177,14 @@ export default function ClientDashboard() {
                   <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto" />
                 </a>
               </div>
+            </div>
+          </Card>
+
+          {/* 8b. Notification Preferences */}
+          <Card title="Notification Preferences" icon={<Bell className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
+            <div className="pt-1">
+              <p className="text-sm text-muted-foreground mb-4">Choose which types of notifications you want to receive on this device.</p>
+              <NotificationSettingsPanel userId={session.id} />
             </div>
           </Card>
 

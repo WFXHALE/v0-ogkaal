@@ -1,6 +1,10 @@
+"use client"
+
 import { TrendingUp } from "lucide-react"
+import { useT } from "@/hooks/useT"
 
 export function HeroSection() {
+  const t = useT()
   return (
     <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-20 px-4 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
@@ -11,7 +15,7 @@ export function HeroSection() {
       <div className="relative max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
           <TrendingUp className="w-4 h-4 text-primary" />
-          <span className="text-sm text-primary font-medium">SMC & ICT Trading Mentor</span>
+          <span className="text-sm text-primary font-medium">{t.hero.badge}</span>
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight text-balance">
@@ -19,12 +23,14 @@ export function HeroSection() {
         </h1>
 
         <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 leading-relaxed text-balance">
-          Professional trader and mentor teaching <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span> and 
-          <span className="text-foreground font-medium"> ICT trading models</span>.
+          {t.hero.subtitle1}{" "}
+          <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span>{" "}
+          {t.hero.subtitle2.includes("aur") || t.hero.subtitle2.includes("اور") ? "aur" : "and"}{" "}
+          <span className="text-foreground font-medium">ICT trading models</span>.
         </p>
 
         <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          Trading since 2020. Helped traders pass funded accounts and develop disciplined trading systems.
+          {t.hero.description}
         </p>
       </div>
     </section>

@@ -1,11 +1,14 @@
-import { createClient as _createClient } from '@supabase/supabase-js'
+import { createClient as _createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Always create from current env vars — no singleton, so swapping the
-// Supabase project (and updating NEXT_PUBLIC_SUPABASE_URL / ANON_KEY)
-// takes effect immediately without stale client instances.
-export function createClient() {
-  return _createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+// Use globalThis so the singleton survives Next.js HMR module re-evaluation
+// in development, preventing "Multiple GoTrueClient instances" warnings.
+const g = globalThis as typeof globalThis & { _supabaseBrowserClient?: SupabaseClient }
+
+export function createClient(): SupabaseClient {
+  if (!g._supabaseBrowserClient) {
+    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL  || process.env.SUPABASE_URL!
+    const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!
+    g._supabaseBrowserClient = _createClient(url, key)
+  }
+  return g._supabaseBrowserClient
 }

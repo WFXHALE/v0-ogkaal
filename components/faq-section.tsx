@@ -4,9 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { ChevronDown, HelpCircle } from "lucide-react"
 import { faqs } from "@/lib/faq-data"
+import { useT } from "@/hooks/useT"
 
 export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const t = useT()
 
   const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i)
 
@@ -18,7 +20,7 @@ export function FaqSection() {
           <p className="text-sm font-semibold text-primary uppercase tracking-wide">FAQ</p>
         </div>
         <h2 className="text-3xl font-bold text-foreground mb-2 text-balance">
-          Frequently Asked Questions
+          {t.faq.title}
         </h2>
         <p className="text-muted-foreground mb-10 leading-relaxed">
           Quick answers to common questions. Click any question to expand.

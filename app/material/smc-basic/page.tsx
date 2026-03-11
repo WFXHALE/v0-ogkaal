@@ -54,9 +54,7 @@ export default function SmcBasicPage() {
             ))}
           </div>
 
-          <div className="mt-8 rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground text-sm">
-            Full video lessons and downloadable notes will be available here once uploaded by the instructor.
-          </div>
+
         </div>
       </main>
       <Footer />

@@ -1,24 +1,30 @@
-import { Check } from "lucide-react"
+"use client"
 
-const topics = [
-  "Market Structure",
-  "Liquidity Concepts",
-  "Break of Structure and CHOCH",
-  "Fair Value Gaps",
-  "Order Blocks",
-  "Entry Models",
-  "Risk Management",
-  "Trade Psychology",
-  "Institutional Market Logic",
-]
+import { Check } from "lucide-react"
+import { useT } from "@/hooks/useT"
 
 export function WhatYouLearnSection() {
+  const t = useT()
+
+  const topics = [
+    t.learn.topics.marketStructure,
+    t.learn.topics.liquidity,
+    t.learn.topics.bos,
+    t.learn.topics.fvg,
+    t.learn.topics.orderBlocks,
+    t.learn.topics.entryModels,
+    t.learn.topics.riskManagement,
+    t.learn.topics.psychology,
+    t.learn.topics.institutional,
+  ]
+
   return (
     <section className="py-16 px-4 bg-card/30">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            What You Will <span className="text-primary">Learn</span>
+            {t.learn.title.split(" ").slice(0, -1).join(" ")}{" "}
+            <span className="text-primary">{t.learn.title.split(" ").slice(-1)[0]}</span>
           </h2>
           <div className="w-20 h-1 bg-primary mx-auto rounded-full" />
         </div>

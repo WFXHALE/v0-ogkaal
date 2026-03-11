@@ -8,9 +8,11 @@ import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Newspaper, 
   Calendar, BarChart3, Activity, Clock,
   ArrowUpRight, ArrowDownRight, ExternalLink, DollarSign,
-  Bitcoin, IndianRupee
+  Bitcoin, IndianRupee, ArrowUp, ArrowDown, GitCompare
 } from "lucide-react"
 import { useState, useEffect } from "react"
+import { TradingSessionsPanel } from "./trading-sessions-panel"
+import { useT } from "@/hooks/useT"
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -138,6 +140,147 @@ interface EconomicEvent {
   previous: string
 }
 
+// ── Market Correlations ────────────────────────────────────────────────────────
+
+type CorrelationType = "positive" | "inverse"
+
+interface Correlation {
+  pair: [string, string]
+  pairLabel: [string, string]  // human-readable names
+  type: CorrelationType
+  explanation: string
+  // Two direction rules shown as arrow lines
+  rules: [string, string]
+}
+
+const CORRELATIONS: Correlation[] = [
+  {
+    pair: ["XAUUSD", "DXY"],
+    pairLabel: ["Gold (XAUUSD)", "DXY"],
+    type: "inverse",
+    explanation: "When the US Dollar strengthens, Gold moves bearish. A weakening Dollar pushes Gold bullish as it becomes cheaper for holders of other currencies.",
+    rules: ["Gold ↑  →  DXY ↓", "DXY ↑  →  Gold ↓"],
+  },
+  {
+    pair: ["XAUUSD", "XAGUSD"],
+    pairLabel: ["Gold (XAUUSD)", "Silver (XAGUSD)"],
+    type: "positive",
+    explanation: "Both precious metals react similarly to inflation, economic uncertainty, and risk-off sentiment. They move in the same direction.",
+    rules: ["Gold ↑  →  Silver ↑", "Gold ↓  →  Silver ↓"],
+  },
+  {
+    pair: ["BTC", "ETH"],
+    pairLabel: ["Bitcoin (BTC)", "Ethereum (ETH)"],
+    type: "positive",
+    explanation: "As the two dominant cryptocurrencies they share the same investor sentiment cycle. Bitcoin typically leads and Ethereum follows closely.",
+    rules: ["Bitcoin ↑  →  Ethereum ↑", "Bitcoin ↓  →  Ethereum ↓"],
+  },
+  {
+    pair: ["EURUSD", "GBPUSD"],
+    pairLabel: ["EURUSD", "GBPUSD"],
+    type: "positive",
+    explanation: "Both pairs share the US Dollar as their quote currency. Dollar strength or weakness drives both pairs in the same direction simultaneously.",
+    rules: ["EURUSD ↑  →  GBPUSD ↑", "EURUSD ↓  →  GBPUSD ↓"],
+  },
+  {
+    pair: ["USDJPY", "XAUUSD"],
+    pairLabel: ["USDJPY", "Gold (XAUUSD)"],
+    type: "inverse",
+    explanation: "A rising USDJPY signals broad USD strength, which typically weighs on Gold. Both react inversely to safe-haven demand shifts.",
+    rules: ["USDJPY ↑  →  Gold ↓", "USDJPY ↓  →  Gold ↑"],
+  },
+  {
+    pair: ["AUDUSD", "XAUUSD"],
+    pairLabel: ["AUDUSD", "Gold (XAUUSD)"],
+    type: "positive",
+    explanation: "Australia is a major Gold exporter, so rising Gold prices support the AUD. Both assets also respond positively to risk-on environments.",
+    rules: ["AUDUSD ↑  →  Gold ↑", "AUDUSD ↓  →  Gold ↓"],
+  },
+  {
+    pair: ["EURJPY", "GBPJPY"],
+    pairLabel: ["EURJPY", "GBPJPY"],
+    type: "positive",
+    explanation: "Both are Yen cross pairs. Yen weakness or strength moves both in tandem since the JPY is the shared quote currency.",
+    rules: ["EURJPY ↑  →  GBPJPY ↑", "EURJPY ↓  →  GBPJPY ↓"],
+  },
+  {
+    pair: ["USDJPY", "DXY"],
+    pairLabel: ["USDJPY", "DXY"],
+    type: "positive",
+    explanation: "The Yen is a safe-haven currency that weakens when the Dollar strengthens broadly. USDJPY rises alongside DXY in most Dollar-driven moves.",
+    rules: ["DXY ↑  →  USDJPY ↑", "DXY ↓  →  USDJPY ↓"],
+  },
+  {
+    pair: ["BTC", "NDX"],
+    pairLabel: ["Bitcoin (BTC)", "Nasdaq (NDX)"],
+    type: "positive",
+    explanation: "Bitcoin has developed a strong correlation with tech equities. Risk-on flows into Nasdaq often coincide with Bitcoin rallies.",
+    rules: ["Nasdaq ↑  →  Bitcoin ↑", "Nasdaq ↓  →  Bitcoin ↓"],
+  },
+]
+
+function MarketCorrelations() {
+  return (
+    <section className="space-y-6">
+      {CORRELATIONS.map(c => {
+        const isInverse = c.type === "inverse"
+        const isMixed   = c.type === "mixed"
+        const accent = isInverse
+          ? { border: "border-red-500/25",   headerBg: "bg-red-500/6",   dot: "bg-red-400",   ruleText: "text-red-300",   badgeCls: "bg-red-500/10 border-red-500/25 text-red-400",   badgeIcon: <ArrowDown className="w-3 h-3" />, badgeLabel: "Inverse"  }
+          : isMixed
+          ? { border: "border-amber-500/25", headerBg: "bg-amber-500/6", dot: "bg-amber-400", ruleText: "text-amber-300", badgeCls: "bg-amber-500/10 border-amber-500/25 text-amber-400", badgeIcon: <Minus className="w-3 h-3" />,     badgeLabel: "Mixed"    }
+          : { border: "border-green-500/25", headerBg: "bg-green-500/6", dot: "bg-green-400", ruleText: "text-green-300", badgeCls: "bg-green-500/10 border-green-500/25 text-green-400", badgeIcon: <ArrowUp className="w-3 h-3" />,   badgeLabel: "Positive" }
+
+        return (
+          <div
+            key={c.pair.join("-")}
+            className={`w-full rounded-2xl border bg-card overflow-hidden hover:border-primary/30 transition-colors ${accent.border}`}
+          >
+            {/* ── Header: pair names + badge ── */}
+            <div className={`flex items-center justify-between gap-4 px-6 py-4 border-b ${accent.headerBg} ${accent.border}`}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <p className="font-mono text-base font-bold text-primary leading-none">{c.pair[0]}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.pairLabel[0]}</p>
+                </div>
+                <span className="text-muted-foreground text-lg font-light">vs</span>
+                <div>
+                  <p className="font-mono text-base font-bold text-primary leading-none">{c.pair[1]}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.pairLabel[1]}</p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold shrink-0 ${accent.badgeCls}`}>
+                {accent.badgeIcon}
+                {accent.badgeLabel}
+              </div>
+            </div>
+
+            {/* ── Direction rules ── */}
+            <div className="flex flex-col gap-2.5 px-6 py-4 border-b border-border/40">
+              {c.rules.map((rule, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${accent.dot}`} />
+                  <span className={`text-sm font-mono font-semibold ${accent.ruleText}`}>{rule}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Explanation ── */}
+            <div className="px-6 py-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">{c.explanation}</p>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Disclaimer */}
+      <p className="text-xs text-muted-foreground italic px-1">
+        Correlations are dynamic and may weaken or break during major macro events. Always confirm with current price action and your own analysis.
+      </p>
+    </section>
+  )
+}
+
 // Forex assets — Gold and DXY only
 const FOREX_ASSETS = [
   { symbol: "XAUUSD", name: "Gold",            tvSymbol: "TVC:GOLD" },
@@ -165,6 +308,7 @@ const INDIAN_INDICES = [
 ]
 
 export function IntelligenceContent() {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<Tab>("forex")
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -301,11 +445,11 @@ export function IntelligenceContent() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Market Intelligence</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t.intelligence.title}</h1>
                 <MarketStatusBadge tab={activeTab} />
               </div>
               <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-                Real-time market data and analysis
+                {t.intelligence.subtitle}
               </p>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -476,7 +620,7 @@ export function IntelligenceContent() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             {/* Market News */}
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -649,8 +793,27 @@ export function IntelligenceContent() {
                 </div>
               </section>
             )}
-          </div>
+            {/* Trading Sessions Panel — always visible, all tabs */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Trading Sessions</h2>
+              </div>
+              <TradingSessionsPanel />
+            </section>
 
+            {/* Market Correlations — always visible */}
+            <section>
+              <div className="flex items-center gap-2 mb-5">
+                <GitCompare className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Market Correlations</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-5 max-w-2xl leading-relaxed">
+                Understanding how assets move relative to each other helps traders confirm directional bias before entering a trade. Use these relationships as confluence, not as standalone signals.
+              </p>
+              <MarketCorrelations />
+            </section>
+          </div>
 
         </div>
       </main>

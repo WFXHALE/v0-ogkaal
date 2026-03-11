@@ -1,6 +1,10 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  // Expose ADMIN_SECRET_KEY to the client-side admin login form
+  env: {
+    NEXT_PUBLIC_ADMIN_SECRET_KEY: process.env.ADMIN_SECRET_KEY || "",
+  },
   reactStrictMode: true,
   swcMinify: true,
   compress: true,

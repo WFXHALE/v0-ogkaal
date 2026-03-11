@@ -12,6 +12,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Menu, Folder, Lock,
   Globe, ToggleLeft, ToggleRight, Mail, Phone,
   ExternalLink, Send, Bot, Zap, Settings,
+  Crown, UserPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,11 +20,25 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getMemberships, updateMembershipStatus, approveMembership,
-  getVipSignals, createSignal, updateSignalStatus, deleteSignal,
-  getPerformanceStats, upsertPerformanceStat,
+  getVipSignals, addVipSignal, deleteVipSignal,
+  getMemberships, approveMembership, revokeMembership,
+  getPerformanceStats, addPerformanceStat, deletePerformanceStat,
 } from "@/lib/membership-store"
+import {
+  loadSystemConfig, saveSystemConfig,
+  loadPricing, savePricing,
+  loadAdminProfile, saveAdminProfile,
+  loadReadIds, saveReadIds,
+  DEFAULT_PRICING,
+  type PricingConfig,
+} from "@/lib/admin-settings"
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
+import { AdminPushPanel } from "./admin-push-panel"
+import { sendPushNotification } from "./send-push-action"
+import {
+  listIndicators, createIndicator, updateIndicator, deleteIndicator,
+} from "@/lib/indicators-store"
+import type { Indicator, IndicatorCategory } from "@/lib/indicators-store"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,7 +47,8 @@ type Section =
   | "payment-verification" | "suspicious" | "members"
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
-  | "signals" | "memberships" | "performance"
+  | "signals" | "memberships" | "performance" | "indicators"
+  | "analytics"
 
 interface Submission {
   id: string
@@ -70,7 +86,7 @@ interface USDTBuyRequest {
   amountUsdt: string
   inrEquivalent: string
   amountPaid: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -86,7 +102,7 @@ interface USDTSellRequest {
   usdtAmount: string
   txId: string
   screenshotUrl: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -113,6 +129,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
   { key: "memberships",          label: "Memberships",          icon: UserCheck,      group: "Content" },
   { key: "performance",          label: "Performance Manager",  icon: TrendingUp,     group: "Content" },
+  { key: "indicators",           label: "Indicators Manager",   icon: BarChart2,      group: "Content" },
   { key: "notifications",        label: "Notifications",        icon: Bell           },
   { key: "files",                label: "File Manager",         icon: Folder         },
   { key: "export",               label: "Export Data",          icon: Download       },
@@ -120,6 +137,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "telegram",             label: "Telegram Settings",    icon: Send           },
   { key: "security",             label: "Security Settings",    icon: Lock           },
   { key: "logs",                 label: "Admin Logs",           icon: Activity       },
+  { key: "analytics",           label: "Analytics",            icon: BarChart2,      group: "Insights" },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -138,8 +156,10 @@ function statusBadge(status: string) {
   const map: Record<string, string> = {
     pending:   "bg-amber-500/10 text-amber-400 border-amber-500/30",
     approved:  "bg-green-500/10 text-green-400 border-green-500/30",
+    accepted:  "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    cancelled: "bg-orange-500/10 text-orange-400 border-orange-500/30",
     rejected:  "bg-red-500/10 text-red-400 border-red-500/30",
-    completed: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
@@ -218,6 +238,7 @@ export default function AdminPanel() {
   const [secMsg, setSecMsg]                   = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [twoFAEnabled, setTwoFAEnabled]       = useState(false)
   const [tgTestStatus, setTgTestStatus]       = useState<"idle" | "sending" | "sent" | "error">("idle")
+  const [notifTab,     setNotifTab]           = useState<"alerts" | "broadcast">("alerts")
 
   // ── New section state ──────────────────────────────────────────────────────
   const [signals, setSignals]               = useState<VipSignal[]>([])
@@ -229,6 +250,28 @@ export default function AdminPanel() {
   const [perfForm, setPerfForm]             = useState({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
+
+  // ── Pricing config (DB-backed) ───────────────────────────────────────────────
+  const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
+  const [pricingSaving, setPricingSaving]       = useState(false)
+
+  // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
+  const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
+
+  // ── Analytics state ──────────────────────────────────────────────────────────
+  const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
+  // ── Indicators state ─────────────────────────────────────────────────────────
+  const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
+  const [indicatorsLoading, setIndicatorsLoading] = useState(false)
+  const [indicatorForm, setIndicatorForm] = useState({
+    name: "", creator: "", category: "SMC" as IndicatorCategory,
+    description: "", tradingview_link: "", thumbnail_url: "", is_published: true,
+  })
+  const [indicatorSaving,   setIndicatorSaving]   = useState(false)
+  const [indicatorEditId,   setIndicatorEditId]   = useState<string | null>(null)
+  const [indicatorMsg,      setIndicatorMsg]      = useState<{ ok: boolean; text: string } | null>(null)
 
   const loadData = useCallback(() => {
     const stored = localStorage.getItem("og_admin_submissions")
@@ -266,6 +309,52 @@ export default function AdminPanel() {
     } else if (activeSection === "performance") {
       setNewSectionLoading(true)
       getPerformanceStats().then(p => { setPerfStats(p); setNewSectionLoading(false) })
+    } else if (activeSection === "indicators") {
+      setIndicatorsLoading(true)
+      listIndicators(false).then(list => { setIndicatorsList(list); setIndicatorsLoading(false) })
+    } else if (activeSection === "analytics") {
+      setAnalyticsLoading(true)
+      fetch("/api/admin/analytics")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setAnalyticsData(d); })
+        .finally(() => setAnalyticsLoading(false))
+    } else if (activeSection === "members") {
+      // Also pull live users from Supabase to merge with localStorage demo data
+      import("@/lib/supabase/client").then(({ createClient }) => {
+        createClient()
+          .from("dashboard_users")
+          .select("user_id, full_name, email, phone, created_at, is_verified")
+          .order("created_at", { ascending: false })
+          .limit(200)
+          .then(({ data }) => {
+            if (!data?.length) return
+            const liveUsers: Submission[] = data.map(u => ({
+              id: String(u.user_id),
+              userId: String(u.user_id),
+              type: "member" as Submission["type"],
+              name: String(u.full_name || "—"),
+              email: String(u.email || ""),
+              phone: String(u.phone || ""),
+              telegram: "",
+              details: {},
+              status: u.is_verified ? ("approved" as const) : ("pending" as const),
+              paymentMethod: "",
+              amount: "",
+              utr: "",
+              screenshotUrl: "",
+              ipAddress: "",
+              location: "",
+              createdAt: String(u.created_at),
+            }))
+            // Merge: prefer Supabase over demo entries with same userId
+            setSubmissions(prev => {
+              const existingIds = new Set(liveUsers.map(u => u.userId))
+              const filtered = prev.filter(p => !existingIds.has(p.userId))
+              return [...liveUsers, ...filtered]
+            })
+          })
+          .catch(() => {})
+      })
     }
   }, [activeSection, isAuthenticated])
 
@@ -280,6 +369,27 @@ export default function AdminPanel() {
     setIsAuthenticated(true)
     setIsLoading(false)
     loadData()
+
+    // Load DB-backed settings in parallel
+    loadSystemConfig().then(cfg => {
+      setSystemSettings(s => ({ ...s, ...cfg }))
+      localStorage.setItem("og_site_config", JSON.stringify(cfg))
+      window.dispatchEvent(new Event("og_site_config_change"))
+    })
+    loadPricing().then(p => setPricingConfig(p))
+    loadAdminProfile().then(p => {
+      if (p.name) setSecForm(f => ({ ...f, name: p.name }))
+    })
+    loadReadIds().then(({ read_ids }) => {
+      if (read_ids.length > 0) {
+        setNotifications(ns => ns.map(n => read_ids.includes(n.id) ? { ...n, read: true } : n))
+      }
+    })
+    // Pre-fetch dashboard DB stats
+    fetch("/api/admin/analytics")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setDbStats(d.stats) })
+      .catch(() => {})
   }, [router, loadData])
 
   const saveSubmissions = (updated: Submission[]) => {
@@ -287,9 +397,41 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
   }
 
+  // ── Telegram helpers ─────────────────────────────────────────────────────────
+  const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
+    if (!userTelegram) return
+    // Strip leading @ — Telegram usernames work as chat_id handles
+    const chatId = userTelegram.startsWith("@") ? userTelegram : `@${userTelegram}`
+    fetch("/api/telegram-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ _rawText: true, message: text, userChatId: chatId }),
+    }).catch(() => {})
+  }
+
   const updateStatus = async (id: string, status: Submission["status"]) => {
     saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
+
+    const sub = submissions.find(s => s.id === id)
+
+    // ── Telegram user notification ──────────────────────────────────────
+    if (sub) {
+      const vipGroupLink = "https://t.me/+OgKaalVIPGroup" // update with real link if needed
+      if (status === "approved") {
+        const isVip = sub.type === "vip" || sub.type === "vip_group"
+        const vipLine = isVip ? `\n\nJoin VIP Group: ${vipGroupLink}` : ""
+        await sendTelegramToUser(
+          sub.telegram,
+          `<b>Payment Approved</b>\n\nHi ${sub.name || "there"},\nYour payment has been verified and approved.${vipLine}\n\n<i>— OG KAAL TRADER</i>`
+        )
+      } else if (status === "rejected") {
+        await sendTelegramToUser(
+          sub.telegram,
+          `<b>Payment Rejected</b>\n\nHi ${sub.name || "there"},\nYour payment could not be verified. Please contact support if you believe this is an error.\n\n<i>— OG KAAL TRADER</i>`
+        )
+      }
+    }
 
     // When approving a VIP or Mentorship payment, also activate the membership in Supabase
     if (status === "approved") {
@@ -325,24 +467,82 @@ export default function AdminPanel() {
     saveSubmissions(submissions.filter(s => s.id !== id))
   }
 
+  const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
+    accepted:  { title: "USDT Order Accepted",       body: "Your USDT buy order has been accepted. Please complete payment."          },
+    completed: { title: "USDT Order Completed",      body: "Payment confirmed. Your USDT has been sent to your wallet."              },
+    cancelled: { title: "USDT Order Cancelled",      body: "Your USDT buy request was cancelled. Contact support if needed."         },
+    rejected:  { title: "USDT Order Rejected",       body: "Your USDT buy request was rejected. Please contact support."             },
+  }
+
+  const USDT_SELL_MESSAGES: Record<string, { title: string; body: string }> = {
+    accepted:  { title: "USDT Sell Order Accepted",  body: "Your USDT sell order has been accepted. Processing your INR payout."     },
+    completed: { title: "INR Payout Sent",           body: "Your USDT sale is complete. INR has been sent to your UPI account."      },
+    cancelled: { title: "USDT Sell Order Cancelled", body: "Your USDT sell request was cancelled. Contact support if needed."        },
+    rejected:  { title: "USDT Sell Order Rejected",  body: "Your USDT sell request was rejected. Please contact support."           },
+  }
+
   const updateBuyStatus = (id: string, status: USDTBuyRequest["status"]) => {
+    const order = usdtBuy.find(r => r.id === id)
     const updated = usdtBuy.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtBuy(updated); localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    setUsdtBuy(updated)
+    localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    // Fire targeted push notification to the affected user
+    const msg = USDT_BUY_MESSAGES[status]
+    if (msg && order?.userId) {
+      sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
+        .catch(() => {})
+    }
+    // Telegram notification to user
+    if (order?.telegram) {
+      const tgMsg = status === "accepted"
+        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        : status === "completed"
+        ? `<b>USDT Order Completed</b>\n\nPayment confirmed. Your USDT has been sent to your wallet.\n\n<i>— OG KAAL TRADER</i>`
+        : status === "rejected" || status === "cancelled"
+        ? `<b>USDT Buy Order ${status === "rejected" ? "Rejected" : "Cancelled"}</b>\n\nYour USDT buy request was ${status}. Contact support if needed.\n\n<i>— OG KAAL TRADER</i>`
+        : null
+      if (tgMsg) sendTelegramToUser(order.telegram, tgMsg)
+    }
   }
 
   const updateSellStatus = (id: string, status: USDTSellRequest["status"]) => {
+    const order = usdtSell.find(r => r.id === id)
     const updated = usdtSell.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtSell(updated); localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    setUsdtSell(updated)
+    localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    // Fire targeted push notification to the affected user
+    const msg = USDT_SELL_MESSAGES[status]
+    if (msg && order?.userId) {
+      sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
+        .catch(() => {})
+    }
+    // Telegram notification to user
+    if (order?.telegram) {
+      const tgMsg = status === "accepted"
+        ? `<b>USDT Sell Order Accepted</b>\n\nYour USDT sell request has been accepted. Processing your INR payout.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        : status === "completed"
+        ? `<b>INR Payout Sent</b>\n\nYour USDT sale is complete. INR has been sent to your account.\n\n<i>— OG KAAL TRADER</i>`
+        : status === "rejected" || status === "cancelled"
+        ? `<b>USDT Sell Order ${status === "rejected" ? "Rejected" : "Cancelled"}</b>\n\nYour USDT sell request was ${status}. Contact support if needed.\n\n<i>— OG KAAL TRADER</i>`
+        : null
+      if (tgMsg) sendTelegramToUser(order.telegram, tgMsg)
+    }
   }
 
   const markNotifRead = (id: string) => {
     const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n)
-    setNotifications(updated); localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    setNotifications(updated)
+    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    // Persist all read IDs to DB
+    saveReadIds(updated.filter(n => n.read).map(n => n.id)).catch(() => {})
   }
 
   const markAllRead = () => {
     const updated = notifications.map(n => ({ ...n, read: true }))
-    setNotifications(updated); localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    setNotifications(updated)
+    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    // Persist read IDs to Supabase so they survive refresh
+    saveReadIds(updated.map(n => n.id)).catch(() => {})
   }
 
   // Navigate to the relevant section and open detail when notification is clicked
@@ -365,6 +565,10 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_system", JSON.stringify(updated))
     // Publish to a shared key so the rest of the site can read it
     localStorage.setItem("og_site_config", JSON.stringify(updated))
+    // Notify same-tab listeners (useSiteConfig hook)
+    window.dispatchEvent(new Event("og_site_config_change"))
+    // Persist to Supabase admin_settings (fire-and-forget)
+    saveSystemConfig(updated).catch(() => {})
   }
 
   const handleLogout = async () => { await logout(); router.push("/admin/login") }
@@ -629,6 +833,23 @@ export default function AdminPanel() {
   const renderDashboard = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Dashboard Overview</h2>
+
+      {/* Live DB stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Registered Users",  value: dbStats?.totalUsers    ?? "—", icon: Users,       color: "text-blue-400"   },
+          { label: "Active Members",    value: dbStats?.activeMembers ?? "—", icon: Crown,       color: "text-primary"    },
+          { label: "Signups Today",     value: dbStats?.todaySignups  ?? "—", icon: UserPlus,    color: "text-green-400"  },
+          { label: "Visits (14d)",      value: dbStats?.totalVisits14d ?? "—", icon: BarChart2,  color: "text-amber-400"  },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="p-5 rounded-xl bg-card border border-border">
+            <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* localStorage/demo stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "VIP Members",      value: vipSubs.length,    icon: Star,          color: "text-primary"   },
@@ -753,110 +974,152 @@ export default function AdminPanel() {
     </div>
   )
 
-  const renderUSDTBuy = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ArrowDownLeft className="w-6 h-6 text-green-400" />
-        <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
-        <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold">{usdtBuy.length}</span>
-      </div>
-      <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then send USDT to their wallet.</p>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-border">
-          <table className="w-full text-sm min-w-[1100px]">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Email","Phone","Telegram","Wallet Address","TX ID","Screenshot","USDT Amount","INR Equiv.","Amount Paid","Submitted","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usdtBuy.length === 0
-                ? <tr><td colSpan={14} className="py-12 text-center text-muted-foreground text-sm">No USDT buy requests yet</td></tr>
-                : usdtBuy.map(r => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{r.userId}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.name}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.email}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.phone}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.telegram || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[120px] truncate" title={r.walletAddress}>{r.walletAddress}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.txId}>{r.txId || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={r.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs font-medium text-green-400 whitespace-nowrap">{r.amountUsdt} USDT</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.inrEquivalent}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.amountPaid}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(r.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => updateBuyStatus(r.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
-                        <button onClick={() => updateBuyStatus(r.id, "pending")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Pending"><Clock className="w-4 h-4" /></button>
-                        <button onClick={() => updateBuyStatus(r.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+  const USDTOrderCard = ({ r, type }: { r: USDTBuyRequest | USDTSellRequest; type: "buy" | "sell" }) => {
+    const isBuy = type === "buy"
+    const buy   = r as USDTBuyRequest
+    const sell  = r as USDTSellRequest
+    return (
+      <div className="rounded-xl bg-card border border-border p-4 space-y-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${isBuy ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
+                {isBuy ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                {isBuy ? "Buy" : "Sell"}
+              </span>
+              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span>
+            </div>
+            <p className="text-sm font-semibold text-foreground mt-1">{r.name}</p>
+            <p className="text-xs text-muted-foreground font-mono">{r.userId}</p>
+          </div>
+          <div className="text-right">
+            <p className={`text-lg font-bold ${isBuy ? "text-green-400" : "text-amber-400"}`}>
+              {isBuy ? buy.amountUsdt : sell.usdtAmount} USDT
+            </p>
+            {isBuy && <p className="text-xs text-muted-foreground">{buy.amountPaid} paid</p>}
+          </div>
+        </div>
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          {r.email && <><span className="text-muted-foreground">Email</span><span className="text-foreground truncate">{r.email}</span></>}
+          {r.phone && <><span className="text-muted-foreground">Phone</span><span className="text-foreground">{r.phone}</span></>}
+          {r.telegram && <><span className="text-muted-foreground">Telegram</span><span className="text-foreground">{r.telegram}</span></>}
+          {isBuy && buy.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={buy.walletAddress}>{buy.walletAddress.slice(0, 16)}…</span></>}
+          {isBuy && buy.inrEquivalent && <><span className="text-muted-foreground">INR Equiv.</span><span className="text-foreground">{buy.inrEquivalent}</span></>}
+          {isBuy && buy.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{buy.txId}</span></>}
+          {!isBuy && sell.upiId && <><span className="text-muted-foreground">UPI ID</span><span className="text-foreground font-mono">{sell.upiId}</span></>}
+          {!isBuy && sell.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={sell.walletAddress}>{sell.walletAddress.slice(0, 16)}…</span></>}
+          {!isBuy && sell.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{sell.txId}</span></>}
+          <span className="text-muted-foreground">Submitted</span><span className="text-foreground">{timeAgo(r.createdAt)}</span>
+        </div>
+
+        {/* Screenshot */}
+        {r.screenshotUrl && (
+          <div className="pt-1"><ScreenshotCell url={r.screenshotUrl} /></div>
+        )}
+
+        {/* Action buttons — contextual by status, locked when final */}
+        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+          {(r.status === "completed" || r.status === "approved") ? (
+            <span className="flex-1 text-center text-xs text-green-400 font-semibold py-1.5">Order Completed</span>
+          ) : (r.status === "cancelled" || r.status === "rejected") ? (
+            <span className="flex-1 text-center text-xs text-red-400 font-semibold py-1.5">Order Cancelled</span>
+          ) : r.status === "accepted" ? (
+            isBuy ? (
+              <>
+                <span className="flex-1 text-center text-xs text-blue-400 font-medium py-1.5">Accepted — Waiting for Completion</span>
+                <button onClick={() => updateBuyStatus(r.id, "completed")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+                <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-center text-xs text-blue-400 font-medium py-1.5">Accepted — Waiting for Completion</span>
+                <button onClick={() => updateSellStatus(r.id, "completed")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            )
+          ) : (
+            /* pending */
+            isBuy ? (
+              <>
+                <button onClick={() => updateBuyStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+                <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => updateSellStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            )
+          )}
         </div>
       </div>
+    )
+  }
+
+  const USDTSection = ({ label, orders, type, accent }: {
+    label: string
+    orders: (USDTBuyRequest | USDTSellRequest)[]
+    type: "buy" | "sell"
+    accent: string
+  }) => (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${accent}`}>{orders.length}</span>
+      </div>
+      {orders.length === 0
+        ? <div className="rounded-xl border border-border border-dashed py-8 text-center text-muted-foreground text-sm">No orders in this category</div>
+        : <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {orders.map(r => <USDTOrderCard key={r.id} r={r} type={type} />)}
+          </div>
+      }
     </div>
   )
 
-  const renderUSDTSell = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ArrowUpRight className="w-6 h-6 text-amber-400" />
-        <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
-        <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold">{usdtSell.length}</span>
-      </div>
-      <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI.</p>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-border">
-          <table className="w-full text-sm min-w-[1000px]">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Email","Phone","Telegram","UPI ID","Wallet Address","USDT Sent","TX ID","Screenshot","Submitted","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usdtSell.length === 0
-                ? <tr><td colSpan={13} className="py-12 text-center text-muted-foreground text-sm">No USDT sell requests yet</td></tr>
-                : usdtSell.map(r => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{r.userId}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.name}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.email}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.phone}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.telegram || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-foreground whitespace-nowrap">{r.upiId}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.walletAddress}>{r.walletAddress}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-amber-400 whitespace-nowrap">{r.usdtAmount} USDT</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.txId}>{r.txId || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={r.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(r.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => updateSellStatus(r.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve — Send INR"><CheckCircle className="w-4 h-4" /></button>
-                        <button onClick={() => updateSellStatus(r.id, "pending")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Pending"><Clock className="w-4 h-4" /></button>
-                        <button onClick={() => updateSellStatus(r.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+  const renderUSDTBuy = () => {
+    const pending   = usdtBuy.filter(r => r.status === "pending")
+    const accepted  = usdtBuy.filter(r => r.status === "accepted")
+    const completed = usdtBuy.filter(r => r.status === "completed" || r.status === "approved")
+    const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <ArrowDownLeft className="w-6 h-6 text-green-400" />
+          <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
+          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
         </div>
+        <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order. Notifications are sent automatically.</p>
+        <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+        <USDTSection label="Accepted Orders"   orders={accepted}  type="buy" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+        <USDTSection label="Completed Orders"  orders={completed} type="buy" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="buy" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
       </div>
-    </div>
-  )
+    )
+  }
+
+  const renderUSDTSell = () => {
+    const pending   = usdtSell.filter(r => r.status === "pending")
+    const accepted  = usdtSell.filter(r => r.status === "accepted")
+    const completed = usdtSell.filter(r => r.status === "completed" || r.status === "approved")
+    const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <ArrowUpRight className="w-6 h-6 text-amber-400" />
+          <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
+          <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI. Notifications are sent automatically.</p>
+        <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+        <USDTSection label="Accepted Orders"   orders={accepted}  type="sell" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+        <USDTSection label="Completed Orders"  orders={completed} type="sell" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="sell" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+      </div>
+    )
+  }
 
   const renderSuspicious = () => (
     <div className="space-y-4">
@@ -985,8 +1248,9 @@ export default function AdminPanel() {
       if (n.refSection === "suspicious") return "View fraud alert"
       return "View details"
     }
+
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-foreground">Notifications</h2>
@@ -997,31 +1261,53 @@ export default function AdminPanel() {
               onClick={() => saveSystem({ notifEnabled: !systemSettings.notifEnabled })}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${systemSettings.notifEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-border"}`}>
               {systemSettings.notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
-              {systemSettings.notifEnabled ? "Enabled" : "Disabled"}
+              {systemSettings.notifEnabled ? "Notifs On" : "Notifs Off"}
             </button>
             {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>}
           </div>
         </div>
-        <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
-          {notifications.length === 0
-            ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
-            : notifications.map(n => (
-              <button
-                key={n.id}
-                onClick={() => handleNotifClick(n)}
-                className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
-                  <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
-                </div>
-                {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
-              </button>
-            ))
-          }
+
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border w-fit">
+          {(["alerts", "broadcast"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setNotifTab(tab)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${notifTab === tab ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {tab === "alerts" ? "Admin Alerts" : "Push Broadcast"}
+            </button>
+          ))}
         </div>
+
+        {notifTab === "alerts" && (
+          <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
+            {notifications.length === 0
+              ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
+              : notifications.map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotifClick(n)}
+                  className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                    <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                  </div>
+                  {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
+                </button>
+              ))
+            }
+          </div>
+        )}
+
+        {notifTab === "broadcast" && (
+          <div className="rounded-xl bg-card border border-border p-5">
+            <AdminPushPanel />
+          </div>
+        )}
       </div>
     )
   }
@@ -1149,15 +1435,34 @@ export default function AdminPanel() {
         </div>
       </div>
       <div className="rounded-xl bg-card border border-border p-5 space-y-4">
-        <h3 className="font-semibold text-foreground text-sm">Pricing</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-foreground text-sm">Pricing — All Plans</h3>
+          {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+        </div>
+        <p className="text-xs text-muted-foreground">Changes are saved to the database and shown on checkout pages immediately.</p>
         {([
-          { key: "vipPrice"         as const, label: "VIP Signals Price"  },
-          { key: "mentorshipPrice"  as const, label: "Mentorship Price"   },
+          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"                },
+          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP + XM (Existing Client)" },
+          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP + XM (New Client)"      },
+          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"              },
+          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"              },
+          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"           },
+          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account"              },
         ]).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-40 shrink-0">{label}</label>
-            <input value={systemSettings[key]} onChange={e => setSystemSettings(s => ({ ...s, [key]: e.target.value }))} onBlur={() => saveSystem({})}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50" />
+            <label className="text-sm text-foreground w-48 shrink-0">{label}</label>
+            <input
+              value={pricingConfig[key]}
+              onChange={e => setPricingConfig(p => ({ ...p, [key]: e.target.value }))}
+              onBlur={async () => {
+                setPricingSaving(true)
+                await savePricing(pricingConfig)
+                // Keep legacy vipPrice / mentorshipPrice keys in sync for useSiteConfig reads
+                saveSystem({ vipPrice: pricingConfig.vip_signal, mentorshipPrice: pricingConfig.mentorship_1 })
+                setPricingSaving(false)
+              }}
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
+            />
           </div>
         ))}
       </div>
@@ -1231,15 +1536,21 @@ export default function AdminPanel() {
       {/* Test notification */}
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
         <h3 className="font-semibold text-foreground text-sm">Test Notification</h3>
-        <p className="text-xs text-muted-foreground">Send a test message to the admin Telegram chat (ID: 8197983781) to verify the bot is working.</p>
+        <p className="text-xs text-muted-foreground">Send a test message to the configured Telegram chat to verify the bot token and chat ID are working correctly.</p>
         <Button
           onClick={sendTelegramTest}
-          disabled={tgTestStatus === "sending" || !systemSettings.telegramEnabled}
+          disabled={tgTestStatus === "sending"}
           className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm"
         >
           {tgTestStatus === "sending" ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Bot className="w-4 h-4 mr-2" />}
-          {tgTestStatus === "sending" ? "Sending..." : tgTestStatus === "sent" ? "Sent!" : tgTestStatus === "error" ? "Failed — check bot token" : "Send Test Message"}
+          {tgTestStatus === "sending" ? "Sending..." : tgTestStatus === "sent" ? "Sent Successfully!" : tgTestStatus === "error" ? "Failed — check token/chat ID" : "Send Test Message"}
         </Button>
+        {tgTestStatus === "sent" && (
+          <p className="text-xs text-green-400">Message delivered. Check your Telegram channel/group.</p>
+        )}
+        {tgTestStatus === "error" && (
+          <p className="text-xs text-red-400">Delivery failed. Verify TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in project environment variables, and confirm the bot is an admin in your channel/group.</p>
+        )}
       </div>
       {/* What gets notified */}
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
@@ -1267,10 +1578,11 @@ export default function AdminPanel() {
           <h3 className="font-semibold text-foreground text-sm">Setup Instructions</h3>
         </div>
         <ol className="space-y-2 text-xs text-muted-foreground list-decimal list-inside">
-          <li>Add <code className="font-mono bg-card px-1 rounded">TELEGRAM_BOT_TOKEN</code> to your environment variables</li>
-          <li>Start a chat with @OGKAALBOT and press START so the bot can message you</li>
-          <li>The admin chat ID is pre-configured as <code className="font-mono bg-card px-1 rounded">8197983781</code></li>
-          <li>Users who submit payments are redirected to start the bot and receive approval/rejection messages</li>
+          <li><code className="font-mono bg-card px-1 rounded">TELEGRAM_BOT_TOKEN</code> — set to your bot token (already configured)</li>
+          <li><code className="font-mono bg-card px-1 rounded">TELEGRAM_CHAT_ID</code> — set to your channel or group numeric ID (e.g. <code className="font-mono bg-card px-1 rounded">-100xxxxxxxxxx</code> for channels/groups)</li>
+          <li>Add @OGKAALBOT to your Telegram channel or group and promote it to <strong className="text-foreground">Admin</strong> so it can post messages</li>
+          <li>Use "Send Test Message" above to verify the connection — a message should appear in your channel/group instantly</li>
+          <li>To find your group/channel ID: forward any message from it to @userinfobot on Telegram</li>
         </ol>
       </div>
     </div>
@@ -1288,6 +1600,8 @@ export default function AdminPanel() {
         const result = await changePassword(secForm.oldPw, secForm.newPw)
         if (!result.success) { setSecMsg({ type: "err", text: result.error ?? "Current password incorrect." }); return }
       }
+      // Persist admin profile (name, phone) to Supabase
+      saveAdminProfile({ name: secForm.name, phone: secForm.phone }).catch(() => {})
       setSecMsg({ type: "ok", text: "Settings saved successfully." })
       setTimeout(() => setSecMsg(null), 3000)
     }
@@ -1445,7 +1759,172 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Signals Manager ──────────────────────────────────────────────────────────
+  // ── Analytics ─────────────────────────────────────────────────────────────────
+  const renderAnalytics = () => {
+    const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
+    const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined
+    const visitors  = (analyticsData as Record<string, unknown> | null)?.visitors14d   as { date: string; count: number }[] | undefined
+    const signupsTrend = (analyticsData as Record<string, unknown> | null)?.signups14d as { date: string; count: number }[] | undefined
+    const plans     = (analyticsData as Record<string, unknown> | null)?.planBreakdown as { plan: string; count: number }[] | undefined
+
+    const statCards: { label: string; value: number | undefined; icon: typeof Users; color: string }[] = [
+      { label: "Total Registered Users", value: stats?.totalUsers,      icon: Users,      color: "text-blue-400 bg-blue-500/10 border-blue-500/20"  },
+      { label: "Verified Emails",        value: stats?.verifiedUsers,   icon: CheckCircle, color: "text-green-400 bg-green-500/10 border-green-500/20" },
+      { label: "Active Members",         value: stats?.activeMembers,   icon: Crown,       color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+      { label: "Site Visits (14 days)",  value: stats?.totalVisits14d,  icon: BarChart2,   color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+      { label: "Signups Today",          value: stats?.todaySignups,    icon: UserPlus,    color: "text-primary bg-primary/10 border-primary/20"      },
+      { label: "Total Memberships",      value: stats?.totalMembers,    icon: Star,        color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+    ]
+
+    // Simple bar chart using div widths
+    const maxVisitors = visitors ? Math.max(1, ...visitors.map(v => v.count)) : 1
+    const maxSignups  = signupsTrend ? Math.max(1, ...signupsTrend.map(v => v.count)) : 1
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-xl font-bold text-foreground">Analytics</h2>
+          <button
+            onClick={() => {
+              setAnalyticsLoading(true)
+              fetch("/api/admin/analytics").then(r => r.json()).then(d => { if (d.ok) setAnalyticsData(d) }).finally(() => setAnalyticsLoading(false))
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${analyticsLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        {analyticsLoading ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">Loading analytics...</div>
+        ) : !analyticsData ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">No data available. Click Refresh to load.</div>
+        ) : (
+          <>
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {statCards.map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="rounded-2xl border border-border bg-card p-4 flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${color}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{value ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-snug">{label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Visitor chart (14 days) */}
+            {visitors && visitors.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-foreground text-sm">Site Visitors — Last 14 Days</h3>
+                <div className="flex items-end gap-1.5 h-28">
+                  {visitors.map(({ date, count }) => (
+                    <div key={date} className="flex-1 flex flex-col items-center gap-1 group" title={`${date}: ${count}`}>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                      <div
+                        className="w-full rounded-t bg-primary/60 hover:bg-primary transition-colors"
+                        style={{ height: `${Math.max(4, Math.round((count / maxVisitors) * 96))}px` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                        {new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Signups trend (14 days) */}
+            {signupsTrend && signupsTrend.some(v => v.count > 0) && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-foreground text-sm">New Signups — Last 14 Days</h3>
+                <div className="flex items-end gap-1.5 h-28">
+                  {signupsTrend.map(({ date, count }) => (
+                    <div key={date} className="flex-1 flex flex-col items-center gap-1 group" title={`${date}: ${count}`}>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                      <div
+                        className="w-full rounded-t bg-green-500/60 hover:bg-green-500 transition-colors"
+                        style={{ height: `${Math.max(4, Math.round((count / maxSignups) * 96))}px` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                        {new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Plan breakdown */}
+            {plans && plans.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <h3 className="font-semibold text-foreground text-sm">Active Memberships by Plan</h3>
+                <div className="space-y-2.5">
+                  {plans.map(({ plan, count }) => {
+                    const total = plans.reduce((s, p) => s + p.count, 0)
+                    const pct   = total > 0 ? Math.round((count / total) * 100) : 0
+                    return (
+                      <div key={plan} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-foreground font-medium">{plan}</span>
+                          <span className="text-muted-foreground">{count} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Recent signups */}
+            {recent && recent.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="font-semibold text-foreground text-sm">Recent Signups</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/30">
+                        {["User ID", "Name", "Email", "Verified", "Joined"].map(h => (
+                          <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.map((u) => (
+                        <tr key={String(u.user_id)} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{String(u.user_id)}</td>
+                          <td className="py-3 px-4 text-sm text-foreground">{String(u.full_name || "—")}</td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">{String(u.email || "—")}</td>
+                          <td className="py-3 px-4">
+                            {u.is_verified
+                              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs bg-green-500/10 text-green-400 border-green-500/30"><CheckCircle className="w-3 h-3" />Yes</span>
+                              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs bg-amber-500/10 text-amber-400 border-amber-500/30"><Clock className="w-3 h-3" />No</span>
+                            }
+                          </td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(String(u.created_at))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── Signals Manager ────────────────────────────────────────────────────���─────
   const renderSignals = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Signals Manager</h2>
@@ -1724,6 +2203,167 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Indicators Manager ───────────────────────────────────────────────────────
+  const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools", "Price Action"]
+
+  const resetIndicatorForm = () => {
+    setIndicatorForm({ name: "", creator: "", category: "SMC", description: "", tradingview_link: "", thumbnail_url: "", is_published: true })
+    setIndicatorEditId(null)
+    setIndicatorMsg(null)
+  }
+
+  const handleSaveIndicator = async () => {
+    if (!indicatorForm.name.trim() || !indicatorForm.creator.trim()) return
+    setIndicatorSaving(true)
+    setIndicatorMsg(null)
+    try {
+      if (indicatorEditId) {
+        const updated = await updateIndicator({ id: indicatorEditId, ...indicatorForm })
+        setIndicatorsList(list => list.map(i => i.id === indicatorEditId ? updated : i))
+        setIndicatorMsg({ ok: true, text: "Indicator updated." })
+      } else {
+        const created = await createIndicator(indicatorForm)
+        setIndicatorsList(list => [created, ...list])
+        setIndicatorMsg({ ok: true, text: "Indicator added." })
+      }
+      resetIndicatorForm()
+    } catch (err) {
+      setIndicatorMsg({ ok: false, text: String(err) })
+    } finally {
+      setIndicatorSaving(false)
+    }
+  }
+
+  const handleDeleteIndicator = async (id: string) => {
+    if (!confirm("Delete this indicator?")) return
+    await deleteIndicator(id)
+    setIndicatorsList(list => list.filter(i => i.id !== id))
+  }
+
+  const handleEditIndicator = (ind: Indicator) => {
+    setIndicatorForm({
+      name:             ind.name,
+      creator:          ind.creator,
+      category:         ind.category,
+      description:      ind.description ?? "",
+      tradingview_link: ind.tradingview_link ?? "",
+      thumbnail_url:    ind.thumbnail_url ?? "",
+      is_published:     ind.is_published,
+    })
+    setIndicatorEditId(ind.id)
+    setIndicatorMsg(null)
+  }
+
+  const handleTogglePublish = async (ind: Indicator) => {
+    const updated = await updateIndicator({ id: ind.id, is_published: !ind.is_published })
+    setIndicatorsList(list => list.map(i => i.id === ind.id ? updated : i))
+  }
+
+  const renderIndicators = () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <BarChart2 className="w-6 h-6 text-primary" />
+        <h2 className="text-xl font-bold text-foreground">Indicators Manager</h2>
+        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold border border-primary/20">{indicatorsList.length}</span>
+      </div>
+
+      {/* Add / Edit form */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <h3 className="font-semibold text-foreground text-sm">{indicatorEditId ? "Edit Indicator" : "Add New Indicator"}</h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Name *</label>
+            <input value={indicatorForm.name} onChange={e => setIndicatorForm(f => ({ ...f, name: e.target.value }))} placeholder="Order Block Detector" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Creator / Author *</label>
+            <input value={indicatorForm.creator} onChange={e => setIndicatorForm(f => ({ ...f, creator: e.target.value }))} placeholder="OG Kaal" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Category</label>
+            <select value={indicatorForm.category} onChange={e => setIndicatorForm(f => ({ ...f, category: e.target.value as IndicatorCategory }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+              {INDICATOR_CATEGORIES_ADMIN.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">TradingView Link</label>
+            <input value={indicatorForm.tradingview_link} onChange={e => setIndicatorForm(f => ({ ...f, tradingview_link: e.target.value }))} placeholder="https://tradingview.com/script/..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-muted-foreground block mb-1">Description</label>
+            <textarea rows={2} value={indicatorForm.description} onChange={e => setIndicatorForm(f => ({ ...f, description: e.target.value }))} placeholder="Short description..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-muted-foreground block mb-1">Thumbnail URL (optional)</label>
+            <input value={indicatorForm.thumbnail_url} onChange={e => setIndicatorForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIndicatorForm(f => ({ ...f, is_published: !f.is_published }))} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${indicatorForm.is_published ? "bg-green-500/10 border-green-500/25 text-green-400" : "bg-secondary border-border text-muted-foreground"}`}>
+            {indicatorForm.is_published ? "Published" : "Draft"}
+          </button>
+          <div className="flex-1" />
+          {indicatorEditId && (
+            <button onClick={resetIndicatorForm} className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">Cancel</button>
+          )}
+          <Button onClick={handleSaveIndicator} disabled={indicatorSaving || !indicatorForm.name.trim() || !indicatorForm.creator.trim()} size="sm">
+            {indicatorSaving ? "Saving..." : indicatorEditId ? "Update" : "Add Indicator"}
+          </Button>
+        </div>
+
+        {indicatorMsg && (
+          <p className={`text-xs ${indicatorMsg.ok ? "text-green-400" : "text-red-400"}`}>{indicatorMsg.text}</p>
+        )}
+      </div>
+
+      {/* List */}
+      {indicatorsLoading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading indicators...</div>
+      ) : indicatorsList.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">No indicators yet. Add one above.</div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/40">
+                {["Name", "Creator", "Category", "TV Link", "Published", "Actions"].map(h => (
+                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {indicatorsList.map(ind => (
+                <tr key={ind.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                  <td className="py-3 px-4 text-xs font-medium text-foreground">{ind.name}</td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground">{ind.creator}</td>
+                  <td className="py-3 px-4"><span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-semibold">{ind.category}</span></td>
+                  <td className="py-3 px-4">
+                    {ind.tradingview_link
+                      ? <a href={ind.tradingview_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" />Link</a>
+                      : <span className="text-muted-foreground text-xs">—</span>}
+                  </td>
+                  <td className="py-3 px-4">
+                    <button onClick={() => handleTogglePublish(ind)} className={`text-xs px-2 py-0.5 rounded-full border font-semibold transition-colors ${ind.is_published ? "bg-green-500/10 border-green-500/25 text-green-400 hover:bg-green-500/20" : "bg-secondary border-border text-muted-foreground hover:bg-secondary/60"}`}>
+                      {ind.is_published ? "Published" : "Draft"}
+                    </button>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => handleEditIndicator(ind)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Edit"><Settings className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteIndicator(ind.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
@@ -1742,6 +2382,8 @@ export default function AdminPanel() {
       case "signals":              return renderSignals()
       case "memberships":          return renderMemberships()
       case "performance":          return renderPerformanceManager()
+      case "indicators":           return renderIndicators()
+      case "analytics":            return renderAnalytics()
       default:                     return renderDashboard()
     }
   }
