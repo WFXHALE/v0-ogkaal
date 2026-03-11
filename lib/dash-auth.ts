@@ -40,6 +40,8 @@ export interface DashboardUser {
   marketType?: string
   tradingType?: string
   yearsExperience?: string
+  isVerified?: boolean
+  kycStatus?: "none" | "pending" | "approved" | "rejected"
 }
 
 export interface DashboardSession extends DashboardUser {
@@ -138,6 +140,8 @@ export async function login(
     marketType:       data.market_type      ? String(data.market_type)      : undefined,
     tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
     yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
+    isVerified:       Boolean(data.is_verified),
+    kycStatus:        (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
   }
 
   const session: DashboardSession = {
@@ -177,6 +181,8 @@ export async function loginWithBackupCode(
     marketType:       data.market_type      ? String(data.market_type)      : undefined,
     tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
     yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
+    isVerified:       Boolean(data.is_verified),
+    kycStatus:        (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
   }
 
   const session: DashboardSession = {

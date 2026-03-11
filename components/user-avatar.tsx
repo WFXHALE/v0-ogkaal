@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { User, Settings, Shield, LogOut, CheckCircle, LogIn, UserPlus, TrendingUp, BookOpen, Users, Wrench, LayoutDashboard, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
+import { User, Settings, LogOut, CheckCircle, TrendingUp, BookOpen, Users, Wrench, LayoutDashboard, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react"
 import { getSession, setSession, logout, login, registerDashboardUser, storeBackupCode } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
 
