@@ -378,18 +378,43 @@ export default function MentorshipPage() {
 
                 {/* ── UPI ── */}
                 {paymentMethod === "upi" && (
-                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-3 text-center">
-                    <p className="text-sm font-medium text-foreground">Pay via UPI (Cashfree)</p>
-                    <p className="text-xs text-muted-foreground">Click the button below to open the secure payment page. After paying, enter your UTR number and upload the screenshot.</p>
-                    <a
-                      href={selectedProgram ? UPI_LINKS[selectedProgram] : "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      Open UPI Payment Page
-                    </a>
+                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-5">
+                    {/* UPI ID copy row */}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-1">UPI Payment</p>
+                      <p className="text-xs text-muted-foreground mb-3">Copy the UPI ID and pay from any UPI app — Google Pay, PhonePe, Paytm, BHIM, or any UPI supported app.</p>
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-background border border-border">
+                        <span className="text-xs text-muted-foreground shrink-0">UPI ID:</span>
+                        <code className="flex-1 text-sm font-mono font-semibold text-foreground tracking-tight">CXEWANKUSS@YBL</code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0 h-8 px-3"
+                          onClick={() => handleCopy("upi-id", "CXEWANKUSS@YBL")}
+                        >
+                          {copiedField === "upi-id"
+                            ? <Check className="w-4 h-4 text-green-500" />
+                            : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* QR code */}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-1">Scan & Pay</p>
+                      <p className="text-xs text-muted-foreground mb-3">Scan this QR code using your UPI app and complete the payment.</p>
+                      {/* Crop out the top header (name + phone) — show only the QR square */}
+                      <div className="w-56 mx-auto rounded-xl overflow-hidden border border-border bg-white" style={{ aspectRatio: "1 / 1" }}>
+                        <img
+                          src="/upi-qr.jpeg"
+                          alt="UPI QR Code — scan to pay"
+                          className="w-full object-cover"
+                          style={{ objectPosition: "center 52%", height: "175%" }}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center">Send the payment using any UPI app, then upload the payment screenshot below for verification.</p>
                   </div>
                 )}
 
