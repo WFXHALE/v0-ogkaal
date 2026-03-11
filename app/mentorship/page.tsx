@@ -418,12 +418,18 @@ export default function MentorshipPage() {
                             style={{ width: "min(200px, 100%)" }}
                             aria-label="Click to enlarge QR code"
                           >
-                            <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
+                            {/* clip-path removes top ~28% (the name/phone header) */}
+                            <div className="w-full overflow-hidden bg-white" style={{ paddingTop: "100%", position: "relative" }}>
                               <img
-                                src="/upi-qr.jpeg"
+                                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-LwTlptcUGgnjkbQGhCPQcShctCMCRy.png"
                                 alt="UPI QR Code — click to enlarge and scan"
-                                className="w-full object-cover"
-                                style={{ objectPosition: "center 52%", height: "175%" }}
+                                style={{
+                                  position: "absolute",
+                                  top: "-38%",
+                                  left: "0",
+                                  width: "100%",
+                                  height: "auto",
+                                }}
                               />
                             </div>
                           </button>
@@ -843,13 +849,18 @@ export default function MentorshipPage() {
               <X className="w-4 h-4 text-black" />
             </button>
 
-            {/* Full QR image — cropped to remove name/phone header */}
-            <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
+            {/* Full QR image — top: -38% pushes the name/phone header out of view */}
+            <div className="w-full overflow-hidden bg-white" style={{ paddingTop: "100%", position: "relative" }}>
               <img
-                src="/upi-qr.jpeg"
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-LwTlptcUGgnjkbQGhCPQcShctCMCRy.png"
                 alt="UPI QR Code — scan to pay"
-                className="w-full object-cover"
-                style={{ objectPosition: "center 52%", height: "175%" }}
+                style={{
+                  position: "absolute",
+                  top: "-38%",
+                  left: "0",
+                  width: "100%",
+                  height: "auto",
+                }}
               />
             </div>
 
