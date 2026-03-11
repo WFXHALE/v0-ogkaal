@@ -1,7 +1,7 @@
 "use client"
 
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth"
-import { getFirebaseApp } from "./firebase"
+import { app } from "./firebase"
 import { createClient } from "./supabase/client"
 import { Analytics, identifyUser } from "./analytics"
 import type { DashboardSession } from "./dash-auth"
@@ -18,9 +18,6 @@ export async function signInWithGoogle(): Promise<
   | { success: false; error: string }
 > {
   try {
-    const app = getFirebaseApp()
-    if (!app) return { success: false, error: "Firebase not initialised." }
-
     const auth     = getAuth(app)
     const provider = new GoogleAuthProvider()
     provider.addScope("email")
@@ -115,7 +112,6 @@ export async function signInWithGoogle(): Promise<
 
 export async function signOutGoogle(): Promise<void> {
   try {
-    const app = getFirebaseApp()
-    if (app) await signOut(getAuth(app))
+    await signOut(getAuth(app))
   } catch {}
 }

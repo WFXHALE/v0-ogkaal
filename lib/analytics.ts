@@ -1,15 +1,13 @@
 "use client"
 
 import { getAnalytics, logEvent, setUserId, type Analytics } from "firebase/analytics"
-import { getFirebaseApp } from "./firebase"
+import { app } from "./firebase"
 
 let _analytics: Analytics | null = null
 
 function getAnalyticsInstance(): Analytics | null {
   if (typeof window === "undefined") return null
   if (_analytics) return _analytics
-  const app = getFirebaseApp()
-  if (!app) return null
   try {
     _analytics = getAnalytics(app)
     return _analytics

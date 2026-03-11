@@ -2,12 +2,12 @@
 
 import { useEffect } from "react"
 import { initErrorMonitoring } from "@/lib/error-monitor"
-import { getFirebaseApp } from "@/lib/firebase"
+// app is imported to ensure Firebase initialises on mount (side-effect import)
+import "@/lib/firebase"
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Boot Firebase app and global error listeners once on mount
-    getFirebaseApp()
+    // Firebase app boots via the import above; just init error monitoring
     initErrorMonitoring()
   }, [])
 
