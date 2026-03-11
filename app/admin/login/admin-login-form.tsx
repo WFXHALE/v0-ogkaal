@@ -1,16 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, KeyRound, ShieldOff } from "lucide-react"
 import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Admin login — secret key only
-// No loading animations. Form renders immediately.
-// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminLoginForm() {
   const router = useRouter()
 
@@ -20,7 +15,7 @@ export default function AdminLoginForm() {
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
   const [showKey, setShowKey]                     = useState(false)
 
-  // Session check — client-only, never during SSR to avoid hydration mismatch
+  // Client-only session check — avoids SSR hydration mismatch
   useEffect(() => {
     if (isSessionValid()) {
       router.replace("/admin")
@@ -59,7 +54,7 @@ export default function AdminLoginForm() {
         href="/"
         className="fixed top-5 left-5 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
         Back
       </Link>
 
@@ -79,7 +74,7 @@ export default function AdminLoginForm() {
         {/* Lock notice */}
         {lock.locked && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-center">
-            <p className="text-sm font-semibold text-red-400 flex items-center justify-center gap-1.5"><ShieldOff className="w-3.5 h-3.5" />Access Blocked</p>
+            <p className="text-sm font-semibold text-red-400">Access Blocked</p>
             <p className="text-xs text-muted-foreground mt-1">
               Too many failed attempts.{" "}
               {lock.remainingSeconds
@@ -92,7 +87,8 @@ export default function AdminLoginForm() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+            {/* Key icon — inline SVG, no lucide import needed */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
             <input
               type={showKey ? "text" : "password"}
               value={secretKey}
@@ -101,7 +97,7 @@ export default function AdminLoginForm() {
               autoFocus
               autoComplete="current-password"
               disabled={lock.locked || isLoading}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-10 pr-12 py-3.5 text-sm text-foreground placeholder:text-neutral-600 focus:outline-none focus:border-[#FCD535]/60 focus:ring-1 focus:ring-[#FCD535]/30 transition-colors disabled:opacity-50"
+              className="w-full bg-neutral-900 border border-neutral-700 rounded-xl pl-10 pr-14 py-3.5 text-sm text-foreground placeholder:text-neutral-600 focus:outline-none focus:border-[#FCD535]/60 focus:ring-1 focus:ring-[#FCD535]/30 transition-colors disabled:opacity-50"
             />
             <button
               type="button"
@@ -113,7 +109,7 @@ export default function AdminLoginForm() {
             </button>
           </div>
 
-          {/* Error */}
+          {/* Error message */}
           {error && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
               <p className="text-xs text-red-400">{error}</p>
