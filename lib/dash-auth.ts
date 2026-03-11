@@ -94,6 +94,9 @@ export function setSession(session: DashboardSession | null): void {
 
 export function logout(): void {
   setSession(null)
+  if (typeof window !== "undefined") {
+    import("./analytics").then(({ Analytics }) => Analytics.logout()).catch(() => {})
+  }
 }
 
 // ── Auth operations (Supabase-backed) ────────────────────────────────────────
@@ -151,6 +154,13 @@ export async function login(
     avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
   }
   setSession(session)
+  // analytics — non-blocking, client-only
+  if (typeof window !== "undefined") {
+    import("./analytics").then(({ Analytics, identifyUser }) => {
+      identifyUser(user.id)
+      Analytics.login("email")
+    }).catch(() => {})
+  }
   return { success: true, user }
 }
 
@@ -334,5 +344,11 @@ export async function registerDashboardUser(params: {
     yearsExperience:  params.yearsExperience || undefined,
   }
 
+  if (typeof window !== "undefined") {
+    import("./analytics").then(({ Analytics, identifyUser }) => {
+      identifyUser(user.id)
+      Analytics.signUp("email")
+    }).catch(() => {})
+  }
   return { success: true, user, backupCode }
 }

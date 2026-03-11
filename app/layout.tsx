@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
+import { FirebaseProvider } from '@/components/firebase-provider'
 import { PageLoader } from '@/components/page-loader'
 import './globals.css'
 
@@ -73,10 +74,12 @@ export default function RootLayout({
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground">
-        <ThemeProvider>
-          <PageLoader />
-          {children}
-        </ThemeProvider>
+        <FirebaseProvider>
+          <ThemeProvider>
+            <PageLoader />
+            {children}
+          </ThemeProvider>
+        </FirebaseProvider>
         <Analytics />
       </body>
     </html>
