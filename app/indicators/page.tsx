@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { BarChart2, Search, ExternalLink, Layers, Zap, Droplets, Clock, Wrench, X } from "lucide-react"
+import { BarChart2, Search, ExternalLink, Layers, Zap, Droplets, Clock, Wrench, TrendingUp, X } from "lucide-react"
 import { listIndicators, type Indicator, type IndicatorCategory } from "@/lib/indicators-store"
 
 // ── Category config ────────────────────────────────────────────────────────────
@@ -14,7 +14,8 @@ const CATEGORIES: { id: IndicatorCategory | "all"; label: string; icon: typeof B
   { id: "ICT",       label: "ICT",       icon: Zap,       color: "text-sky-400",       border: "border-sky-500/25",      bg: "bg-sky-500/8" },
   { id: "Liquidity", label: "Liquidity", icon: Droplets,  color: "text-emerald-400",   border: "border-emerald-500/25",  bg: "bg-emerald-500/8" },
   { id: "Sessions",  label: "Sessions",  icon: Clock,     color: "text-orange-400",    border: "border-orange-500/25",   bg: "bg-orange-500/8" },
-  { id: "Tools",     label: "Tools",     icon: Wrench,    color: "text-purple-400",    border: "border-purple-500/25",   bg: "bg-purple-500/8" },
+  { id: "Tools",         label: "Tools",         icon: Wrench,      color: "text-purple-400",    border: "border-purple-500/25",   bg: "bg-purple-500/8" },
+  { id: "Price Action",  label: "Price Action",  icon: TrendingUp,  color: "text-rose-400",      border: "border-rose-500/25",     bg: "bg-rose-500/8" },
 ]
 
 function catConfig(category: IndicatorCategory) {
@@ -74,7 +75,7 @@ function IndicatorCard({ indicator }: { indicator: Indicator }) {
             className={`mt-auto flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border ${cfg.border} ${cfg.bg} ${cfg.color} text-xs font-semibold hover:opacity-80 active:scale-[.98] transition-all`}
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            View on TradingView
+            Get Indicator
           </a>
         )}
       </div>

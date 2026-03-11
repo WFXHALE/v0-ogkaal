@@ -1825,7 +1825,7 @@ export default function AdminPanel() {
   )
 
   // ── Indicators Manager ───────────────────────────────────────────────────────
-  const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools"]
+  const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools", "Price Action"]
 
   const resetIndicatorForm = () => {
     setIndicatorForm({ name: "", creator: "", category: "SMC", description: "", tradingview_link: "", thumbnail_url: "", is_published: true })
