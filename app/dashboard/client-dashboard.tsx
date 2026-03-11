@@ -22,6 +22,8 @@ import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
 import type { VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { BackButton } from "@/components/back-button"
 import { createClient } from "@/lib/supabase/client"
+import { PushNotificationBell } from "@/components/push-notification-bell"
+import { NotificationSettingsPanel } from "@/components/notification-settings-panel"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -745,6 +747,7 @@ export default function ClientDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-mono hidden sm:inline">ID: {session.userId}</span>
+            <PushNotificationBell userId={session.id} />
             <button onClick={() => loadData(session)}
               className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Refresh">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -1008,7 +1011,7 @@ export default function ClientDashboard() {
 
           {/* 8. Community Updates */}
           <Card title="Community Updates" icon={<Bell className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
-            <div className="pt-1 space-y-3">
+            <div className="pt-1 space-y-4">
               <p className="text-sm text-muted-foreground">Join the official channels for live updates, signals, and announcements.</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <a href="https://t.me/OGKAALVIP" target="_blank" rel="noopener noreferrer"
@@ -1024,6 +1027,14 @@ export default function ClientDashboard() {
                   <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto" />
                 </a>
               </div>
+            </div>
+          </Card>
+
+          {/* 8b. Notification Preferences */}
+          <Card title="Notification Preferences" icon={<Bell className="w-4 h-4 text-muted-foreground" />} defaultOpen={false}>
+            <div className="pt-1">
+              <p className="text-sm text-muted-foreground mb-4">Choose which types of notifications you want to receive on this device.</p>
+              <NotificationSettingsPanel userId={session.id} />
             </div>
           </Card>
 

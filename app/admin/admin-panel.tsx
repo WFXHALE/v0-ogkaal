@@ -24,6 +24,7 @@ import {
   getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
+import { AdminPushPanel } from "./admin-push-panel"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,7 @@ export default function AdminPanel() {
   const [secMsg, setSecMsg]                   = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [twoFAEnabled, setTwoFAEnabled]       = useState(false)
   const [tgTestStatus, setTgTestStatus]       = useState<"idle" | "sending" | "sent" | "error">("idle")
+  const [notifTab,     setNotifTab]           = useState<"alerts" | "broadcast">("alerts")
 
   // ── New section state ──────────────────────────────────────────────────────
   const [signals, setSignals]               = useState<VipSignal[]>([])
@@ -985,8 +987,9 @@ export default function AdminPanel() {
       if (n.refSection === "suspicious") return "View fraud alert"
       return "View details"
     }
+
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-foreground">Notifications</h2>
@@ -997,31 +1000,53 @@ export default function AdminPanel() {
               onClick={() => saveSystem({ notifEnabled: !systemSettings.notifEnabled })}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${systemSettings.notifEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-border"}`}>
               {systemSettings.notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
-              {systemSettings.notifEnabled ? "Enabled" : "Disabled"}
+              {systemSettings.notifEnabled ? "Notifs On" : "Notifs Off"}
             </button>
             {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>}
           </div>
         </div>
-        <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
-          {notifications.length === 0
-            ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
-            : notifications.map(n => (
-              <button
-                key={n.id}
-                onClick={() => handleNotifClick(n)}
-                className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
-                  <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
-                </div>
-                {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
-              </button>
-            ))
-          }
+
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border w-fit">
+          {(["alerts", "broadcast"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setNotifTab(tab)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${notifTab === tab ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {tab === "alerts" ? "Admin Alerts" : "Push Broadcast"}
+            </button>
+          ))}
         </div>
+
+        {notifTab === "alerts" && (
+          <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
+            {notifications.length === 0
+              ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
+              : notifications.map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotifClick(n)}
+                  className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                    <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                  </div>
+                  {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
+                </button>
+              ))
+            }
+          </div>
+        )}
+
+        {notifTab === "broadcast" && (
+          <div className="rounded-xl bg-card border border-border p-5">
+            <AdminPushPanel />
+          </div>
+        )}
       </div>
     )
   }
