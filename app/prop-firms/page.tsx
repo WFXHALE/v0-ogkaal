@@ -1624,6 +1624,227 @@ export default function PropFirmsPage() {
           )}
 
         </div>
+
+        {/* ── Educational Guide ─────────────────────────────────────────── */}
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 mt-4" aria-labelledby="guide-heading">
+
+          {/* Section header */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="flex-1 h-px bg-border/50" />
+            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-2">Professional Trader Guide</span>
+            <div className="flex-1 h-px bg-border/50" />
+          </div>
+          <h2 id="guide-heading" className="text-xl font-bold text-foreground text-center mb-2 text-balance">
+            How Professional Traders Pass Prop Firm Challenges
+          </h2>
+          <p className="text-sm text-muted-foreground text-center mb-10 max-w-xl mx-auto leading-relaxed">
+            A practical framework used by consistently profitable traders to pass evaluations and manage funded accounts long-term.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* 1 — Mindset */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-primary">01</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">Professional Trading Mindset</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Treat the challenge exactly like a funded account — the rules do not change between phases. Professionals do not trade to &quot;pass&quot; quickly; they trade to demonstrate repeatable, rule-based execution.
+              </p>
+              <ul className="space-y-1.5">
+                {[
+                  "Discipline over impulse — every trade must have a written reason.",
+                  "Follow the firm&apos;s rules as a non-negotiable constraint.",
+                  "Accept that not every day requires a trade.",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                    <span dangerouslySetInnerHTML={{ __html: item }} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 2 — Daily Routine */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-sky-400">02</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">Daily Trading Routine</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                A structured session prevents emotional, reactive trading. Build a pre-market routine and stick to it every day.
+              </p>
+              <ol className="space-y-1.5">
+                {[
+                  "Market analysis — bias, structure, and key levels.",
+                  "Session planning — identify your trading window (London, NY open).",
+                  "Identify setups that meet your A+ criteria.",
+                  "Wait for confirmation before executing.",
+                  "Log every trade immediately after it closes.",
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="shrink-0 font-bold text-primary w-4">{i + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* 3 — Risk Management */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-emerald-400">03</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">Risk Management Rules</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Consistent risk sizing is the single most important variable in passing and retaining a funded account.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Risk per trade", value: "0.5% – 1%" },
+                  { label: "Risk-to-reward", value: "Min 1:2 or 1:3" },
+                  { label: "Max daily risk", value: "2% of account" },
+                  { label: "Max open trades", value: "1 – 2 at a time" },
+                ].map(item => (
+                  <div key={item.label} className="rounded-lg bg-secondary/40 border border-border/50 px-3 py-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{item.label}</p>
+                    <p className="text-xs font-bold text-foreground">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4 — Psychology */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-amber-400">04</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">Psychology and Discipline</h3>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { trap: "FOMO", rule: "If the setup has already moved, it is already gone. Wait for the next one." },
+                  { trap: "Overtrading", rule: "Set a hard limit: maximum 2 trades per day. No exceptions." },
+                  { trap: "Revenge trading", rule: "After a losing trade, step away for at least 30 minutes before re-evaluating." },
+                ].map(item => (
+                  <div key={item.trap} className="rounded-lg bg-secondary/30 border border-border/40 px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-0.5">{item.trap}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{item.rule}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 5 — Passing Strategies */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-violet-400">05</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">How Traders Pass Challenges</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The fastest path to passing is not taking big risks — it is avoiding mistakes.
+              </p>
+              <ul className="space-y-1.5">
+                {[
+                  "Target consistency, not speed — 1% per day compounds faster than a single 10% day.",
+                  "Protect the drawdown limit above all else; it is a hard boundary.",
+                  "Avoid high-impact news events unless your strategy explicitly accounts for them.",
+                  "Pass with the same position sizes you intend to trade on the funded account.",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 6 — Payout Strategy */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-rose-400">06</span>
+                </div>
+                <h3 className="font-bold text-foreground text-sm">Payout Strategy</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Withdrawing too aggressively reduces your buffer. Treat payout requests strategically.
+              </p>
+              <ul className="space-y-1.5">
+                {[
+                  "Request payouts on a fixed schedule (bi-weekly or monthly) rather than whenever possible.",
+                  "Withdraw only after reaching a comfortable profit cushion above your drawdown limit.",
+                  "Most firms support bank wire, USDT (TRC-20 / ERC-20), and sometimes Rise/Deel.",
+                  "Check the firm\u2019s minimum payout period before placing your first trade.",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Check className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Step-by-step guide — full width */}
+          <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-6">
+            <h3 className="font-bold text-foreground text-sm mb-5 text-center">Step-by-Step Trade Execution Guide</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { step: "01", label: "Analyze Market", desc: "Daily bias, structure, and key S/R levels." },
+                { step: "02", label: "Identify Setup", desc: "A+ entry that meets all checklist criteria." },
+                { step: "03", label: "Manage Risk", desc: "Set SL, calculate lot size, confirm RR." },
+                { step: "04", label: "Execute Trade", desc: "Enter at planned level, no chasing." },
+                { step: "05", label: "Review", desc: "Log result, screenshot, and key lesson." },
+              ].map((item, i, arr) => (
+                <div key={item.step} className="relative flex flex-col items-center text-center gap-2">
+                  {/* Connector line (not on last item) */}
+                  {i < arr.length - 1 && (
+                    <div className="hidden sm:block absolute top-4 left-[calc(50%+16px)] right-[-50%] h-px bg-primary/20" />
+                  )}
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold z-10 shrink-0">
+                    {item.step}
+                  </div>
+                  <p className="text-xs font-bold text-foreground leading-tight">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick rules callout */}
+          <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Quick Reference Rules</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                "Maximum 1–2 trades per session.",
+                "Risk no more than 1% per trade.",
+                "Only trade A+ setups with full confirmation.",
+                "Never move SL against your trade.",
+                "Do not trade 30 minutes before high-impact news.",
+                "Stop trading after 2 consecutive losses in a day.",
+              ].map((rule, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <span className="shrink-0 w-4 h-4 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">{i + 1}</span>
+                  <span className="leading-relaxed">{rule}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </section>
+
       </main>
 
       <Footer />
