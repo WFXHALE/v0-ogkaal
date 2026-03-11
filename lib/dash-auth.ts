@@ -36,12 +36,17 @@ export interface DashboardUser {
   email: string
   fullName: string
   createdAt: string
+  numericUid?: number
+  tradingLevel?: string
+  marketType?: string
+  tradingType?: string
+  yearsExperience?: string
 }
 
 export interface DashboardSession extends DashboardUser {
   loggedInAt: number
-  backupCode?: string   // plain-text, loaded from DB on login
-  avatarUrl?: string    // user profile picture URL
+  backupCode?: string
+  avatarUrl?: string
 }
 
 // ── Password hashing (SHA-256 via Web Crypto API) ─────────────────────────────
@@ -127,18 +132,23 @@ export async function login(
   }
 
   const user: DashboardUser = {
-    id:        String(data.id),
-    userId:    String(data.user_id),
-    email:     String(data.email),
-    fullName:  String(data.full_name),
-    createdAt: String(data.created_at),
+    id:               String(data.id),
+    userId:           String(data.user_id),
+    email:            String(data.email),
+    fullName:         String(data.full_name),
+    createdAt:        String(data.created_at),
+    numericUid:       data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
+    tradingLevel:     data.trading_level    ? String(data.trading_level)    : undefined,
+    marketType:       data.market_type      ? String(data.market_type)      : undefined,
+    tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
+    yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
   }
 
   const session: DashboardSession = {
     ...user,
     loggedInAt: Date.now(),
-    backupCode: data.backup_code  ? String(data.backup_code)  : undefined,
-    avatarUrl:  data.avatar_url   ? String(data.avatar_url)   : undefined,
+    backupCode: data.backup_code ? String(data.backup_code) : undefined,
+    avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
   }
   setSession(session)
   return { success: true, user }
@@ -161,18 +171,23 @@ export async function loginWithBackupCode(
   if (data.backup_code_hash !== hash) return { success: false, error: "Invalid backup code." }
 
   const user: DashboardUser = {
-    id:        String(data.id),
-    userId:    String(data.user_id),
-    email:     String(data.email),
-    fullName:  String(data.full_name),
-    createdAt: String(data.created_at),
+    id:               String(data.id),
+    userId:           String(data.user_id),
+    email:            String(data.email),
+    fullName:         String(data.full_name),
+    createdAt:        String(data.created_at),
+    numericUid:       data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
+    tradingLevel:     data.trading_level    ? String(data.trading_level)    : undefined,
+    marketType:       data.market_type      ? String(data.market_type)      : undefined,
+    tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
+    yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
   }
 
   const session: DashboardSession = {
     ...user,
     loggedInAt: Date.now(),
-    backupCode: data.backup_code  ? String(data.backup_code)  : undefined,
-    avatarUrl:  data.avatar_url   ? String(data.avatar_url)   : undefined,
+    backupCode: data.backup_code ? String(data.backup_code) : undefined,
+    avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
   }
   setSession(session)
   return { success: true, user }
@@ -253,42 +268,73 @@ export async function registerDashboardUser(params: {
   email: string
   fullName: string
   password: string
+  tradingLevel?: string
+  marketType?: string
+  tradingType?: string
+  yearsExperience?: string
 }): Promise<{ success: true; user: DashboardUser; backupCode: string } | { success: false; error: string }> {
   const supabase = createClient()
 
-  const { data: existing } = await supabase
+  // Check duplicate User ID
+  const { data: existingId } = await supabase
     .from("dashboard_users")
     .select("id")
     .eq("user_id", params.userId.trim())
-    .single()
+    .maybeSingle()
+  if (existingId) return { success: false, error: "User ID already taken. Please choose another." }
 
-  if (existing) return { success: false, error: "User ID already taken. Please choose another." }
+  // Check duplicate email
+  const { data: existingEmail } = await supabase
+    .from("dashboard_users")
+    .select("id")
+    .eq("email", params.email.trim().toLowerCase())
+    .maybeSingle()
+  if (existingEmail) return { success: false, error: "An account with this email already exists. Try logging in." }
 
-  const passwordHash = await hashPassword(params.password)
-  const backupCode = generateBackupCode()
+  const passwordHash   = await hashPassword(params.password)
+  const backupCode     = generateBackupCode()
   const backupCodeHash = await hashPassword(backupCode.replace(/-/g, ""))
+
+  // Generate a random 6-digit numeric UID
+  const numericUid = Math.floor(100000 + Math.random() * 900000)
 
   const { data, error } = await supabase
     .from("dashboard_users")
     .insert({
-      user_id:          params.userId.trim(),
+      user_id:          params.userId.trim().toLowerCase(),
       email:            params.email.trim().toLowerCase(),
       full_name:        params.fullName.trim(),
       password_hash:    passwordHash,
       backup_code_hash: backupCodeHash,
       backup_code:      backupCode,
+      numeric_uid:      numericUid,
+      trading_level:    params.tradingLevel    || null,
+      market_type:      params.marketType      || null,
+      trading_type:     params.tradingType     || null,
+      years_experience: params.yearsExperience || null,
     })
     .select()
     .single()
 
-  if (error || !data) return { success: false, error: "Registration failed. Please try again." }
+  if (error || !data) {
+    // Surface the actual constraint violation if any
+    const msg = error?.message ?? ""
+    if (msg.includes("email"))   return { success: false, error: "Email already registered." }
+    if (msg.includes("user_id")) return { success: false, error: "User ID already taken." }
+    return { success: false, error: "Registration failed. Please try again." }
+  }
 
   const user: DashboardUser = {
-    id:        String(data.id),
-    userId:    String(data.user_id),
-    email:     String(data.email),
-    fullName:  String(data.full_name),
-    createdAt: String(data.created_at),
+    id:               String(data.id),
+    userId:           String(data.user_id),
+    email:            String(data.email),
+    fullName:         String(data.full_name),
+    createdAt:        String(data.created_at),
+    numericUid:       numericUid,
+    tradingLevel:     params.tradingLevel    || undefined,
+    marketType:       params.marketType      || undefined,
+    tradingType:      params.tradingType     || undefined,
+    yearsExperience:  params.yearsExperience || undefined,
   }
 
   return { success: true, user, backupCode }

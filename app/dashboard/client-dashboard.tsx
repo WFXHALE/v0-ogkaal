@@ -100,11 +100,17 @@ function AuthScreen({
   const [backupCopied, setBackupCopied]   = useState(false)
   const [loginId, setLoginId]             = useState("")
   const [loginPw, setLoginPw]             = useState("")
-  const [regId, setRegId]                 = useState("")
-  const [regEmail, setRegEmail]           = useState("")
-  const [regName, setRegName]             = useState("")
-  const [regPw, setRegPw]                 = useState("")
-  const [regPw2, setRegPw2]               = useState("")
+  const [regId, setRegId]                       = useState("")
+  const [regEmail, setRegEmail]                 = useState("")
+  const [regName, setRegName]                   = useState("")
+  const [regPw, setRegPw]                       = useState("")
+  const [regPw2, setRegPw2]                     = useState("")
+  const [regTradingLevel, setRegTradingLevel]   = useState("")
+  const [regMarketType, setRegMarketType]       = useState("")
+  const [regTradingType, setRegTradingType]     = useState("")
+  const [regYearsExp, setRegYearsExp]           = useState("")
+  const [showRegPw, setShowRegPw]               = useState(false)
+  const [showRegPw2, setShowRegPw2]             = useState(false)
   const [bkEmail, setBkEmail]             = useState("")
   const [bkCode, setBkCode]               = useState("")
   const [fgEmail, setFgEmail]             = useState("")
@@ -119,17 +125,28 @@ function AuthScreen({
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault(); setError("")
+    if (!regId.trim()) { setError("Please choose a User ID."); return }
+    if (!/^[a-z0-9_]+$/.test(regId.trim())) { setError("User ID may only contain lowercase letters, numbers, and underscores."); return }
     if (regPw !== regPw2) { setError("Passwords do not match."); return }
     if (regPw.length < 8) { setError("Password must be at least 8 characters."); return }
     setLoading(true)
-    const res = await registerDashboardUser({ userId: regId, email: regEmail.trim().toLowerCase(), fullName: regName, password: regPw })
+    const res = await registerDashboardUser({
+      userId:         regId.trim().toLowerCase(),
+      email:          regEmail.trim().toLowerCase(),
+      fullName:       regName.trim(),
+      password:       regPw,
+      tradingLevel:   regTradingLevel  || undefined,
+      marketType:     regMarketType    || undefined,
+      tradingType:    regTradingType   || undefined,
+      yearsExperience: regYearsExp     || undefined,
+    })
     setLoading(false)
     if (!res.success) { setError(res.error); return }
     setGeneratedBackup(res.backupCode)
     storeBackupCode(res.backupCode)
     onBackupCode(res.backupCode)
     setMode("backup_shown")
-    const loginRes = await login(regId, regPw)
+    const loginRes = await login(regId.trim().toLowerCase(), regPw)
     if (loginRes.success) { const s = getSession(); if (s) setTimeout(() => onAuth(s), 100) }
   }
 
@@ -218,24 +235,105 @@ function AuthScreen({
 
           {mode === "register" && (
             <form onSubmit={handleRegister} className="space-y-3">
-              {([
-                { label: "Full Name",        val: regName,  set: setRegName,  ph: "Your full name",    type: "text",     icon: <User className="w-4 h-4 text-muted-foreground shrink-0" /> },
-                { label: "Email",            val: regEmail, set: setRegEmail, ph: "you@email.com",     type: "email",    icon: <Mail className="w-4 h-4 text-muted-foreground shrink-0" /> },
-                { label: "Choose User ID",   val: regId,    set: setRegId,    ph: "unique_username",   type: "text",     icon: <User className="w-4 h-4 text-muted-foreground shrink-0" /> },
-                { label: "Password",         val: regPw,    set: setRegPw,    ph: "Min. 8 characters", type: "password", icon: <Lock className="w-4 h-4 text-muted-foreground shrink-0" /> },
-                { label: "Confirm Password", val: regPw2,   set: setRegPw2,   ph: "Repeat password",   type: "password", icon: <Lock className="w-4 h-4 text-muted-foreground shrink-0" /> },
-              ] as const).map(({ label, val, set, ph, type, icon }) => (
-                <div key={label}>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">{label}</label>
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
-                    {icon}
-                    <input type={type} value={val}
-                      onChange={e => (set as (v: string) => void)(type === "email" ? e.target.value.trim().toLowerCase() : e.target.value)}
-                      placeholder={ph} required
-                      className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
-                  </div>
+              {/* Full Name */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Full Name</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Your full name" required
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 </div>
-              ))}
+              </div>
+              {/* Email */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value.trim().toLowerCase())} placeholder="you@email.com" required
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+              </div>
+              {/* User ID */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Choose User ID <span className="text-muted-foreground/60 font-normal">(lowercase, letters, numbers, underscores)</span></label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input value={regId} onChange={e => setRegId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="unique_user_id" required
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+              </div>
+              {/* Password */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Password</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type={showRegPw ? "text" : "password"} value={regPw} onChange={e => setRegPw(e.target.value)} placeholder="Min. 8 characters" required
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                  <button type="button" onClick={() => setShowRegPw(v => !v)} className="text-muted-foreground hover:text-foreground">
+                    {showRegPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              {/* Confirm Password */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Confirm Password</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type={showRegPw2 ? "text" : "password"} value={regPw2} onChange={e => setRegPw2(e.target.value)} placeholder="Repeat password" required
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                  <button type="button" onClick={() => setShowRegPw2(v => !v)} className="text-muted-foreground hover:text-foreground">
+                    {showRegPw2 ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Trading profile divider */}
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
+                <div className="relative flex justify-center"><span className="px-2 bg-card text-xs text-muted-foreground">Trading Profile (optional)</span></div>
+              </div>
+
+              {/* Trading Level */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Trading Level</label>
+                <select value={regTradingLevel} onChange={e => setRegTradingLevel(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-secondary/20 text-sm text-foreground focus:outline-none focus:border-primary transition-colors">
+                  <option value="">Select level</option>
+                  <option value="beginner">Beginner (0–1 year)</option>
+                  <option value="intermediate">Intermediate (1–3 years)</option>
+                  <option value="advanced">Advanced (3–5 years)</option>
+                  <option value="expert">Expert (5+ years)</option>
+                </select>
+              </div>
+
+              {/* Market Type */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Primary Market</label>
+                <select value={regMarketType} onChange={e => setRegMarketType(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-secondary/20 text-sm text-foreground focus:outline-none focus:border-primary transition-colors">
+                  <option value="">Select market</option>
+                  <option value="forex">Forex</option>
+                  <option value="crypto">Crypto</option>
+                  <option value="stocks">Stocks</option>
+                  <option value="commodities">Commodities (Gold, Oil)</option>
+                  <option value="indices">Indices</option>
+                  <option value="multi">Multiple Markets</option>
+                </select>
+              </div>
+
+              {/* Trading Type */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Trading Style</label>
+                <select value={regTradingType} onChange={e => setRegTradingType(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-secondary/20 text-sm text-foreground focus:outline-none focus:border-primary transition-colors">
+                  <option value="">Select style</option>
+                  <option value="scalper">Scalper</option>
+                  <option value="day_trader">Day Trader</option>
+                  <option value="swing_trader">Swing Trader</option>
+                  <option value="position_trader">Position Trader</option>
+                </select>
+              </div>
+
               <button type="submit" disabled={loading}
                 className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 mt-1">
                 {loading ? "Creating account..." : "Create Account"}
