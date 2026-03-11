@@ -1,11 +1,44 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, RefreshCw, KeyRound } from "lucide-react"
 import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Countdown timer badge
+// ─────────────────────────────────────────────────────────────────────────────
+function CountdownBadge({ seconds }: { seconds: number }) {
+  const urgent = seconds <= 10
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-semibold"
+      style={{
+        background:  urgent ? "rgba(239,68,68,0.1)"          : "rgba(252,213,53,0.08)",
+        borderColor: urgent ? "rgba(239,68,68,0.35)"         : "rgba(252,213,53,0.25)",
+        color:       urgent ? "#f87171"                      : "#FCD535",
+        transition:  "all 0.4s ease",
+        boxShadow:   urgent ? "0 0 10px rgba(239,68,68,0.15)" : "none",
+      }}
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+        style={{
+          background: urgent ? "#f87171" : "#FCD535",
+          animation:  urgent ? "pulse 0.8s ease-in-out infinite" : "pulse 2s ease-in-out infinite",
+        }}
+      />
+      Access Window: {seconds}s
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main form — no intro animation, renders instantly
+// ─────────────────────────────────────────────────────────────────────────────
+const ACCESS_WINDOW_SECONDS = 30
 
 export function AdminLoginForm() {
   const router = useRouter()
@@ -16,23 +49,29 @@ export function AdminLoginForm() {
   const [isChecking, setIsChecking]               = useState(true)
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
   const [inputFocused, setInputFocused]           = useState(false)
-  const autoCreated = useRef(false)
+  const [timeLeft, setTimeLeft]                   = useState(ACCESS_WINDOW_SECONDS)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startTimer = useCallback(() => {
+    if (timerRef.current) return
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!)
+          router.push("/")
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
+  }, [router])
 
   useEffect(() => {
     if (isSessionValid()) { router.push("/admin"); return }
-    // Auto-create admin account on first visit (no manual setup step required)
-    if (!autoCreated.current) {
-      autoCreated.current = true
-      const adminEmail    = "sheikhahmed2724@gmail.com"
-      const adminPassword = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || "Shahidaxkaal"
-      import("@/lib/admin-auth").then(({ adminExists, createAdminAccount }) => {
-        if (!adminExists()) {
-          createAdminAccount(adminEmail, adminPassword, "OGXSHAHID", "+919541281829").catch(() => {})
-        }
-      })
-    }
     setIsChecking(false)
-  }, [router])
+    startTimer()
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [router, startTimer])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +83,7 @@ export function AdminLoginForm() {
     const r = await loginWithSecretKey(secretKey)
 
     if (r.success) {
+      if (timerRef.current) clearInterval(timerRef.current)
       router.push("/admin")
     } else {
       setError(r.error || "Invalid Key – Access Denied")
@@ -55,7 +95,7 @@ export function AdminLoginForm() {
   if (isChecking) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <RefreshCw className="w-5 h-5 text-primary animate-spin" />
+        <RefreshCw className="w-4 h-4 text-primary animate-spin" />
       </div>
     )
   }
@@ -72,8 +112,11 @@ export function AdminLoginForm() {
         Back to Home
       </Link>
 
+      <div className="fixed top-5 right-5">
+        <CountdownBadge seconds={timeLeft} />
+      </div>
+
       <div className="w-full max-w-sm">
-        {/* Wordmark */}
         <div className="text-center mb-8 select-none">
           <div
             className="w-2 h-2 rounded-full bg-primary mx-auto mb-5"
@@ -83,7 +126,6 @@ export function AdminLoginForm() {
           <p className="text-xs text-neutral-500 mt-1.5 tracking-[0.2em] uppercase">OG KAAL TRADER — Restricted</p>
         </div>
 
-        {/* Card */}
         <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl">
 
           {lock.locked && (
