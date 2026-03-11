@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Bebas_Neue } from 'next/font/google'
+import { Quattrocento } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { FirebaseProvider } from '@/components/firebase-provider'
@@ -7,12 +7,12 @@ import { PageLoader } from '@/components/page-loader'
 import { LanguageProvider } from '@/contexts/language-context'
 import './globals.css'
 
-const _bebasNeue = Bebas_Neue({
+const _quattrocento = Quattrocento({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "700"],
   display: "swap",
   preload: true,
-  variable: "--font-bebas",
+  variable: "--font-quattrocento",
 })
 
 export const viewport: Viewport = {

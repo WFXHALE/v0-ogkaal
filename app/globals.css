@@ -85,7 +85,7 @@ html {
 }
 
 @theme inline {
-  --font-sans: 'Bebas Neue', 'Arial Narrow', 'Impact', sans-serif;
+  --font-sans: 'Quattrocento', 'Georgia', 'Times New Roman', serif;
   --font-mono: ui-monospace, 'Cascadia Code', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -131,13 +131,6 @@ html {
   }
   body {
     @apply bg-background text-foreground;
-    /* Bebas Neue renders larger — slightly reduce base size for body copy */
-    font-size: 0.95rem;
-    letter-spacing: 0.03em;
-  }
-  /* Body copy nodes that need normal tracking */
-  p, li, td, th, span, label, input, textarea, select, button {
-    letter-spacing: 0.02em;
   }
 }
 
