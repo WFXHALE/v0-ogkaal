@@ -183,6 +183,13 @@ export function AdminLoginForm() {
   const [timeLeft, setTimeLeft]               = useState(ACCESS_WINDOW_SECONDS)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Redirect when timer reaches 0 — must be in useEffect, never inside a setState updater
+  useEffect(() => {
+    if (timeLeft === 0) {
+      router.push("/")
+    }
+  }, [timeLeft, router])
+
   // Start the 30s countdown only after the intro finishes
   const startTimer = useCallback(() => {
     if (timerRef.current) return // already started
@@ -190,13 +197,12 @@ export function AdminLoginForm() {
       setTimeLeft(t => {
         if (t <= 1) {
           clearInterval(timerRef.current!)
-          router.push("/")
           return 0
         }
         return t - 1
       })
     }, 1000)
-  }, [router])
+  }, [])
 
   useEffect(() => {
     if (isSessionValid()) { router.push("/admin"); return }
