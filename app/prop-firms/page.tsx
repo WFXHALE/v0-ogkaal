@@ -20,6 +20,7 @@ type PropFirmData = {
   id: string
   name: string
   website: string
+  rating?: number          // out of 5, optional — shown if present
   accountSizes: string[]
   profitSplit: string
   payoutFrequency: string
@@ -53,6 +54,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "the5ers",
     name: "The 5%ers",
+    rating: 4.8,
     website: "https://the5ers.com",
     accountSizes: ["$5K", "$10K", "$20K", "$40K", "$80K", "$160K"],
     profitSplit: "Up to 100%",
@@ -68,6 +70,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "e8markets",
     name: "E8 Markets",
+    rating: 4.8,
     website: "https://e8markets.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
     profitSplit: "Up to 80%",
@@ -83,6 +86,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "fundingpips",
     name: "FundingPips",
+    rating: 4.3,
     website: "https://fundingpips.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
@@ -113,6 +117,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "alphacapital",
     name: "Alpha Capital",
+    rating: 4.4,
     website: "https://alphacapitalgroup.uk",
     accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
@@ -128,6 +133,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "fundednext",
     name: "FundedNext",
+    rating: 4.4,
     website: "https://fundednext.com",
     accountSizes: ["$6K", "$15K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 95%",
@@ -143,6 +149,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "goatfunded",
     name: "Goat Funded Trader",
+    rating: 4.54,
     website: "https://goatfundedtrader.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
@@ -158,6 +165,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "blueberryfunded",
     name: "Blueberry Funded",
+    rating: 3.8,
     website: "https://blueberryfunded.com",
     accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
@@ -173,6 +181,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "maventrading",
     name: "Maven Trading",
+    rating: 4.3,
     website: "https://maventrading.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 80%",
@@ -293,6 +302,7 @@ const FIRMS: PropFirmData[] = [
   {
     id: "instantfunding",
     name: "Instant Funding",
+    rating: 3.8,
     website: "https://instantfunding.io",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
@@ -320,9 +330,63 @@ const FIRMS: PropFirmData[] = [
     oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
     instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "10%" },
   },
+  {
+    id: "qtfunded",
+    name: "QT Funded",
+    rating: 3.9,
+    website: "https://qtfunded.com",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K"],
+    profitSplit: "Up to 85%",
+    payoutFrequency: "Bi-weekly",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    instantFunding: null,
+  },
 ]
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+function StarRating({ rating }: { rating: number }) {
+  const full    = Math.floor(rating)
+  const partial = rating - full          // e.g. 0.8 → 80% fill on the next star
+  const empty   = 5 - full - (partial > 0 ? 1 : 0)
+
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`Rating: ${rating} out of 5`}>
+      {/* Full stars */}
+      {Array.from({ length: full }).map((_, i) => (
+        <svg key={`f${i}`} className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ))}
+      {/* Partial star */}
+      {partial > 0 && (
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" aria-hidden="true">
+          <defs>
+            <linearGradient id={`partial-${rating}`}>
+              <stop offset={`${partial * 100}%`} stopColor="rgb(251 191 36)" />
+              <stop offset={`${partial * 100}%`} stopColor="transparent" />
+            </linearGradient>
+          </defs>
+          <path fill={`url(#partial-${rating})`} stroke="rgb(251 191 36)" strokeWidth="1.5"
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      )}
+      {/* Empty stars */}
+      {Array.from({ length: empty }).map((_, i) => (
+        <svg key={`e${i}`} className="w-3.5 h-3.5 text-border" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="none" stroke="currentColor" strokeWidth="1.5"
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ))}
+      <span className="text-[11px] font-semibold text-amber-400 ml-1">{rating.toFixed(1)}</span>
+    </span>
+  )
+}
 
 const YesNo = ({ value, size = "sm" }: { value: boolean; size?: "sm" | "xs" }) => (
   value
@@ -403,7 +467,10 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
             <Building2 className="w-4.5 h-4.5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-foreground text-sm leading-tight">{firm.name}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-foreground text-sm leading-tight">{firm.name}</p>
+              {firm.rating !== undefined && <StarRating rating={firm.rating} />}
+            </div>
             <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{firm.profitSplit} split · {firm.payoutFrequency}</p>
           </div>
         </div>
