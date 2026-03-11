@@ -509,7 +509,7 @@ function AuthScreen({
   )
 }
 
-// ── Session Timeout Overlay ───────────────────────────────────────────────────
+// ── Session Timeout Overlay ���──────────────────────────────────────────────────
 
 function TimeoutOverlay({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -634,6 +634,11 @@ export default function ClientDashboard() {
   useEffect(() => {
     const s = getSession()
     if (s) {
+      // Redirect admin to admin panel silently
+      if (s.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
+        window.location.href = "/admin"
+        return
+      }
       setSessionState(s)
       // Always fetch backup code fresh from DB so it is always available
       fetchBackupCode(s.id).then(code => {
@@ -684,7 +689,14 @@ export default function ClientDashboard() {
 
   useEffect(() => { if (session) loadData(session) }, [session, loadData])
 
+  const ADMIN_EMAIL = "sheikhahmed2724@gmail.com"
+
   const handleAuth = (s: DashboardSession) => {
+    // Redirect admin straight to the admin panel
+    if (s.email.trim().toLowerCase() === ADMIN_EMAIL) {
+      window.location.href = "/admin"
+      return
+    }
     setSessionState(s)
     // Always fetch fresh from DB — auto-generates if the user has no code yet
     fetchBackupCode(s.id).then(code => {

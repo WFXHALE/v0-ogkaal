@@ -359,11 +359,11 @@ async function seedPosts(): Promise<Post[]> {
     await sb.from("community_users").insert({
       id:         ADMIN_ID,
       full_name:  "Shahid Bashir",
-      email:      "Swargakai@gmail.com",
-      phone:      "0000000000",
+      email:      "sheikhahmed2724@gmail.com",
+      phone:      "+919541281829",
       level:      "Master Trader",
-      bio:        "Founder of OG KAAL TRADER. Master Trader & Mentor.",
-      avatar:     avatarUrl("Shahid Bashir", "Master Trader"),
+      bio:        "Founder of OG KAAL TRADER | FX KAAL TRADER. Master Trader & Mentor. Teaching Smart Money Concepts (SMC) and ICT trading models.",
+      avatar:     "https://ui-avatars.com/api/?name=Shahid+Bashir&background=FCD535&color=000&bold=true&size=128",
       is_admin:   true,
     })
   }
