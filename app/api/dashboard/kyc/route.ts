@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Please provide at least one verification detail." }, { status: 400 })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Check user exists
     const { data: user, error: fetchErr } = await supabase
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
     if (updateErr) return NextResponse.json({ error: "Failed to submit. Please try again." }, { status: 500 })
 
     return NextResponse.json({ success: true, kycStatus: "pending" })
-  } catch {
+  } catch (err) {
+    console.error("[KYC] Unexpected error:", err)
     return NextResponse.json({ error: "Server error." }, { status: 500 })
   }
 }
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get("userId")
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 })
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from("dashboard_users")
     .select("kyc_status, kyc_submitted_at, is_verified")
