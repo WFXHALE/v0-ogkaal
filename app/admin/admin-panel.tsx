@@ -28,7 +28,6 @@ import {
   loadSystemConfig, saveSystemConfig,
   loadPricing, savePricing,
   loadAdminProfile, saveAdminProfile,
-  loadReadIds, saveReadIds,
   DEFAULT_PRICING,
   type PricingConfig,
 } from "@/lib/admin-settings"
@@ -53,7 +52,7 @@ type Section =
 interface Submission {
   id: string
   userId?: string
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "support" | "member" | "other"
   name: string
   email?: string
   telegram?: string
@@ -287,38 +286,14 @@ export default function AdminPanel() {
         fetch("/api/admin/notifications").then(r => r.json()).catch(() => ({ ok: false })),
       ])
 
-      if (subRes.ok && subRes.data?.length > 0) {
-        setSubmissions(subRes.data)
-      } else {
-        // Fallback to localStorage if DB has no data yet
-        const stored = localStorage.getItem("og_admin_submissions")
-        setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
-      }
-
-      if (buyRes.ok && buyRes.data) {
-        const live: typeof DEMO_BUY = buyRes.data
-        setUsdtBuy(live.length > 0 ? live : DEMO_BUY)
-      }
-
-      if (sellRes.ok && sellRes.data) {
-        const live: typeof DEMO_SELL = sellRes.data
-        setUsdtSell(live.length > 0 ? live : DEMO_SELL)
-      }
-
-      if (notifRes.ok && notifRes.data) {
-        const live: AdminNotification[] = notifRes.data
-        setNotifications(live.length > 0 ? live : DEMO_NOTIFICATIONS)
-      } else {
-        // Fallback: localStorage with persisted read IDs
-        const notifStored = localStorage.getItem("og_admin_notifications")
-        setNotifications(notifStored ? JSON.parse(notifStored) : DEMO_NOTIFICATIONS)
-      }
+      // Always use DB result — empty array if no data (no localStorage fallback)
+      if (subRes.ok)   setSubmissions(subRes.data ?? [])
+      if (buyRes.ok)   setUsdtBuy(buyRes.data ?? [])
+      if (sellRes.ok)  setUsdtSell(sellRes.data ?? [])
+      if (notifRes.ok) setNotifications(notifRes.data ?? [])
     } finally {
       if (opts?.spinning) setRefreshing(false)
     }
-
-    const sysStored = localStorage.getItem("og_admin_system")
-    if (sysStored) setSystemSettings(s => ({ ...s, ...JSON.parse(sysStored) }))
 
     setTwoFAEnabled(localStorage.getItem("og_admin_2fa") === "true")
     setSecurityLogs(getSecurityLogs())
@@ -429,22 +404,12 @@ export default function AdminPanel() {
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
-    loadReadIds().then(({ read_ids }) => {
-      if (read_ids.length > 0) {
-        setNotifications(ns => ns.map(n => read_ids.includes(n.id) ? { ...n, read: true } : n))
-      }
-    })
     // Pre-fetch dashboard DB stats
     fetch("/api/admin/analytics")
       .then(r => r.json())
       .then(d => { if (d.ok) setDbStats(d.stats) })
       .catch(() => {})
   }, [router, loadData])
-
-  const saveSubmissions = (updated: Submission[]) => {
-    setSubmissions(updated)
-    localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
-  }
 
   // ── Telegram helpers ─────────────────────────────────────────────────────────
   const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
@@ -519,20 +484,14 @@ export default function AdminPanel() {
 
   const deleteSubmission = async (id: string) => {
     if (!confirm("Delete this submission?")) return
-    // Remove from UI immediately
+    // Remove from UI immediately for instant feedback
     setSubmissions(prev => prev.filter(s => s.id !== id))
-    // Persist deletion to Supabase — fire and forget, silently ignore errors
+    // Persist deletion to Supabase
     fetch("/api/admin/submissions", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).catch(() => {})
-    // Also remove from localStorage cache
-    const stored = localStorage.getItem("og_admin_submissions")
-    if (stored) {
-      const updated = (JSON.parse(stored) as Submission[]).filter(s => s.id !== id)
-      localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
-    }
   }
 
   const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
@@ -613,9 +572,6 @@ export default function AdminPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).catch(() => {})
-    // Also maintain legacy read IDs in admin_settings for backward compat
-    const allIds = notifications.filter(n => n.id === id || n.read).map(n => n.id)
-    saveReadIds(allIds).catch(() => {})
   }
 
   const markAllRead = () => {
@@ -2147,7 +2103,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Memberships Manager ───────────────────────────────────────────────────────
+  // ── Memberships Manager ───────────────────���───────────────────────────────────
   const renderMemberships = () => {
     const filtered = membershipsData.filter(m =>
       !membershipSearch ||

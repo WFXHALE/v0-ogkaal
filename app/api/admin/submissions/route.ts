@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const supabase = await createClient()
+    const { error } = await supabase.from("admin_submissions").insert({
+      type:           body.type,
+      name:           body.name,
+      email:          body.email   ?? null,
+      phone:          body.phone   ?? null,
+      telegram:       body.telegram ?? null,
+      details:        body.details ?? {},
+      status:         body.status  ?? "pending",
+      ip_address:     body.ip_address ?? null,
+      location:       body.location   ?? null,
+      wallet_address: body.wallet_address ?? null,
+      upi_id:         body.upi_id        ?? null,
+      inr_equivalent: body.inr_equivalent ?? null,
+      amount_paid:    body.amount_paid    ?? null,
+      screenshot_url: body.screenshot_url ?? null,
+    })
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
