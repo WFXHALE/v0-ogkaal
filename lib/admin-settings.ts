@@ -24,13 +24,13 @@ export type PricingConfig = {
 }
 
 export const DEFAULT_PRICING: PricingConfig = {
-  mentorship_1:           "₹4,999",
-  mentorship_2:           "₹7,999",
-  crypto_mentorship:      "₹9,999",
+  mentorship_1:           "₹6,500",
+  mentorship_2:           "₹15,000",
+  crypto_mentorship:      "₹20,000",
   vip_signal:             "₹2,999",
-  funded_account:         "₹14,999",
-  vip_signal_xm_existing: "₹1,999",
-  vip_signal_xm_new:      "₹999",
+  funded_account:         "₹5,000",
+  vip_signal_xm_existing: "₹2,000",
+  vip_signal_xm_new:      "₹2,500",
 }
 
 export const DEFAULT_SYSTEM: SystemConfig = {
@@ -77,6 +77,3 @@ export const savePricing       = (v: PricingConfig) => setSetting("pricing", v)
 
 export const loadAdminProfile  = () => getSetting<{ name: string; phone: string }>("admin_profile", { name: "", phone: "" })
 export const saveAdminProfile  = (v: { name: string; phone: string }) => setSetting("admin_profile", v)
-
-export const loadReadIds       = () => getSetting<{ read_ids: string[] }>("notifications_read", { read_ids: [] })
-export const saveReadIds       = (ids: string[]) => setSetting("notifications_read", { read_ids: ids })

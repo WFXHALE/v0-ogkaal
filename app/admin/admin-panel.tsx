@@ -12,7 +12,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Menu, Folder, Lock,
   Globe, ToggleLeft, ToggleRight, Mail, Phone,
   ExternalLink, Send, Bot, Zap, Settings,
-  Crown, UserPlus,
+  Crown, UserPlus, Save,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -234,6 +234,7 @@ export default function AdminPanel() {
   // ── Pricing config (DB-backed) ───────────────────────────────────────────────
   const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
   const [pricingSaving, setPricingSaving]       = useState(false)
+  const [pricingSaved,  setPricingSaved]        = useState(false)
 
   // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
   const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
@@ -1622,36 +1623,52 @@ export default function AdminPanel() {
       <div className="rounded-xl bg-card border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-foreground text-sm">Pricing — All Plans</h3>
-          {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+          <div className="flex items-center gap-2">
+            {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+            {pricingSaved && <span className="text-xs text-green-400">Saved to database</span>}
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">Changes are saved to the database and shown on checkout pages immediately.</p>
+        <p className="text-xs text-muted-foreground">Edit prices below then click Save. Changes are written directly to the database and reflected immediately on all frontend pages.</p>
         {([
-          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "XM Existing User"   },
-          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "XM New User"         },
-          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account User" },
-          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"         },
-          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"      },
-          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"      },
-          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"   },
+          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP Group — XM Existing User",   group: "VIP Group" },
+          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP Group — XM New User",         group: "VIP Group" },
+          { key: "funded_account"         as keyof PricingConfig, label: "VIP Group — Funded Account User", group: "VIP Group" },
+          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals",                      group: "Other"     },
+          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0",                   group: "Mentorship" },
+          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0",                   group: "Mentorship" },
+          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship",                group: "Mentorship" },
         ]).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-48 shrink-0">{label}</label>
+            <label className="text-sm text-foreground w-56 shrink-0">{label}</label>
             <input
               value={pricingConfig[key]}
               onChange={e => setPricingConfig(p => ({ ...p, [key]: e.target.value }))}
-              onBlur={async () => {
-                setPricingSaving(true)
-                await savePricing(pricingConfig)
-                // Merge pricing into og_site_config so useSiteConfig picks it up immediately
-                const merged = { ...systemSettings, ...pricingConfig }
-                localStorage.setItem("og_site_config", JSON.stringify(merged))
-                window.dispatchEvent(new Event("og_site_config_change"))
-                setPricingSaving(false)
-              }}
+              placeholder="e.g. ₹2,000"
               className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
             />
           </div>
         ))}
+        <button
+          onClick={async () => {
+            // Capture current state snapshot — avoids async stale-closure bug
+            const snapshot = { ...pricingConfig }
+            setPricingSaving(true)
+            setPricingSaved(false)
+            await savePricing(snapshot)
+            // Bust frontend cache: write merged config to localStorage and fire event
+            const merged = { ...systemSettings, ...snapshot }
+            localStorage.setItem("og_site_config", JSON.stringify(merged))
+            window.dispatchEvent(new Event("og_site_config_change"))
+            setPricingSaving(false)
+            setPricingSaved(true)
+            setTimeout(() => setPricingSaved(false), 3000)
+          }}
+          disabled={pricingSaving}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {pricingSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {pricingSaving ? "Saving..." : "Save Prices"}
+        </button>
       </div>
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
         <h3 className="font-semibold text-foreground text-sm">Payment Instructions</h3>

@@ -1,4 +1,4 @@
-// cache-bust: 2026-03-11
+// cache-bust: 2026-03-12
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
@@ -21,30 +21,39 @@ const nextConfig: NextConfig = {
   // Headers for performance
   async headers() {
     return [
+      // Security headers for all routes
       {
         source: "/:path*",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options",         value: "DENY"    },
+        ],
+      },
+      // Static assets only — long-lived immutable cache
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
       {
         source: "/public/:path*",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      // API routes — never cache (DB data must always be fresh)
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+        ],
+      },
+      // Page routes — short revalidation so pricing changes appear quickly
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         ],
       },
     ]
