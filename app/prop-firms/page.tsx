@@ -574,20 +574,59 @@ function AccountModelBlock({ label, model }: { label: string; model: AccountMode
   )
 }
 
+type ChallengeType = "two-step" | "one-step" | "instant"
+
 function FirmCard({ firm }: { firm: PropFirmData }) {
-  const [open, setOpen] = useState(false)
+  const [open,           setOpen]           = useState(false)
+  const [challengeType,  setChallengeType]  = useState<ChallengeType>("two-step")
+  const [selectedSize,   setSelectedSize]   = useState<string | null>(null)
+
+  // Determine which challenge types this firm supports
+  const availableTabs: { id: ChallengeType; label: string; model: AccountModel | null }[] = [
+    { id: "two-step", label: "2-Step",  model: firm.twoStep },
+    { id: "one-step", label: "1-Step",  model: firm.oneStep },
+    { id: "instant",  label: "Instant", model: firm.instantFunding },
+  ].filter(t => t.model !== null) as { id: ChallengeType; label: string; model: AccountModel }[]
+
+  // When the card opens, default to the first available tab
+  const handleOpen = () => {
+    setOpen(o => {
+      if (!o && availableTabs.length > 0) {
+        setChallengeType(availableTabs[0].id)
+        setSelectedSize(null)
+      }
+      return !o
+    })
+  }
+
+  // When challenge type changes, reset selected size
+  const handleTabChange = (tab: ChallengeType) => {
+    setChallengeType(tab)
+    setSelectedSize(null)
+  }
+
+  const activeModel = challengeType === "two-step" ? firm.twoStep
+    : challengeType === "one-step" ? firm.oneStep
+    : firm.instantFunding
+
+  const tabAccent: Record<ChallengeType, { active: string; ring: string }> = {
+    "two-step": { active: "bg-primary text-primary-foreground",       ring: "ring-primary/30" },
+    "one-step": { active: "bg-sky-500 text-white",                    ring: "ring-sky-500/30" },
+    "instant":  { active: "bg-emerald-500 text-white",                ring: "ring-emerald-500/30" },
+  }
 
   return (
     <article className="rounded-2xl border border-border bg-card overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/10">
-      {/* Header — always visible */}
+
+      {/* ── Header (always visible) ──────────────────────────────────────────── */}
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={handleOpen}
         className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-secondary/20 transition-colors"
         aria-expanded={open}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Building2 className="w-4.5 h-4.5 text-primary" />
+            <Building2 className="w-4 h-4 text-primary" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -605,59 +644,127 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
         </div>
       </button>
 
-      {/* Expanded content */}
+      {/* ── Expanded content ─────────────────────────────────────────────────── */}
       {open && (
-        <div className="border-t border-border/60 px-5 py-4 space-y-5">
+        <div className="border-t border-border/60 px-5 py-4 space-y-4">
 
-          {/* Account models row */}
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">Account Models</p>
-            <div className="grid grid-cols-3 gap-2">
-              <AccountModelBlock label="Two Step"       model={firm.twoStep} />
-              <AccountModelBlock label="One Step"       model={firm.oneStep} />
-              <AccountModelBlock label="Instant Funding" model={firm.instantFunding} />
-            </div>
-          </div>
-
-          {/* Rules row */}
-          <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">Rules</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Drawdown Type</span>
-                <DrawdownTypeBadge type={firm.drawdownType} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Consistency Rule</span>
-                <YesNo value={firm.consistencyRule} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Weekend Holding</span>
-                <YesNo value={firm.weekendHolding} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Overnight Holding</span>
-                <YesNo value={firm.overnightHolding} />
-              </div>
-            </div>
-          </div>
-
-          {/* Account sizes + profit split */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Challenge type tabs */}
+          {availableTabs.length > 0 ? (
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Account Sizes</p>
-              <div className="flex flex-wrap gap-1.5">
-                {firm.accountSizes.map(s => (
-                  <span key={s} className="text-[11px] px-2 py-0.5 rounded-lg bg-secondary/50 border border-border/60 font-mono text-foreground">{s}</span>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Challenge Type</p>
+              <div className="flex flex-wrap gap-2">
+                {availableTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                      challengeType === tab.id
+                        ? `${tabAccent[tab.id].active} border-transparent shadow-sm ring-2 ${tabAccent[tab.id].ring}`
+                        : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
               </div>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">No challenge models available for this firm.</p>
+          )}
+
+          {/* Account size selector */}
+          {activeModel && (
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Profit Split</p>
-              <span className="text-sm font-bold text-primary">{firm.profitSplit}</span>
-              <p className="text-[10px] text-muted-foreground mt-1">Payout: {firm.payoutFrequency}</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                Account Size <span className="normal-case font-normal">(tap to see rules)</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {firm.accountSizes.map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(s => s === size ? null : size)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-mono font-semibold transition-all min-h-[40px] ${
+                      selectedSize === size
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/30"
+                        : "border-border bg-secondary/40 text-foreground hover:bg-secondary/70 hover:border-primary/30"
+                    }`}
+                    aria-pressed={selectedSize === size}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Rules panel — shown when an account size is selected */}
+          {activeModel && selectedSize && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Rules for</p>
+                  <p className="text-sm font-bold text-foreground">{firm.name} — {selectedSize} Account</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${
+                    challengeType === "two-step" ? "bg-primary/20 text-primary border-primary/30"
+                    : challengeType === "one-step" ? "bg-sky-500/15 text-sky-400 border-sky-500/25"
+                    : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                  }`}>
+                    {challengeType === "two-step" ? "2-Step" : challengeType === "one-step" ? "1-Step" : "Instant Funding"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Challenge rules */}
+                {activeModel.profitTarget && (
+                  <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                    <span className="text-xs text-muted-foreground">Profit Target</span>
+                    <span className="text-xs font-bold text-foreground">{activeModel.profitTarget}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Max Drawdown</span>
+                  <span className="text-xs font-bold text-foreground">{activeModel.maxDrawdown}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Daily Drawdown</span>
+                  <span className="text-xs font-bold text-foreground">{activeModel.dailyDrawdown}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Profit Split</span>
+                  <span className="text-xs font-bold text-primary">{firm.profitSplit}</span>
+                </div>
+                {/* Firm-level rules */}
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Consistency Rule</span>
+                  <YesNo value={firm.consistencyRule} size="xs" />
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Weekend Holding</span>
+                  <YesNo value={firm.weekendHolding} size="xs" />
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Overnight Holding</span>
+                  <YesNo value={firm.overnightHolding} size="xs" />
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Drawdown Type</span>
+                  <DrawdownTypeBadge type={firm.drawdownType} />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground pt-1">Payout: {firm.payoutFrequency}</p>
+            </div>
+          )}
+
+          {/* Prompt when no size selected yet */}
+          {activeModel && !selectedSize && (
+            <p className="text-xs text-muted-foreground italic text-center py-2">
+              Select an account size above to view the full trading rules.
+            </p>
+          )}
 
           {/* Website link */}
           <a
