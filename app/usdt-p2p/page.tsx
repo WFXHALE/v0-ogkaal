@@ -21,10 +21,12 @@ import {
   Send,
   QrCode,
   Receipt,
-  FileCheck
+  FileCheck,
+  HelpCircle,
 } from "lucide-react"
 import { useState, useRef } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
+import { UsdtHelpModal } from "@/components/usdt-help-modal"
 
 const TELEGRAM_LINK = "https://t.me/ogkaaltrader"
 
@@ -66,6 +68,8 @@ const PAYMENT_DETAILS = {
 export default function UsdtP2PPage() {
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
   const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
@@ -278,7 +282,7 @@ export default function UsdtP2PPage() {
 
                 {/* CTA Button or Form */}
                 {step === 0 && !isComplete && (
-                  <div className="text-center">
+                  <div className="flex flex-col items-center gap-3">
                     <Button
                       onClick={() => setStep(1)}
                       className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
@@ -286,6 +290,13 @@ export default function UsdtP2PPage() {
                       Buy USDT Now
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
+                    <button
+                      onClick={() => { setHelpMode("buy"); setHelpOpen(true) }}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                      Help / Support
+                    </button>
                   </div>
                 )}
               </>
@@ -295,9 +306,18 @@ export default function UsdtP2PPage() {
             {activeTab === "sell" && (
               <div className="max-w-2xl mx-auto">
                 <div className="p-6 rounded-2xl bg-card border border-border">
-                  <div className="flex items-center justify-center gap-2 mb-6">
-                    <TrendingUp className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-semibold text-foreground">Sell USDT</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold text-foreground">Sell USDT</h3>
+                    </div>
+                    <button
+                      onClick={() => { setHelpMode("sell"); setHelpOpen(true) }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      Help
+                    </button>
                   </div>
 
                   {/* Pricing Tiers Display */}
@@ -1443,6 +1463,8 @@ export default function UsdtP2PPage() {
           </p>
         </div>
       </section>
+
+      <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <Footer />
     </div>
