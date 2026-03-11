@@ -10,7 +10,7 @@ export async function GET() {
     const todayIso        = todayStart.toISOString()
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    // Run all queries in parallel — only against tables that exist in the DB
+    // Run all queries in parallel — only against tables confirmed to exist in the DB
     const [
       { count: totalUsers },
       { count: verifiedUsers },
@@ -20,7 +20,6 @@ export async function GET() {
       { data: recentSignups },
       { data: visitorRows },
       { data: membershipBreakdown },
-      { data: loginRows },
     ] = await Promise.all([
       supabase.from("dashboard_users").select("*", { count: "exact", head: true }),
       supabase.from("dashboard_users").select("*", { count: "exact", head: true }).eq("is_verified", true),
@@ -39,11 +38,6 @@ export async function GET() {
       supabase.from("memberships")
         .select("plan, status")
         .limit(500),
-      // dashboard_sessions for login activity (last 14 days)
-      supabase.from("dashboard_sessions")
-        .select("created_at")
-        .gte("created_at", fourteenDaysAgo)
-        .order("created_at", { ascending: true }),
     ])
 
     // Aggregate visitor page-views by calendar date
@@ -60,17 +54,6 @@ export async function GET() {
       const key = d.toISOString().slice(0, 10)
       visitors14d.push({ date: key, count: visitorsByDate[key] ?? 0 })
     }
-
-    // Aggregate login activity by date (same window)
-    const loginsByDate: Record<string, number> = {}
-    for (const row of (loginRows ?? [])) {
-      const date = String(row.created_at ?? "").slice(0, 10)
-      if (date) loginsByDate[date] = (loginsByDate[date] ?? 0) + 1
-    }
-    const logins14d: { date: string; count: number }[] = visitors14d.map(v => ({
-      date: v.date,
-      count: loginsByDate[v.date] ?? 0,
-    }))
 
     // Total site visits in window
     const totalVisits14d = visitors14d.reduce((s, v) => s + v.count, 0)
@@ -112,7 +95,6 @@ export async function GET() {
       },
       recentSignups:  recentSignups ?? [],
       visitors14d,
-      logins14d,
       signups14d,
       planBreakdown: Object.entries(planCounts).map(([plan, count]) => ({ plan, count })),
     })

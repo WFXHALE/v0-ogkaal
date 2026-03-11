@@ -174,7 +174,7 @@ function downloadCSV(rows: Record<string, unknown>[], filename: string) {
   URL.revokeObjectURL(url)
 }
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
+// ─── Demo data ─────────────────────────────────────���──────────────────────────
 
 const DEMO_SUBMISSIONS: Submission[] = [
   { id: "1", userId: "USER-0001", type: "mentorship", name: "Rahul Kumar", email: "rahul@example.com", telegram: "@rahulk", phone: "+91 76543 21098", details: { program: "Mentorship 2.0" }, status: "pending", paymentMethod: "UPI", amount: "₹4,999", utr: "UTR123456789", screenshotUrl: "", ipAddress: "49.207.89.123", location: "Bangalore, India", createdAt: new Date(Date.now() - 24 * 3600000).toISOString() },
@@ -262,6 +262,9 @@ export default function AdminPanel() {
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
 
+  // ── Global refresh state ─────────────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false)
+
   // ── Indicators state ─────────────────────────────────────────────────────────
   const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
   const [indicatorsLoading, setIndicatorsLoading] = useState(false)
@@ -273,22 +276,46 @@ export default function AdminPanel() {
   const [indicatorEditId,   setIndicatorEditId]   = useState<string | null>(null)
   const [indicatorMsg,      setIndicatorMsg]      = useState<{ ok: boolean; text: string } | null>(null)
 
-  const loadData = useCallback(() => {
-    const stored = localStorage.getItem("og_admin_submissions")
-    setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
-    if (!stored) localStorage.setItem("og_admin_submissions", JSON.stringify(DEMO_SUBMISSIONS))
+  const loadData = useCallback(async (opts?: { spinning?: boolean }) => {
+    if (opts?.spinning) setRefreshing(true)
+    try {
+      // Load all live data from Supabase-backed API routes in parallel
+      const [subRes, buyRes, sellRes, notifRes] = await Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/notifications").then(r => r.json()).catch(() => ({ ok: false })),
+      ])
 
-    const buyStored = localStorage.getItem("og_admin_usdt_buy")
-    setUsdtBuy(buyStored ? JSON.parse(buyStored) : DEMO_BUY)
-    if (!buyStored) localStorage.setItem("og_admin_usdt_buy", JSON.stringify(DEMO_BUY))
+      if (subRes.ok && subRes.data?.length > 0) {
+        setSubmissions(subRes.data)
+      } else {
+        // Fallback to localStorage if DB has no data yet
+        const stored = localStorage.getItem("og_admin_submissions")
+        setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
+      }
 
-    const sellStored = localStorage.getItem("og_admin_usdt_sell")
-    setUsdtSell(sellStored ? JSON.parse(sellStored) : DEMO_SELL)
-    if (!sellStored) localStorage.setItem("og_admin_usdt_sell", JSON.stringify(DEMO_SELL))
+      if (buyRes.ok && buyRes.data) {
+        const live: typeof DEMO_BUY = buyRes.data
+        setUsdtBuy(live.length > 0 ? live : DEMO_BUY)
+      }
 
-    const notifStored = localStorage.getItem("og_admin_notifications")
-    setNotifications(notifStored ? JSON.parse(notifStored) : DEMO_NOTIFICATIONS)
-    if (!notifStored) localStorage.setItem("og_admin_notifications", JSON.stringify(DEMO_NOTIFICATIONS))
+      if (sellRes.ok && sellRes.data) {
+        const live: typeof DEMO_SELL = sellRes.data
+        setUsdtSell(live.length > 0 ? live : DEMO_SELL)
+      }
+
+      if (notifRes.ok && notifRes.data) {
+        const live: AdminNotification[] = notifRes.data
+        setNotifications(live.length > 0 ? live : DEMO_NOTIFICATIONS)
+      } else {
+        // Fallback: localStorage with persisted read IDs
+        const notifStored = localStorage.getItem("og_admin_notifications")
+        setNotifications(notifStored ? JSON.parse(notifStored) : DEMO_NOTIFICATIONS)
+      }
+    } finally {
+      if (opts?.spinning) setRefreshing(false)
+    }
 
     const sysStored = localStorage.getItem("og_admin_system")
     if (sysStored) setSystemSettings(s => ({ ...s, ...JSON.parse(sysStored) }))
@@ -318,6 +345,26 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setAnalyticsData(d); })
         .finally(() => setAnalyticsLoading(false))
+    } else if (activeSection === "notifications") {
+      fetch("/api/admin/notifications")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setNotifications(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "payment-verification") {
+      fetch("/api/admin/submissions")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setSubmissions(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "usdt-buy") {
+      fetch("/api/admin/usdt-buy")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setUsdtBuy(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "usdt-sell") {
+      fetch("/api/admin/usdt-sell")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setUsdtSell(d.data) })
+        .catch(() => {})
     } else if (activeSection === "members") {
       // Also pull live users from Supabase to merge with localStorage demo data
       import("@/lib/supabase/client").then(({ createClient }) => {
@@ -412,7 +459,13 @@ export default function AdminPanel() {
   }
 
   const updateStatus = async (id: string, status: Submission["status"]) => {
-    saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
+    setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status } : s))
+    // Persist status change to Supabase
+    fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
 
     const sub = submissions.find(s => s.id === id)
@@ -464,9 +517,22 @@ export default function AdminPanel() {
     }
   }
 
-  const deleteSubmission = (id: string) => {
+  const deleteSubmission = async (id: string) => {
     if (!confirm("Delete this submission?")) return
-    saveSubmissions(submissions.filter(s => s.id !== id))
+    // Remove from UI immediately
+    setSubmissions(prev => prev.filter(s => s.id !== id))
+    // Persist deletion to Supabase — fire and forget, silently ignore errors
+    fetch("/api/admin/submissions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
+    // Also remove from localStorage cache
+    const stored = localStorage.getItem("og_admin_submissions")
+    if (stored) {
+      const updated = (JSON.parse(stored) as Submission[]).filter(s => s.id !== id)
+      localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
+    }
   }
 
   const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
@@ -485,9 +551,13 @@ export default function AdminPanel() {
 
   const updateBuyStatus = (id: string, status: USDTBuyRequest["status"]) => {
     const order = usdtBuy.find(r => r.id === id)
-    const updated = usdtBuy.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtBuy(updated)
-    localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    setUsdtBuy(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    // Persist to Supabase
+    fetch("/api/admin/usdt-buy", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     // Fire targeted push notification to the affected user
     const msg = USDT_BUY_MESSAGES[status]
     if (msg && order?.userId) {
@@ -509,9 +579,13 @@ export default function AdminPanel() {
 
   const updateSellStatus = (id: string, status: USDTSellRequest["status"]) => {
     const order = usdtSell.find(r => r.id === id)
-    const updated = usdtSell.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtSell(updated)
-    localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    setUsdtSell(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    // Persist to Supabase
+    fetch("/api/admin/usdt-sell", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     // Fire targeted push notification to the affected user
     const msg = USDT_SELL_MESSAGES[status]
     if (msg && order?.userId) {
@@ -532,19 +606,26 @@ export default function AdminPanel() {
   }
 
   const markNotifRead = (id: string) => {
-    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n)
-    setNotifications(updated)
-    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
-    // Persist all read IDs to DB
-    saveReadIds(updated.filter(n => n.read).map(n => n.id)).catch(() => {})
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    // Persist to Supabase admin_notifications table
+    fetch("/api/admin/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
+    // Also maintain legacy read IDs in admin_settings for backward compat
+    const allIds = notifications.filter(n => n.id === id || n.read).map(n => n.id)
+    saveReadIds(allIds).catch(() => {})
   }
 
   const markAllRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }))
-    setNotifications(updated)
-    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
-    // Persist read IDs to Supabase so they survive refresh
-    saveReadIds(updated.map(n => n.id)).catch(() => {})
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    // Persist to Supabase — mark ALL unread notifications as read
+    fetch("/api/admin/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    }).catch(() => {})
   }
 
   // Navigate to the relevant section and open detail when notification is clicked
@@ -926,7 +1007,14 @@ export default function AdminPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-foreground">Payment Verification</h2>
-        <button onClick={loadData} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><RefreshCw className="w-4 h-4" /> Refresh</button>
+        <button
+          onClick={() => loadData({ spinning: true })}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-opacity"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
       <div className="rounded-xl bg-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
@@ -1088,10 +1176,20 @@ export default function AdminPanel() {
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <ArrowDownLeft className="w-6 h-6 text-green-400" />
-          <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
-          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <ArrowDownLeft className="w-6 h-6 text-green-400" />
+            <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
+            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
+          </div>
+          <button
+            onClick={() => { setRefreshing(true); fetch("/api/admin/usdt-buy").then(r => r.json()).then(d => { if (d.ok && d.data) setUsdtBuy(d.data) }).finally(() => setRefreshing(false)) }}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order. Notifications are sent automatically.</p>
         <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
@@ -1109,10 +1207,20 @@ export default function AdminPanel() {
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <ArrowUpRight className="w-6 h-6 text-amber-400" />
-          <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
-          <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <ArrowUpRight className="w-6 h-6 text-amber-400" />
+            <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
+            <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+          </div>
+          <button
+            onClick={() => { setRefreshing(true); fetch("/api/admin/usdt-sell").then(r => r.json()).then(d => { if (d.ok && d.data) setUsdtSell(d.data) }).finally(() => setRefreshing(false)) }}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI. Notifications are sent automatically.</p>
         <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
@@ -1194,7 +1302,17 @@ export default function AdminPanel() {
 
   const renderMembers = () => (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">Member Database</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-foreground">Member Database</h2>
+        <button
+          onClick={() => loadData({ spinning: true })}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={memberSearch} onChange={e => setMemberSearch(e.target.value)}
@@ -1259,6 +1377,14 @@ export default function AdminPanel() {
             {unreadCount > 0 && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">{unreadCount} new</span>}
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setRefreshing(true); fetch("/api/admin/notifications").then(r => r.json()).then(d => { if (d.ok && d.data) setNotifications(d.data) }).finally(() => setRefreshing(false)) }}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
             <button
               onClick={() => saveSystem({ notifEnabled: !systemSettings.notifEnabled })}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${systemSettings.notifEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-border"}`}>

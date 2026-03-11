@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("usdt_buy_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500)
+    if (error) throw error
+    // Normalize snake_case → camelCase to match admin panel interface
+    const normalized = (data ?? []).map(r => ({
+      id:            r.id,
+      userId:        r.user_id,
+      name:          r.name,
+      email:         r.email,
+      phone:         r.phone,
+      telegram:      r.telegram ?? "",
+      walletAddress: r.wallet_address,
+      txId:          r.transaction_id,
+      screenshotUrl: r.screenshot_url,
+      amountUsdt:    r.amount_usdt,
+      inrEquivalent: r.inr_equivalent,
+      amountPaid:    r.amount_paid,
+      status:        r.status,
+      createdAt:     r.created_at,
+    }))
+    return NextResponse.json({ ok: true, data: normalized })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, status } = await req.json()
+    if (!id || !status) return NextResponse.json({ ok: false, error: "Missing id or status" }, { status: 400 })
+    const supabase = await createClient()
+    const { error } = await supabase.from("usdt_buy_requests").update({ status }).eq("id", id)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json()
+    if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
+    const supabase = await createClient()
+    const { error } = await supabase.from("usdt_buy_requests").delete().eq("id", id)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}
