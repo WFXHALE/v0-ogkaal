@@ -203,8 +203,10 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const getPaymentPrice = () => {
     if (!cardType) return ""
-    // Use live price from admin config for VIP plans (existing/new use vipPrice)
-    if (cardType === "existing" || cardType === "new") return siteConfig.vipPrice || PRICES[cardType]
+    // Map each card type to its admin_settings pricing key
+    if (cardType === "existing") return siteConfig.vip_signal_xm_existing || PRICES.existing
+    if (cardType === "new")      return siteConfig.vip_signal_xm_new      || PRICES.new
+    if (cardType === "funded")   return siteConfig.funded_account          || PRICES.funded
     return PRICES[cardType]
   }
 
@@ -272,7 +274,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">XM Existing User</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-primary">₹2500 / $30</span>
+                      <span className="text-sm font-bold text-primary">{siteConfig.vip_signal_xm_existing || PRICES.existing}</span>
                       <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
@@ -286,7 +288,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">XM New User</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-primary">{siteConfig.vipPrice || PRICES.new}</span>
+                      <span className="text-sm font-bold text-primary">{siteConfig.vip_signal_xm_new || PRICES.new}</span>
                       <ExternalLink className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -303,7 +305,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-lg font-bold text-foreground">Funded Account User</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-primary">{PRICES.funded}</span>
+                      <span className="text-sm font-bold text-primary">{siteConfig.funded_account || PRICES.funded}</span>
                       <Wallet className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                   </div>

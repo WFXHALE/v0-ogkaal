@@ -370,13 +370,15 @@ export default function AdminPanel() {
     setIsLoading(false)
     loadData()
 
-    // Load DB-backed settings in parallel
-    loadSystemConfig().then(cfg => {
+    // Load DB-backed settings in parallel; merge both into og_site_config so
+    // useSiteConfig (and all frontend pages) gets the full picture immediately.
+    Promise.all([loadSystemConfig(), loadPricing()]).then(([cfg, pricing]) => {
       setSystemSettings(s => ({ ...s, ...cfg }))
-      localStorage.setItem("og_site_config", JSON.stringify(cfg))
+      setPricingConfig(pricing)
+      const merged = { ...cfg, ...pricing }
+      localStorage.setItem("og_site_config", JSON.stringify(merged))
       window.dispatchEvent(new Event("og_site_config_change"))
     })
-    loadPricing().then(p => setPricingConfig(p))
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
@@ -1441,13 +1443,13 @@ export default function AdminPanel() {
         </div>
         <p className="text-xs text-muted-foreground">Changes are saved to the database and shown on checkout pages immediately.</p>
         {([
-          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"                },
-          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP + XM (Existing Client)" },
-          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP + XM (New Client)"      },
-          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"              },
-          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"              },
-          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"           },
-          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account"              },
+          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "XM Existing User"   },
+          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "XM New User"         },
+          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account User" },
+          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"         },
+          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"      },
+          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"      },
+          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"   },
         ]).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-4">
             <label className="text-sm text-foreground w-48 shrink-0">{label}</label>
@@ -1457,8 +1459,10 @@ export default function AdminPanel() {
               onBlur={async () => {
                 setPricingSaving(true)
                 await savePricing(pricingConfig)
-                // Keep legacy vipPrice / mentorshipPrice keys in sync for useSiteConfig reads
-                saveSystem({ vipPrice: pricingConfig.vip_signal, mentorshipPrice: pricingConfig.mentorship_1 })
+                // Merge pricing into og_site_config so useSiteConfig picks it up immediately
+                const merged = { ...systemSettings, ...pricingConfig }
+                localStorage.setItem("og_site_config", JSON.stringify(merged))
+                window.dispatchEvent(new Event("og_site_config_change"))
                 setPricingSaving(false)
               }}
               className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
