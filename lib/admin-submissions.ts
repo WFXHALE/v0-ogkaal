@@ -1,7 +1,7 @@
 // Utility functions for admin submissions
 
 export interface SubmissionData {
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip_membership" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip_membership" | "support" | "other"
   name: string
   email?: string
   telegram?: string
@@ -59,6 +59,47 @@ async function notifyAdmin(data: SubmissionData): Promise<void> {
         `Phone: ${phone ?? "N/A"}\n` +
         `Amount: ${amount}\n\n` +
         `<i>— OG KAAL TRADER Admin</i>`
+    } else if (type === "support") {
+      const issueLabel  = String(details.issueType ?? "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+      const orderType   = String(details.mode ?? "").toUpperCase()
+      const exchangeVal = String(details.exchange ?? "N/A")
+      const walletVal   = details.walletAddress ? `<code>${String(details.walletAddress)}</code>` : "N/A"
+      const txId        = details.transactionId  ? `<code>${String(details.transactionId)}</code>`  : "N/A"
+      const utrVal      = details.utrNumber      ? `<code>${String(details.utrNumber)}</code>`       : "N/A"
+      const instaVal    = String(details.instagram ?? "N/A")
+
+      // File links
+      const fileUrls = details.fileUrls as Record<string, string> | undefined
+      let filesSection = ""
+      if (fileUrls && Object.keys(fileUrls).length > 0) {
+        const labels: Record<string, string> = {
+          bankStatement:   "Bank Statement",
+          upiScreenshot:   "UPI Screenshot",
+          screenRecording: "Screen Recording",
+          walletScreenshot:"Wallet Screenshot",
+        }
+        filesSection = "\n\n<b>Proof Files:</b>\n" +
+          Object.entries(fileUrls)
+            .map(([k, url]) => `• <a href="${url}">${labels[k] ?? k}</a>`)
+            .join("\n")
+      } else {
+        filesSection = "\n\nProof Files: None uploaded"
+      }
+
+      text =
+        `<b>🚨 New Support Request</b>\n\n` +
+        `<b>Order Type:</b> ${orderType === "BUY" ? "Buy USDT" : orderType === "SELL" ? "Sell USDT" : orderType}\n` +
+        `<b>Issue:</b> ${issueLabel || "N/A"}\n\n` +
+        `<b>Exchange / Wallet:</b> ${exchangeVal}\n` +
+        `<b>Wallet Address:</b> ${walletVal}\n` +
+        `<b>Transaction ID:</b> ${txId}\n` +
+        `<b>UTR Number:</b> ${utrVal}\n\n` +
+        `<b>Phone:</b> ${phone ?? "N/A"}\n` +
+        `<b>Email:</b> ${email ?? details.email ?? "N/A"}\n` +
+        `<b>Telegram:</b> ${telegram ?? "N/A"}\n` +
+        `<b>Instagram:</b> ${instaVal}` +
+        filesSection +
+        `\n\n<i>— OG KAAL TRADER Admin</i>`
     } else {
       text =
         `<b>📬 New Submission</b>\n` +
