@@ -37,9 +37,11 @@ export async function POST(req: NextRequest) {
       .eq("email", normalised)
       .single()
 
-    // Always respond the same way to prevent email enumeration
     if (!user) {
-      return NextResponse.json({ success: true })
+      return NextResponse.json(
+        { error: "No account found with this email address." },
+        { status: 404 }
+      )
     }
 
     // Daily rate-limit

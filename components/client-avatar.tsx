@@ -18,6 +18,8 @@ import {
   Lock,
   Mail,
   AlertCircle,
+  KeyRound,
+  ArrowLeft,
 } from "lucide-react"
 import {
   getSession,
@@ -25,6 +27,8 @@ import {
   login,
   registerDashboardUser,
   storeBackupCode,
+  sendPasswordResetOtp,
+  verifyOtpAndResetPassword,
 } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
 
@@ -86,17 +90,47 @@ function LoggedOutPopup({
   setOpen: (v: boolean | ((prev: boolean) => boolean)) => void
   triggerRef: React.RefObject<HTMLDivElement | null>
 }) {
-  const [tab, setTab]       = useState<"login" | "register">("login")
-  const [identifier, setId] = useState("")
-  const [password, setPw]   = useState("")
-  const [showPw, setShowPw] = useState(false)
-  const [regName, setRN]    = useState("")
-  const [regEmail, setRE]   = useState("")
-  const [regId, setRI]      = useState("")
-  const [regPw, setRP]      = useState("")
-  const [regPw2, setRP2]    = useState("")
-  const [loading, setLoad]  = useState(false)
-  const [error, setError]   = useState("")
+  const [tab, setTab]         = useState<"login" | "register">("login")
+  // forgot sub-mode: "email" | "otp" | "done"
+  const [forgotMode, setFM]   = useState<"email" | "otp" | "done" | null>(null)
+  const [fgEmail, setFgEmail] = useState("")
+  const [fgOtp,   setFgOtp]   = useState("")
+  const [fgPw,    setFgPw]    = useState("")
+  const [fgPw2,   setFgPw2]   = useState("")
+  const [identifier, setId]   = useState("")
+  const [password, setPw]     = useState("")
+  const [showPw, setShowPw]   = useState(false)
+  const [regName, setRN]      = useState("")
+  const [regEmail, setRE]     = useState("")
+  const [regId, setRI]        = useState("")
+  const [regPw, setRP]        = useState("")
+  const [regPw2, setRP2]      = useState("")
+  const [loading, setLoad]    = useState(false)
+  const [error, setError]     = useState("")
+  const [info, setInfo]       = useState("")
+
+  const resetForgot = () => { setFM(null); setFgEmail(""); setFgOtp(""); setFgPw(""); setFgPw2(""); setError(""); setInfo("") }
+
+  const handleForgotSend = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setLoad(true)
+    const res = await sendPasswordResetOtp(fgEmail)
+    setLoad(false)
+    if (!res.success) { setError(res.error ?? "Failed to send OTP."); return }
+    setInfo("OTP sent! Check your email inbox.")
+    setFM("otp")
+  }
+
+  const handleForgotReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setError("")
+    if (fgPw.length < 8) { setError("Password must be at least 8 characters."); return }
+    if (fgPw !== fgPw2)  { setError("Passwords do not match."); return }
+    setLoad(true)
+    const res = await verifyOtpAndResetPassword(fgEmail, fgOtp, fgPw)
+    setLoad(false)
+    if (!res.success) { setError(res.error ?? "Reset failed."); return }
+    setFM("done")
+    setInfo("Password updated! You can now sign in.")
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,54 +204,117 @@ function LoggedOutPopup({
           <div className="px-3 pb-4 pt-2 space-y-2">
             {error && (
               <div className="flex items-start gap-1.5 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                {error}
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />{error}
+              </div>
+            )}
+            {info && !error && (
+              <div className="flex items-start gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />{info}
               </div>
             )}
 
-            {tab === "login" ? (
-              <form onSubmit={handleLogin} className="space-y-2">
+            {/* Forgot — step 1: email */}
+            {forgotMode === "email" && (
+              <form onSubmit={handleForgotSend} className="space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <button type="button" onClick={resetForgot} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <p className="text-xs font-semibold text-foreground">Forgot Password</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Enter your email — we will send a 6-digit OTP.</p>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
-                  <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <input
-                    value={identifier}
-                    onChange={(e) => setId(e.target.value.trim())}
-                    placeholder="User ID or Email"
-                    required
-                    autoComplete="username"
-                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  />
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input type="email" value={fgEmail} onChange={e => setFgEmail(e.target.value.trim().toLowerCase())}
+                    placeholder="your@email.com" required autoComplete="email"
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+                <button type="submit" disabled={loading}
+                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {loading ? "Sending OTP..." : "Send OTP"}
+                </button>
+              </form>
+            )}
+
+            {/* Forgot — step 2: OTP + new password */}
+            {forgotMode === "otp" && (
+              <form onSubmit={handleForgotReset} className="space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <button type="button" onClick={() => { setFM("email"); setError(""); setInfo("") }} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <p className="text-xs font-semibold text-foreground">Enter OTP &amp; New Password</p>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <KeyRound className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input type="text" inputMode="numeric" maxLength={6}
+                    value={fgOtp} onChange={e => setFgOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code" required autoComplete="one-time-code"
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none font-mono tracking-widest" />
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <input
-                    type={showPw ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPw(e.target.value)}
-                    placeholder="Password"
-                    required
-                    autoComplete="current-password"
-                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  />
+                  <input type="password" value={fgPw} onChange={e => setFgPw(e.target.value)}
+                    placeholder="New password (min. 8)" required
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input type="password" value={fgPw2} onChange={e => setFgPw2(e.target.value)}
+                    placeholder="Confirm password" required
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+                <button type="submit" disabled={loading}
+                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {loading ? "Resetting..." : "Reset Password"}
+                </button>
+                <button type="button" onClick={() => { setFM("email"); setError(""); setInfo("") }}
+                  className="w-full text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  Resend OTP
+                </button>
+              </form>
+            )}
+
+            {/* Forgot — done */}
+            {forgotMode === "done" && (
+              <div className="space-y-2 text-center">
+                <p className="text-xs text-emerald-400 font-medium">Password updated successfully!</p>
+                <button onClick={resetForgot}
+                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
+                  Back to Sign In
+                </button>
+              </div>
+            )}
+
+            {!forgotMode && tab === "login" && (
+              <form onSubmit={handleLogin} className="space-y-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input value={identifier} onChange={(e) => setId(e.target.value.trim())}
+                    placeholder="User ID or Email" required autoComplete="username"
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPw(e.target.value)}
+                    placeholder="Password" required autoComplete="current-password"
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
                   <button type="button" onClick={() => setShowPw((v) => !v)} className="text-muted-foreground hover:text-foreground">
                     {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
+                <button type="submit" disabled={loading}
+                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
                   {loading ? "Signing in..." : "Sign In"}
                 </button>
-                <p className="text-center text-[10px] text-muted-foreground">
-                  Forgot password?{" "}
-                  <Link href="/dashboard?mode=forgot" onClick={() => setOpen(false)} className="text-primary hover:underline">
-                    Reset here
-                  </Link>
-                </p>
+                <button type="button" onClick={() => { setFM("email"); setError(""); setInfo("") }}
+                  className="w-full text-center text-[10px] text-muted-foreground hover:text-primary transition-colors">
+                  Forgot password?
+                </button>
               </form>
-            ) : (
+            )}
+
+            {!forgotMode && tab === "register" && (
               <form onSubmit={handleRegister} className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
