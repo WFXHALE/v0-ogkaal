@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle,
-  Loader2, BadgeCheck, Clock, XCircle, ChevronRight, Upload, FileCheck, Lock,
+  Loader2, BadgeCheck, Clock, XCircle, ChevronRight, Upload, FileCheck, Lock, AtSign as IdIcon,
 } from "lucide-react"
 import { getSession, setSession } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
@@ -30,7 +30,7 @@ function AvatarCircle({ name, avatarUrl, size = 80 }: { name: string; avatarUrl?
   )
 }
 
-// ── Clickable avatar upload widget ───────────────────────────────────────────
+// ── Avatar upload ─────────────────────────────────────────────────────────────
 
 function AvatarUpload({
   name,
@@ -38,50 +38,47 @@ function AvatarUpload({
   onUploaded,
 }: {
   name: string
-  avatarUrl: string
+  avatarUrl?: string | null
   onUploaded: (url: string) => void
 }) {
-  const inputRef              = useRef<HTMLInputElement>(null)
+  const inputRef    = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadErr, setUploadErr] = useState("")
+  const [localPreview, setLocalPreview] = useState<string | null>(null)
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const displayUrl = localPreview ?? avatarUrl
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setUploadErr("")
+    if (file.size > 5 * 1024 * 1024) { setUploadErr("File too large. Max 5 MB."); return }
+
+    const preview = URL.createObjectURL(file)
+    setLocalPreview(preview)
     setUploading(true)
-
-    // Preview immediately from local object URL
-    const localPreview = URL.createObjectURL(file)
-    onUploaded(localPreview)
-
-    // Get session id for upload
-    const session = getSession()
-    if (!session) { setUploading(false); return }
+    setUploadErr("")
 
     const fd = new FormData()
-    fd.append("file",   file)
-    fd.append("userId", session.id)
+    fd.append("file", file)
 
-    const res  = await fetch("/api/dashboard/avatar", { method: "POST", body: fd })
-    const json = await res.json()
-    setUploading(false)
+    try {
+      const res  = await fetch("/api/dashboard/avatar", { method: "POST", body: fd })
+      const json = await res.json()
+      if (!res.ok) { setUploadErr(json.error ?? "Upload failed."); setLocalPreview(null); return }
 
-    if (!res.ok) {
-      setUploadErr(json.error ?? "Upload failed.")
-      URL.revokeObjectURL(localPreview)
-      return
+      // Replace preview with the permanent Blob URL
+      URL.revokeObjectURL(localPreview ?? "")
+      setLocalPreview(null)
+      onUploaded(json.url)
+
+      // Broadcast to all components (UserAvatar in header, etc.)
+      window.dispatchEvent(new CustomEvent("avatar-updated", { detail: { url: json.url } }))
+
+      // Reset the input so the same file can be re-selected
+      if (inputRef.current) inputRef.current.value = ""
+    } finally {
+      setUploading(false)
     }
-
-    // Replace preview with the permanent Blob URL
-    URL.revokeObjectURL(localPreview)
-    onUploaded(json.url)
-
-    // Broadcast to all components (UserAvatar in header, etc.)
-    window.dispatchEvent(new CustomEvent("avatar-updated", { detail: { url: json.url } }))
-
-    // Reset the input so the same file can be re-selected
-    if (inputRef.current) inputRef.current.value = ""
   }
 
   return (
@@ -92,7 +89,7 @@ function AvatarUpload({
 
       {/* Clickable avatar */}
       <div className="relative group cursor-pointer" onClick={() => !uploading && inputRef.current?.click()}>
-        <AvatarCircle name={name || "U"} avatarUrl={avatarUrl} size={88} />
+        <AvatarCircle name={name || "U"} avatarUrl={displayUrl} size={88} />
 
         {/* Hover / uploading overlay */}
         <div className={`absolute inset-0 rounded-full flex flex-col items-center justify-center bg-black/50 transition-opacity ${uploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
@@ -163,9 +160,6 @@ function Field({
           readOnly={readOnly}
           className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none read-only:text-muted-foreground"
         />
-        {readOnly && (
-          <Shield className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" aria-label="Read-only" />
-        )}
       </div>
     </div>
   )
@@ -173,7 +167,6 @@ function Field({
 
 // ── KYC Verification tab ──────────────────────────────────────────────────────
 
-// Small file-drop zone for a single document
 function DocUpload({
   label,
   hint,
@@ -235,17 +228,17 @@ function DocUpload({
 }
 
 function KycTab({ session }: { session: DashboardSession }) {
-  const [aadhaar,      setAadhaar]     = useState("")
-  const [pan,          setPan]         = useState("")
-  const [phone,        setKycPhone]    = useState("")
-  const [aadhaarFront, setAF]          = useState<File | null>(null)
-  const [aadhaarBack,  setAB]          = useState<File | null>(null)
-  const [panDoc,       setPanDoc]      = useState<File | null>(null)
-  const [loading,      setLoading]     = useState(false)
-  const [progress,     setProgress]    = useState("")
-  const [success,      setSuccess]     = useState(false)
-  const [error,        setError]       = useState("")
-  const [kycStatus,    setKycStatus]   = useState(session.kycStatus ?? "none")
+  const [aadhaar,      setAadhaar]   = useState("")
+  const [pan,          setPan]       = useState("")
+  const [phone,        setKycPhone]  = useState("")
+  const [aadhaarFront, setAF]        = useState<File | null>(null)
+  const [aadhaarBack,  setAB]        = useState<File | null>(null)
+  const [panDoc,       setPanDoc]    = useState<File | null>(null)
+  const [loading,      setLoading]   = useState(false)
+  const [progress,     setProgress]  = useState("")
+  const [success,      setSuccess]   = useState(false)
+  const [error,        setError]     = useState("")
+  const [kycStatus,    setKycStatus] = useState(session.kycStatus ?? "none")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -332,58 +325,23 @@ function KycTab({ session }: { session: DashboardSession }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-
-        {/* Text details */}
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Details</p>
-          <Field
-            label="Aadhaar Number"
-            icon={User}
-            value={aadhaar}
-            onChange={v => setAadhaar(v.replace(/\D/g, "").slice(0, 12))}
-            placeholder="12-digit Aadhaar number"
-          />
-          <Field
-            label="PAN Number"
-            icon={User}
-            value={pan}
-            onChange={v => setPan(v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))}
-            placeholder="e.g. ABCDE1234F"
-          />
-          <Field
-            label="Phone Number"
-            icon={Phone}
-            value={phone}
-            onChange={setKycPhone}
-            placeholder="+91 00000 00000"
-            type="tel"
-          />
+          <Field label="Aadhaar Number" icon={User} value={aadhaar}
+            onChange={v => setAadhaar(v.replace(/\D/g, "").slice(0, 12))} placeholder="12-digit Aadhaar number" />
+          <Field label="PAN Number" icon={User} value={pan}
+            onChange={v => setPan(v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))} placeholder="e.g. ABCDE1234F" />
+          <Field label="Phone Number" icon={Phone} value={phone}
+            onChange={setKycPhone} placeholder="+91 00000 00000" type="tel" />
         </div>
 
-        {/* Document uploads */}
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Documents</p>
-          <DocUpload
-            label="Aadhaar Card — Front"
-            hint="JPG, PNG or PDF · max 5 MB"
-            file={aadhaarFront}
-            onChange={setAF}
-          />
-          <DocUpload
-            label="Aadhaar Card — Back"
-            hint="JPG, PNG or PDF · max 5 MB"
-            file={aadhaarBack}
-            onChange={setAB}
-          />
-          <DocUpload
-            label="PAN Card"
-            hint="JPG, PNG or PDF · max 5 MB"
-            file={panDoc}
-            onChange={setPanDoc}
-          />
+          <DocUpload label="Aadhaar Card — Front" hint="JPG, PNG or PDF · max 5 MB" file={aadhaarFront} onChange={setAF} />
+          <DocUpload label="Aadhaar Card — Back"  hint="JPG, PNG or PDF · max 5 MB" file={aadhaarBack}  onChange={setAB} />
+          <DocUpload label="PAN Card"              hint="JPG, PNG or PDF · max 5 MB" file={panDoc}       onChange={setPanDoc} />
         </div>
 
-        {/* Consent notice */}
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-secondary/30 border border-border">
           <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
           <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -407,24 +365,23 @@ function KycTab({ session }: { session: DashboardSession }) {
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main page (inner — uses useSearchParams so must be inside Suspense) ────────
 
-export default function ProfilePage() {
+function ProfilePageInner() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const [session, setSessionState] = useState<DashboardSession | null>(null)
   const [activeTab, setActiveTab]  = useState<"profile" | "verify">("profile")
 
-  // Profile fields
   const [fullName,  setFullName]  = useState("")
   const [phone,     setPhone]     = useState("")
   const [username,  setUsername]  = useState("")
   const [avatarUrl, setAvatarUrl] = useState("")
 
-  const [loading,  setLoading]  = useState(false)
-  const [success,  setSuccess]  = useState(false)
-  const [error,    setError]    = useState("")
-  const [booting,  setBooting]  = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error,   setError]   = useState("")
+  const [booting, setBooting] = useState(true)
 
   // Read tab from URL query param
   useEffect(() => {
@@ -455,22 +412,15 @@ export default function ProfilePage() {
     setLoading(true); setError(""); setSuccess(false)
 
     const res = await fetch("/api/dashboard/profile", {
-      method: "PATCH",
+      method:  "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: session.id,
-        fullName,
-        phone,
-        username,
-        avatarUrl,
-      }),
+      body:    JSON.stringify({ id: session.id, fullName, phone, username, avatarUrl }),
     })
     const json = await res.json()
     setLoading(false)
 
     if (!res.ok) { setError(json.error ?? "Failed to save."); return }
 
-    // Update session in localStorage so header avatar refreshes
     if (session) {
       const updated = { ...session, fullName, avatarUrl: avatarUrl || undefined } as DashboardSession & { avatarUrl?: string }
       setSession(updated)
@@ -525,103 +475,90 @@ export default function ProfilePage() {
 
           {/* Profile tab */}
           {activeTab === "profile" && (
-          <>
-
-          {/* Header card */}
-          <div className="relative rounded-2xl border border-border bg-card overflow-hidden mb-6">
-            {/* Gold accent bar */}
-            <div className="h-1.5 bg-primary w-full" />
-            <div className="flex items-center gap-5 px-6 py-6">
-              <div className="relative shrink-0">
-                <AvatarCircle name={fullName || "U"} avatarUrl={avatarUrl} size={72} />
+            <>
+              {/* Header card */}
+              <div className="relative rounded-2xl border border-border bg-card overflow-hidden mb-6">
+                <div className="h-1.5 bg-primary w-full" />
+                <div className="flex items-center gap-5 px-6 py-6">
+                  <div className="relative shrink-0">
+                    <AvatarCircle name={fullName || "U"} avatarUrl={avatarUrl} size={72} />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-xl font-bold text-foreground truncate">{fullName || "Your Profile"}</h1>
+                    <p className="text-sm text-muted-foreground truncate">{session?.email}</p>
+                    {username && <p className="text-xs text-primary mt-0.5">@{username}</p>}
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold text-foreground truncate">{fullName || "Your Profile"}</h1>
-                <p className="text-sm text-muted-foreground truncate">{session?.email}</p>
-                {username && <p className="text-xs text-primary mt-0.5">@{username}</p>}
-              </div>
-            </div>
-          </div>
 
-          {/* Edit form */}
-          <form onSubmit={handleSave} className="rounded-2xl border border-border bg-card px-6 py-6 space-y-5">
-            <h2 className="text-base font-semibold text-foreground">Edit Profile</h2>
+              {/* Edit form */}
+              <form onSubmit={handleSave} className="rounded-2xl border border-border bg-card px-6 py-6 space-y-5">
+                <h2 className="text-base font-semibold text-foreground">Edit Profile</h2>
 
-            {/* Avatar upload — sits at the top of the form */}
-            <AvatarUpload
-              name={fullName || session?.fullName || "U"}
-              avatarUrl={avatarUrl}
-              onUploaded={(url) => {
-                setAvatarUrl(url)
-                // Also update the in-memory session so the header avatar refreshes
-                if (session) {
-                  const updated = { ...session, avatarUrl: url }
-                  setSession(updated)
-                  setSessionState(updated)
-                }
-              }}
-            />
+                <AvatarUpload
+                  name={fullName || session?.fullName || "U"}
+                  avatarUrl={avatarUrl}
+                  onUploaded={(url) => {
+                    setAvatarUrl(url)
+                    if (session) {
+                      const updated = { ...session, avatarUrl: url }
+                      setSession(updated)
+                      setSessionState(updated)
+                    }
+                  }}
+                />
 
-            <div className="border-t border-border/50" />
+                <div className="border-t border-border/50" />
 
-            {/* Read-only fields */}
-            <Field label="Email" icon={Mail} value={session?.email ?? ""} readOnly />
-            <Field label="User ID" icon={Shield} value={session?.userId ?? ""} readOnly />
+                {/* Read-only fields */}
+                <Field label="Email"   icon={Mail}    value={session?.email  ?? ""} readOnly />
+                <Field label="User ID" icon={IdIcon}  value={session?.userId ?? ""} readOnly />
 
-            {/* Editable fields */}
-            <Field
-              label="Full Name"
-              icon={User}
-              value={fullName}
-              onChange={setFullName}
-              placeholder="Your full name"
-            />
-            <Field
-              label="Username"
-              icon={AtSign}
-              value={username}
-              onChange={v => setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-              placeholder="your_username"
-            />
-            <Field
-              label="Phone"
-              icon={Phone}
-              value={phone}
-              onChange={setPhone}
-              placeholder="+1 234 567 890"
-              type="tel"
-            />
+                {/* Editable fields */}
+                <Field label="Full Name" icon={User}   value={fullName} onChange={setFullName} placeholder="Your full name" />
+                <Field label="Username"  icon={AtSign} value={username}
+                  onChange={v => setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="your_username" />
+                <Field label="Phone" icon={Phone} value={phone} onChange={setPhone} placeholder="+1 234 567 890" type="tel" />
 
-            {/* Feedback */}
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-              </div>
-            )}
-            {success && (
-              <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                <CheckCircle className="w-4 h-4 shrink-0" /> Profile saved successfully.
-              </div>
-            )}
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                    <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                  </div>
+                )}
+                {success && (
+                  <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                    <CheckCircle className="w-4 h-4 shrink-0" /> Profile saved successfully.
+                  </div>
+                )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
-            >
-              {loading ? (
-                <span className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
-          </form>
-          </>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
+                >
+                  {loading ? (
+                    <span className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {loading ? "Saving..." : "Save Changes"}
+                </button>
+              </form>
+            </>
           )}
 
         </div>
       </main>
     </>
+  )
+}
+
+// ── Page export — wraps inner component in Suspense for useSearchParams ────────
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <ProfilePageInner />
+    </Suspense>
   )
 }
