@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -8,110 +8,140 @@ import { ArrowLeft, RefreshCw, KeyRound } from "lucide-react"
 import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Drop intro — dot falls from top, expands, morphs into "WELCOME KAAL"
-// Runs once for ~2.4 s, then fades out and reveals the login card.
-// All animation is pure CSS keyframes — no external libs, 60fps on GPU.
+// Bouncing-dot-writes-text intro animation
+// The dot drops from top, bounces, and each bounce "types" a word.
+// After 3 bounces: WELCOME → KAAL → WELCOME KAAL (overwrite)
+// Total runtime: 2.6s, then fades out in 0.4s.
 // ─────────────────────────────────────────────────────────────────────────────
-function DropIntro({ onDone }: { onDone: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
+function BouncingDotIntro({ onDone }: { onDone: () => void }) {
+  const [word, setWord] = useState("")
+  const done = useRef(false)
 
   useEffect(() => {
-    // Total animation: 2.4 s then fade out 0.4 s → 2.8 s total
-    const id = setTimeout(onDone, 2800)
-    return () => clearTimeout(id)
+    if (done.current) return
+    done.current = true
+
+    // Sequence: drop → WELCOME (0.7s), bounce → KAAL (1.3s), bounce → WELCOME KAAL (1.9s), fade (2.6s)
+    const t1 = setTimeout(() => setWord("WELCOME"),      700)
+    const t2 = setTimeout(() => setWord("KAAL"),         1300)
+    const t3 = setTimeout(() => setWord("WELCOME KAAL"), 1900)
+    const t4 = setTimeout(onDone, 3000)
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
   }, [onDone])
 
   return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#000",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-        animation: "intro-fade-out 0.4s ease forwards 2.4s",
-        willChange: "opacity",
-      }}
-    >
+    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", animation: "intro-exit 0.4s ease forwards 2.6s", willChange: "opacity" }}>
       <style>{`
-        /* ── Dot drops from top of screen to centre ── */
-        @keyframes dot-drop {
-          0%   { transform: translateY(-45vh) scale(1);   opacity: 0; }
-          12%  { opacity: 1; }
-          70%  { transform: translateY(0)     scale(1);   opacity: 1; }
-          80%  { transform: translateY(0)     scale(22);  opacity: 1; }
-          100% { transform: translateY(0)     scale(22);  opacity: 1; }
+        /* ── Initial drop from top ── */
+        @keyframes dot-initial-drop {
+          0%   { top: 2vh;  opacity: 0; }
+          8%   { opacity: 1; }
+          40%  { top: 50vh; }
+          55%  { top: 45vh; }   /* first bounce */
+          70%  { top: 50vh; }
+          80%  { top: 47vh; }   /* second bounce */
+          90%  { top: 50vh; }
+          95%  { top: 48.5vh; } /* third mini bounce */
+          100% { top: 50vh; }
         }
 
-        /* ── Text fades in after dot expands ── */
-        @keyframes text-reveal {
-          0%,72%  { opacity: 0; letter-spacing: 0.6em; }
-          82%     { opacity: 0; }
-          100%    { opacity: 1; letter-spacing: 0.25em; }
+        /* ── Each text swap: flash in ── */
+        @keyframes word-pop {
+          0%   { opacity: 0; transform: scale(0.88) translateY(4px); }
+          60%  { opacity: 1; transform: scale(1.04) translateY(0); }
+          100% { opacity: 1; transform: scale(1)    translateY(0); }
         }
 
-        /* ── Dot sub-text line ── */
-        @keyframes sub-reveal {
-          0%,82%  { opacity: 0; }
-          100%    { opacity: 0.45; }
-        }
-
-        /* ── Screen fade out ── */
-        @keyframes intro-fade-out {
+        /* ── Screen exit ── */
+        @keyframes intro-exit {
           to { opacity: 0; pointer-events: none; }
         }
+
+        .dot-intro {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #FCD535;
+          box-shadow: 0 0 18px 5px rgba(252,213,53,0.4);
+          animation: dot-initial-drop 2.0s cubic-bezier(0.22,1,0.36,1) forwards;
+          will-change: top, opacity;
+        }
+
+        .word-display {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translateX(-50%) translateY(-50%);
+          white-space: nowrap;
+          font-family: system-ui, -apple-system, sans-serif;
+          font-weight: 800;
+          font-size: clamp(1.8rem, 7vw, 3.2rem);
+          letter-spacing: 0.22em;
+          color: #FCD535;
+          animation: word-pop 0.25s cubic-bezier(0.22,1,0.36,1) forwards;
+          will-change: opacity, transform;
+        }
+
+        .sub-line {
+          position: absolute;
+          left: 50%;
+          top: calc(50% + clamp(2.4rem, 7vw + 0.5rem, 4.4rem));
+          transform: translateX(-50%);
+          font-family: system-ui, -apple-system, sans-serif;
+          font-size: clamp(0.55rem, 1.8vw, 0.72rem);
+          font-weight: 500;
+          letter-spacing: 0.35em;
+          color: rgba(252,213,53,0.35);
+          text-transform: uppercase;
+          white-space: nowrap;
+          opacity: 0;
+          transition: opacity 0.5s ease;
+        }
+
+        .sub-line.visible { opacity: 1; }
       `}</style>
 
-      {/* Expanding dot */}
-      <div
+      <div className="dot-intro" />
+
+      {word && (
+        <span key={word} className="word-display">{word}</span>
+      )}
+
+      <span className={`sub-line ${word === "WELCOME KAAL" ? "visible" : ""}`}>
+        OG KAAL TRADER — Admin
+      </span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Countdown timer badge
+// ─────────────────────────────────────────────────────────────────────────────
+function CountdownBadge({ seconds }: { seconds: number }) {
+  const urgent = seconds <= 10
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-semibold"
+      style={{
+        background: urgent ? "rgba(239,68,68,0.1)" : "rgba(252,213,53,0.08)",
+        borderColor: urgent ? "rgba(239,68,68,0.35)" : "rgba(252,213,53,0.25)",
+        color: urgent ? "#f87171" : "#FCD535",
+        transition: "all 0.4s ease",
+        boxShadow: urgent ? "0 0 10px rgba(239,68,68,0.15)" : "none",
+      }}
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full"
         style={{
-          position: "absolute",
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          background: "#FCD535",
-          animation: "dot-drop 2.0s cubic-bezier(0.16,1,0.3,1) forwards",
-          willChange: "transform, opacity",
-          transformOrigin: "center center",
+          background: urgent ? "#f87171" : "#FCD535",
+          animation: urgent ? "pulse 0.8s ease-in-out infinite" : "pulse 2s ease-in-out infinite",
         }}
       />
-
-      {/* Text — sits above the dot layer so it's visible after expansion */}
-      <div style={{ position: "relative", zIndex: 1, textAlign: "center", userSelect: "none" }}>
-        <p
-          style={{
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            fontSize: "clamp(1.6rem, 6vw, 3rem)",
-            fontWeight: 700,
-            color: "#000",
-            letterSpacing: "0.25em",
-            animation: "text-reveal 2.0s cubic-bezier(0.16,1,0.3,1) forwards",
-            willChange: "opacity, letter-spacing",
-            margin: 0,
-            lineHeight: 1,
-          }}
-        >
-          WELCOME KAAL
-        </p>
-        <p
-          style={{
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            fontSize: "clamp(0.55rem, 1.8vw, 0.75rem)",
-            fontWeight: 500,
-            color: "#000",
-            letterSpacing: "0.35em",
-            textTransform: "uppercase",
-            animation: "sub-reveal 2.0s cubic-bezier(0.16,1,0.3,1) forwards",
-            willChange: "opacity",
-            margin: "0.5em 0 0",
-          }}
-        >
-          OG KAAL TRADER — Admin
-        </p>
-      </div>
+      Admin Access Window: {seconds}s
     </div>
   )
 }
@@ -119,21 +149,46 @@ function DropIntro({ onDone }: { onDone: () => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main form
 // ─────────────────────────────────────────────────────────────────────────────
+const ACCESS_WINDOW_SECONDS = 30
+
 export function AdminLoginForm() {
   const router = useRouter()
 
-  const [showIntro, setShowIntro]   = useState(true)
-  const [secretKey, setSecretKey]   = useState("")
-  const [error, setError]           = useState("")
-  const [isLoading, setIsLoading]   = useState(false)
-  const [isChecking, setIsChecking] = useState(true)
+  const [showIntro, setShowIntro]             = useState(true)
+  const [secretKey, setSecretKey]             = useState("")
+  const [error, setError]                     = useState("")
+  const [isLoading, setIsLoading]             = useState(false)
+  const [isChecking, setIsChecking]           = useState(true)
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
-  const [inputFocused, setInputFocused] = useState(false)
+  const [inputFocused, setInputFocused]       = useState(false)
+  const [timeLeft, setTimeLeft]               = useState(ACCESS_WINDOW_SECONDS)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Start the 30s countdown only after the intro finishes
+  const startTimer = useCallback(() => {
+    if (timerRef.current) return // already started
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!)
+          router.push("/")
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
+  }, [router])
 
   useEffect(() => {
     if (isSessionValid()) { router.push("/admin"); return }
     setIsChecking(false)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [router])
+
+  const handleIntroDone = useCallback(() => {
+    setShowIntro(false)
+    startTimer()
+  }, [startTimer])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -145,6 +200,7 @@ export function AdminLoginForm() {
     const r = await loginWithSecretKey(secretKey)
 
     if (r.success) {
+      if (timerRef.current) clearInterval(timerRef.current)
       router.push("/admin")
     } else {
       setError(r.error || "Invalid Key – Access Denied")
@@ -165,16 +221,13 @@ export function AdminLoginForm() {
 
   return (
     <>
-      {/* Drop intro — shown once on first render */}
-      {showIntro && <DropIntro onDone={() => setShowIntro(false)} />}
+      {showIntro && <BouncingDotIntro onDone={handleIntroDone} />}
 
-      {/* Login screen — sits behind the intro, visible once intro fades */}
       <div
         className="min-h-screen bg-black flex items-center justify-center p-4"
         style={{
           opacity: showIntro ? 0 : 1,
           transition: "opacity 0.5s ease",
-          transitionDelay: showIntro ? "0s" : "0.1s",
         }}
       >
         <Link
@@ -185,15 +238,20 @@ export function AdminLoginForm() {
           Back to Home
         </Link>
 
+        {/* Timer badge — top right */}
+        {!showIntro && (
+          <div className="fixed top-5 right-5">
+            <CountdownBadge seconds={timeLeft} />
+          </div>
+        )}
+
         <div className="w-full max-w-sm">
           {/* Wordmark */}
           <div className="text-center mb-8 select-none">
-            <div className="inline-block">
-              <div
-                className="w-2 h-2 rounded-full bg-primary mx-auto mb-5"
-                style={{ boxShadow: "0 0 18px 4px rgba(252,213,53,0.55)" }}
-              />
-            </div>
+            <div
+              className="w-2 h-2 rounded-full bg-primary mx-auto mb-5"
+              style={{ boxShadow: "0 0 18px 4px rgba(252,213,53,0.55)" }}
+            />
             <h1 className="text-2xl font-bold text-white tracking-widest uppercase">Admin Access</h1>
             <p className="text-xs text-neutral-500 mt-1.5 tracking-[0.2em] uppercase">OG KAAL TRADER — Restricted</p>
           </div>
@@ -201,7 +259,7 @@ export function AdminLoginForm() {
           {/* Card */}
           <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl">
 
-            {(lock.locked) && (
+            {lock.locked && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 mb-4 text-center">
                 <p className="text-sm font-semibold text-red-400">Security Lock Activated</p>
                 <p className="text-xs text-red-400/70 mt-1">
