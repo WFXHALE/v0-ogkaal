@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, KeyRound } from "lucide-react"
+import { ArrowLeft, KeyRound, ShieldOff } from "lucide-react"
 import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ export default function AdminLoginForm() {
         {/* Lock notice */}
         {lock.locked && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-center">
-            <p className="text-sm font-semibold text-red-400">Access Blocked</p>
+            <p className="text-sm font-semibold text-red-400 flex items-center justify-center gap-1.5"><ShieldOff className="w-3.5 h-3.5" />Access Blocked</p>
             <p className="text-xs text-muted-foreground mt-1">
               Too many failed attempts.{" "}
               {lock.remainingSeconds
