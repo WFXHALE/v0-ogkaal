@@ -25,7 +25,7 @@ export function HeroSection() {
         <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 leading-relaxed text-balance">
           {t.hero.subtitle1}{" "}
           <span className="text-foreground font-medium">Smart Money Concepts (SMC)</span>{" "}
-          {t.language.label === "Language" ? "and" : "aur"}{" "}
+          {t.hero.subtitle2.includes("aur") || t.hero.subtitle2.includes("اور") ? "aur" : "and"}{" "}
           <span className="text-foreground font-medium">ICT trading models</span>.
         </p>
 
