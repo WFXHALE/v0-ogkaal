@@ -9,16 +9,19 @@ import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin
 
 type WolfState = "idle" | "typing" | "watching" | "success" | "angry" | "dead"
 
-// ── Geometric Wolf SVG — matches reference image (angular polygon style) ─────
+// ─────────────────────────────────────────────────────────────────────────────
+// Wolf SVG — sharp geometric minimal style, matches reference image exactly.
+// The wolf is drawn as flat black polygons on a yellow circle.
+// Eyes are sharp angular diamond/slit shapes that scale on Y-axis to open/close.
+// ─────────────────────────────────────────────────────────────────────────────
 function WolfHead({ state }: { state: WolfState }) {
-  const isTyping  = state === "typing"
-  const isWatching = state === "watching" || state === "idle"
-  const isAngry   = state === "angry"
-  const isDead    = state === "dead"
-  const isSuccess = state === "success"
+  const isTyping   = state === "typing"
+  const isAngry    = state === "angry"
+  const isDead     = state === "dead"
+  const isSuccess  = state === "success"
 
-  // Eyes open when not typing and not dead
-  const eyesOpen = !isTyping && !isDead
+  const eyeFill   = isAngry ? "#ef4444" : "#ffffff"
+  const eyeShadow = isAngry ? "#7f0000" : "#1a1a1a"
 
   return (
     <svg
@@ -28,282 +31,196 @@ function WolfHead({ state }: { state: WolfState }) {
         width: "100%",
         height: "100%",
         willChange: "transform",
-        // Top-level animation for angry shake or dead collapse
         animation: isAngry
-          ? "wolf-shake 0.55s cubic-bezier(0.36,0.07,0.19,0.97)"
+          ? "w-shake 0.5s cubic-bezier(0.36,0.07,0.19,0.97) both"
           : isDead
-          ? "wolf-slump 0.7s cubic-bezier(0.55,0,1,0.45) forwards"
+          ? "w-slump 0.8s cubic-bezier(0.55,0,1,0.45) forwards"
           : "none",
       }}
     >
       <defs>
         <style>{`
-          @keyframes wolf-shake {
-            0%,100% { transform: translateX(0) rotate(0deg); }
-            10%     { transform: translateX(-6px) rotate(-3deg); }
-            20%     { transform: translateX(6px)  rotate(3deg); }
-            30%     { transform: translateX(-5px) rotate(-2.5deg); }
-            40%     { transform: translateX(5px)  rotate(2.5deg); }
-            55%     { transform: translateX(-3px) rotate(-1.5deg); }
-            70%     { transform: translateX(3px)  rotate(1.5deg); }
-            85%     { transform: translateX(-1px) rotate(-0.5deg); }
+          @keyframes w-shake {
+            0%,100% { transform: translateX(0); }
+            15%     { transform: translateX(-7px) rotate(-3deg); }
+            30%     { transform: translateX(7px)  rotate(3deg); }
+            45%     { transform: translateX(-5px) rotate(-2deg); }
+            60%     { transform: translateX(5px)  rotate(2deg); }
+            75%     { transform: translateX(-2px) rotate(-1deg); }
+            90%     { transform: translateX(2px)  rotate(1deg); }
           }
-          @keyframes wolf-slump {
-            0%   { transform: translateY(0)   rotate(0deg);   opacity: 1; }
-            35%  { transform: translateY(6px)  rotate(-12deg); opacity: 0.9; }
-            70%  { transform: translateY(14px) rotate(-28deg); opacity: 0.65; }
-            100% { transform: translateY(18px) rotate(-35deg); opacity: 0.45; }
+          @keyframes w-slump {
+            0%   { transform: translateY(0) rotate(0deg);    opacity: 1; }
+            30%  { transform: translateY(4px) rotate(-10deg); opacity: 0.9; }
+            65%  { transform: translateY(12px) rotate(-25deg); opacity: 0.6; }
+            100% { transform: translateY(18px) rotate(-38deg); opacity: 0.35; }
           }
-          @keyframes wolf-success-in {
-            0%   { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-            55%  { transform: scale(1.08) rotate(2deg);  opacity: 1; }
+          @keyframes w-success {
+            0%   { transform: scale(0.4) rotate(-15deg); opacity: 0; }
+            60%  { transform: scale(1.1) rotate(3deg);   opacity: 1; }
             100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
           }
-          @keyframes eye-close {
+          @keyframes w-eye-close {
             0%   { transform: scaleY(1); }
-            100% { transform: scaleY(0.05); }
+            100% { transform: scaleY(0.06); }
           }
-          @keyframes eye-open {
-            0%   { transform: scaleY(0.05); }
+          @keyframes w-eye-open {
+            0%   { transform: scaleY(0.06); }
+            60%  { transform: scaleY(1.1); }
             100% { transform: scaleY(1); }
           }
-          @keyframes pupil-glow {
-            0%,100% { opacity: 1; }
-            50%     { opacity: 0.7; }
-          }
-          @keyframes dead-pulse {
-            0%,100% { opacity: 0.3; }
-            50%     { opacity: 0.8; }
-          }
-          .eye-left  { transform-origin: 72px  108px; will-change: transform; }
-          .eye-right { transform-origin: 128px 108px; will-change: transform; }
-          .eye-close { animation: eye-close 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
-          .eye-open  { animation: eye-open  0.45s cubic-bezier(0.34,1.3,0.64,1) forwards; }
+          .eye-l { transform-origin: 72px 103px; will-change: transform; }
+          .eye-r { transform-origin: 128px 103px; will-change: transform; }
+          .closing { animation: w-eye-close 0.3s cubic-bezier(0.4,0,0.6,1) forwards; }
+          .opening { animation: w-eye-open  0.45s cubic-bezier(0.34,1.4,0.64,1) forwards; }
         `}</style>
       </defs>
 
-      {/* ── SUCCESS state: yellow circle + thick black check ── */}
+      {/* ── SUCCESS: clean check on yellow ── */}
       {isSuccess && (
-        <g style={{ animation: "wolf-success-in 0.5s cubic-bezier(0.34,1.3,0.64,1) forwards" }}>
+        <g style={{ animation: "w-success 0.45s cubic-bezier(0.34,1.4,0.64,1) forwards" }}>
           <circle cx="100" cy="100" r="90" fill="#FCD535" />
-          {/* Subtle inner ring */}
-          <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
-          {/* Check mark */}
           <polyline
-            points="42,102  82,142  158,58"
+            points="40,105  82,147  160,57"
             fill="none"
             stroke="#0a0a0a"
-            strokeWidth="14"
+            strokeWidth="13"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </g>
       )}
 
-      {/* ── WOLF states: idle / typing / watching / angry / dead ── */}
+      {/* ── WOLF ── */}
       {!isSuccess && (
         <g>
-          {/* ── Outer glow ring when dead ── */}
-          {isDead && (
-            <circle
-              cx="100" cy="100" r="93"
-              fill="none"
-              stroke="#ef4444"
-              strokeWidth="2"
-              style={{ animation: "dead-pulse 1.2s ease-in-out infinite" }}
-            />
-          )}
+          {/* Yellow base circle — turns faint red overlay when dead */}
+          <circle cx="100" cy="100" r="90" fill="#FCD535" />
+          {isDead && <circle cx="100" cy="100" r="90" fill="rgba(239,68,68,0.18)" />}
 
-          {/* ── Yellow background circle ── */}
-          <circle
-            cx="100" cy="100" r="90"
-            fill="#FCD535"
-            style={{
-              transition: "fill 0.4s ease",
-            }}
-          />
-          {isDead && (
-            <circle cx="100" cy="100" r="90" fill="rgba(239,68,68,0.15)" />
-          )}
+          {/* ════════════════════════════════════════
+              WOLF GEOMETRY — traced from reference
+              Black fills, no gradients, pure flat.
+              ════════════════════════════════════════ */}
 
-          {/* ══ GEOMETRIC WOLF HEAD (matches reference) ══ */}
-          {/* 
-            Reference: angular ears, sharp brow ridge, faceted face panels,
-            triangular eye recesses, angular snout pointing down.
-          */}
+          {/* ── Left ear: tall sharp triangle ── */}
+          <polygon points="42,84  62,20  82,80" fill="#0d0d0d" />
+          {/* Left ear inner: slightly lighter to show ear cavity */}
+          <polygon points="50,78  62,30  76,76" fill="#1c1c1c" />
 
-          {/* ── Left ear (outer angular polygon) ── */}
-          <polygon
-            points="34,90  55,30  78,82"
-            fill="#111111"
-          />
-          {/* Left ear inner face */}
-          <polygon
-            points="40,85  55,38  72,80"
-            fill="#2a2a2a"
-            opacity="0.55"
-          />
+          {/* ── Right ear: tall sharp triangle ── */}
+          <polygon points="158,84  138,20  118,80" fill="#0d0d0d" />
+          {/* Right ear inner */}
+          <polygon points="150,78  138,30  124,76" fill="#1c1c1c" />
 
-          {/* ── Right ear (outer angular polygon) ── */}
-          <polygon
-            points="166,90  145,30  122,82"
-            fill="#111111"
-          />
-          {/* Right ear inner face */}
-          <polygon
-            points="160,85  145,38  128,80"
-            fill="#2a2a2a"
-            opacity="0.55"
-          />
+          {/* ── Cranium top ── */}
+          <polygon points="60,82  100,65  140,82  145,105  100,115  55,105" fill="#0d0d0d" />
 
-          {/* ── Main head polygon (angular / faceted) ── */}
-          {/* Top cranium */}
-          <polygon
-            points="55,78  100,62  145,78  152,105  130,132  100,150  70,132  48,105"
-            fill="#111111"
-          />
+          {/* ── Left brow panel — sharp angular wedge driving over eye ── */}
+          <polygon points="55,100  68,88  88,98  82,110  58,110" fill="#141414" />
 
-          {/* ── Forehead center panel ── */}
-          <polygon
-            points="80,78  100,68  120,78  116,95  100,90  84,95"
-            fill="#1e1e1e"
-          />
+          {/* ── Right brow panel ── */}
+          <polygon points="145,100  132,88  112,98  118,110  142,110" fill="#141414" />
 
-          {/* ── Left brow ridge ── */}
-          <polygon
-            points="55,88  72,80  84,95  70,100"
-            fill="#1a1a1a"
-          />
-          {/* ── Right brow ridge ── */}
-          <polygon
-            points="145,88  128,80  116,95  130,100"
-            fill="#1a1a1a"
-          />
-
-          {/* ── Angry brows ── */}
+          {/* ── Angular angry brow slashes ── */}
           {isAngry && (
             <>
-              <line x1="56" y1="90"  x2="82" y2="100" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
-              <line x1="144" y1="90" x2="118" y2="100" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+              <line x1="57" y1="97"  x2="86" y2="109" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
+              <line x1="143" y1="97" x2="114" y2="109" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
             </>
           )}
 
-          {/* ── Cheek panels ── */}
-          <polygon points="48,105  70,100  70,125  52,118"  fill="#161616" />
-          <polygon points="152,105  130,100  130,125  148,118" fill="#161616" />
+          {/* ── Cheek planes ── */}
+          <polygon points="55,105  68,110  65,132  48,120" fill="#111111" />
+          <polygon points="145,105  132,110  135,132  152,120" fill="#111111" />
 
-          {/* ── Lower face / muzzle ── */}
-          <polygon
-            points="70,125  100,120  130,125  122,148  100,156  78,148"
-            fill="#1a1a1a"
-          />
+          {/* ── Muzzle / lower face ── */}
+          <polygon points="68,125  82,118  100,122  118,118  132,125  120,150  100,158  80,150" fill="#141414" />
 
-          {/* ── Angular nose ── */}
+          {/* ── Center nose bridge ── */}
+          <polygon points="88,100  100,94  112,100  106,115  100,118  94,115" fill="#0a0a0a" />
+
+          {/* ── Nose diamond ── */}
           <polygon
-            points="92,122  100,116  108,122  100,130"
-            fill={isAngry ? "#ef4444" : "#3a3a3a"}
+            points="94,118  100,113  106,118  100,124"
+            fill={isAngry ? "#ef4444" : "#2a2a2a"}
             style={{ transition: "fill 0.3s ease" }}
           />
-          {/* Nose highlight */}
-          <polygon points="94,122  100,117  100,124" fill="rgba(255,255,255,0.2)" />
 
           {/* ── LEFT EYE ── */}
           {!isDead ? (
-            <g
-              className={`eye-left ${isTyping ? "eye-close" : "eye-open"}`}
-            >
-              {/* Eye socket recess */}
-              <polygon points="57,102  72,95  87,102  80,116  64,116"  fill="#0d0d0d" />
-              {/* Iris */}
-              <ellipse
-                cx="72" cy="107"
-                rx="8" ry="8.5"
-                fill={isAngry ? "#ef4444" : "#f0f0f0"}
+            <g className={`eye-l ${isTyping ? "closing" : "opening"}`}>
+              {/* Eye socket — deep dark recess */}
+              <polygon points="59,104  72,97  85,104  80,114  64,114" fill="#050505" />
+              {/* Sharp diamond iris */}
+              <polygon
+                points="65,103  72,97  79,103  72,109"
+                fill={eyeFill}
                 style={{ transition: "fill 0.3s ease" }}
               />
-              {/* Pupil */}
-              <ellipse
-                cx="73" cy="107"
-                rx="4.5" ry="5"
-                fill={isAngry ? "#7f0000" : "#1a1a1a"}
+              {/* Pupil slit */}
+              <polygon
+                points="69,103  72,99  75,103  72,107"
+                fill={eyeShadow}
                 style={{ transition: "fill 0.3s ease" }}
               />
-              {/* Corneal highlight */}
-              <ellipse cx="71" cy="105" rx="2" ry="2" fill="rgba(255,255,255,0.65)" />
-              {isAngry && (
-                <ellipse cx="72" cy="107" rx="8" ry="8.5" fill="none" stroke="#ef4444" strokeWidth="1.5" opacity="0.7" />
-              )}
+              {/* Specular highlight */}
+              <polygon points="66,101  69,99  70,101  68,103" fill="rgba(255,255,255,0.55)" />
             </g>
           ) : (
-            /* Dead X eye left */
+            /* Dead X-eye left */
             <g>
-              <polygon points="57,102  72,95  87,102  80,116  64,116"  fill="#0d0d0d" />
-              <line x1="62" y1="99" x2="82" y2="115" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
-              <line x1="82" y1="99" x2="62" y2="115" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+              <polygon points="59,104  72,97  85,104  80,114  64,114" fill="#050505" />
+              <line x1="62" y1="99" x2="82" y2="113" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
+              <line x1="82" y1="99" x2="62" y2="113" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
             </g>
           )}
 
           {/* ── RIGHT EYE ── */}
           {!isDead ? (
-            <g
-              className={`eye-right ${isTyping ? "eye-close" : "eye-open"}`}
-            >
-              {/* Eye socket recess */}
-              <polygon points="113,102  128,95  143,102  136,116  120,116" fill="#0d0d0d" />
-              {/* Iris */}
-              <ellipse
-                cx="128" cy="107"
-                rx="8" ry="8.5"
-                fill={isAngry ? "#ef4444" : "#f0f0f0"}
+            <g className={`eye-r ${isTyping ? "closing" : "opening"}`}>
+              {/* Eye socket */}
+              <polygon points="115,104  128,97  141,104  136,114  120,114" fill="#050505" />
+              {/* Sharp diamond iris */}
+              <polygon
+                points="121,103  128,97  135,103  128,109"
+                fill={eyeFill}
                 style={{ transition: "fill 0.3s ease" }}
               />
-              {/* Pupil */}
-              <ellipse
-                cx="129" cy="107"
-                rx="4.5" ry="5"
-                fill={isAngry ? "#7f0000" : "#1a1a1a"}
+              {/* Pupil slit */}
+              <polygon
+                points="125,103  128,99  131,103  128,107"
+                fill={eyeShadow}
                 style={{ transition: "fill 0.3s ease" }}
               />
-              {/* Corneal highlight */}
-              <ellipse cx="127" cy="105" rx="2" ry="2" fill="rgba(255,255,255,0.65)" />
-              {isAngry && (
-                <ellipse cx="128" cy="107" rx="8" ry="8.5" fill="none" stroke="#ef4444" strokeWidth="1.5" opacity="0.7" />
-              )}
+              {/* Specular highlight */}
+              <polygon points="122,101  125,99  126,101  124,103" fill="rgba(255,255,255,0.55)" />
             </g>
           ) : (
-            /* Dead X eye right */
+            /* Dead X-eye right */
             <g>
-              <polygon points="113,102  128,95  143,102  136,116  120,116" fill="#0d0d0d" />
-              <line x1="118" y1="99" x2="138" y2="115" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
-              <line x1="138" y1="99" x2="118" y2="115" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
+              <polygon points="115,104  128,97  141,104  136,114  120,114" fill="#050505" />
+              <line x1="118" y1="99" x2="138" y2="113" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
+              <line x1="138" y1="99" x2="118" y2="113" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" />
             </g>
           )}
 
-          {/* ── Angular mouth (angry) / fangs ── */}
+          {/* ── Angry: bared fangs ── */}
           {isAngry && (
-            <>
+            <g>
               <path
-                d="M 82 146 L 92 155 L 100 148 L 108 155 L 118 146"
+                d="M 80 148 L 90 158 L 100 150 L 110 158 L 120 148"
                 fill="none"
                 stroke="#ef4444"
-                strokeWidth="2.5"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               {/* Left fang */}
-              <polygon points="88,148  84,158  92,158" fill="#ffffff" opacity="0.9" />
+              <polygon points="86,149  82,161  92,161" fill="#f8f8f8" />
               {/* Right fang */}
-              <polygon points="112,148  108,158  116,158" fill="#ffffff" opacity="0.9" />
-            </>
-          )}
-
-          {/* ── Watching: subtle upward pupil shift hint ── */}
-          {isWatching && !isAngry && !isDead && !isTyping && (
-            <>
-              {/* Very subtle second highlight suggesting upward gaze */}
-              <ellipse cx="71" cy="103" rx="1.2" ry="1.2" fill="rgba(255,255,255,0.3)" />
-              <ellipse cx="127" cy="103" rx="1.2" ry="1.2" fill="rgba(255,255,255,0.3)" />
-            </>
+              <polygon points="114,149  108,161  118,161" fill="#f8f8f8" />
+            </g>
           )}
         </g>
       )}
@@ -311,7 +228,9 @@ function WolfHead({ state }: { state: WolfState }) {
   )
 }
 
-// ── Main form ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Main form
+// ─────────────────────────────────────────────────────────────────────────────
 export function AdminLoginForm() {
   const router = useRouter()
 
@@ -397,6 +316,12 @@ export function AdminLoginForm() {
 
   const lock = isAccountLocked()
 
+  const glowFilter =
+    wolfState === "dead"    ? "drop-shadow(0 0 10px rgba(239,68,68,0.5))" :
+    wolfState === "success" ? "drop-shadow(0 0 12px rgba(252,213,53,0.7))" :
+    wolfState === "angry"   ? "drop-shadow(0 0 10px rgba(239,68,68,0.45))" :
+                              "drop-shadow(0 0 8px rgba(252,213,53,0.25))"
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Link
@@ -412,35 +337,29 @@ export function AdminLoginForm() {
         <div className="flex flex-col items-center mb-6 select-none">
           <div
             className="w-32 h-32"
-            style={{
-              filter: isDead(wolfState) ? "drop-shadow(0 0 8px rgba(239,68,68,0.4))" :
-                      wolfState === "success" ? "drop-shadow(0 0 10px rgba(252,213,53,0.6))" :
-                      wolfState === "angry" ? "drop-shadow(0 0 8px rgba(239,68,68,0.35))" :
-                      "drop-shadow(0 0 6px rgba(252,213,53,0.2))",
-              transition: "filter 0.4s ease",
-            }}
+            style={{ filter: glowFilter, transition: "filter 0.4s ease" }}
           >
             <WolfHead state={wolfState} />
           </div>
 
-          <div className="h-6 mt-2">
+          <div className="h-6 mt-3">
             {wolfState === "idle" && (
-              <p className="text-xs text-muted-foreground tracking-wide">Security Guardian Active</p>
+              <p className="text-xs text-muted-foreground tracking-widest uppercase">Guardian Protocol Active</p>
             )}
             {wolfState === "typing" && (
-              <p className="text-xs text-primary animate-pulse tracking-wide">Reading key...</p>
+              <p className="text-xs text-primary tracking-widest uppercase animate-pulse">Reading Key...</p>
             )}
             {wolfState === "watching" && (
-              <p className="text-xs text-muted-foreground tracking-wide">Awaiting confirmation...</p>
+              <p className="text-xs text-muted-foreground tracking-widest uppercase">Awaiting Confirmation</p>
             )}
             {wolfState === "success" && (
-              <p className="text-xs text-green-400 font-semibold tracking-wide">{statusMsg}</p>
+              <p className="text-xs text-green-400 font-semibold tracking-widest uppercase">{statusMsg}</p>
             )}
             {wolfState === "angry" && (
-              <p className="text-xs text-red-400 font-semibold tracking-wide">Access Denied</p>
+              <p className="text-xs text-red-400 font-semibold tracking-widest uppercase">Access Denied</p>
             )}
             {wolfState === "dead" && (
-              <p className="text-xs text-red-500 font-semibold tracking-wide">Security Lock Active</p>
+              <p className="text-xs text-red-500 font-semibold tracking-widest uppercase">Security Lock Active</p>
             )}
           </div>
         </div>
@@ -513,5 +432,3 @@ export function AdminLoginForm() {
     </div>
   )
 }
-
-function isDead(s: WolfState) { return s === "dead" }
