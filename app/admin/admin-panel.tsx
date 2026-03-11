@@ -177,28 +177,6 @@ function downloadCSV(rows: Record<string, unknown>[], filename: string) {
 
 // ─── Demo data ─────────────────────────────────────���──────────────────────────
 
-const DEMO_SUBMISSIONS: Submission[] = [
-  { id: "1", userId: "USER-0001", type: "mentorship", name: "Rahul Kumar", email: "rahul@example.com", telegram: "@rahulk", phone: "+91 76543 21098", details: { program: "Mentorship 2.0" }, status: "pending", paymentMethod: "UPI", amount: "₹4,999", utr: "UTR123456789", screenshotUrl: "", ipAddress: "49.207.89.123", location: "Bangalore, India", createdAt: new Date(Date.now() - 24 * 3600000).toISOString() },
-  { id: "2", userId: "USER-0002", type: "vip_group", name: "Jane Smith",   email: "jane@example.com",  telegram: "@janesmith", phone: "+91 87654 32109", details: { plan: "VIP Group" },        status: "pending", paymentMethod: "USDT TRC20", amount: "$29",    utr: "UTR123456789", screenshotUrl: "", ipAddress: "182.73.45.12", location: "Delhi, India",      createdAt: new Date(Date.now() - 5 * 3600000).toISOString()  },
-  { id: "3", userId: "USER-0001", type: "usdt_p2p",   name: "Rahul Kumar", telegram: "@rahulk",        phone: "+91 98765 43210", details: { action: "buy" },               status: "completed", paymentMethod: "UPI",        amount: "₹41,000", utr: "UTR999111222", screenshotUrl: "", ipAddress: "103.45.67.89", location: "Mumbai, India",   createdAt: new Date(Date.now() - 2 * 3600000).toISOString()  },
-  { id: "4", userId: "USER-0003", type: "vip",         name: "Priya Singh", email: "priya@example.com", telegram: "@priyasingh", phone: "+91 90012 34567", details: { plan: "VIP Signals" },   status: "approved", paymentMethod: "UPI",        amount: "₹2,999", utr: "UTR987654321", screenshotUrl: "", ipAddress: "122.45.12.89", location: "Chennai, India",  createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
-]
-
-const DEMO_BUY: USDTBuyRequest[] = [
-  { id: "b1", userId: "USER-0001", name: "Rahul Kumar", email: "rahul@example.com", phone: "+91 76543 21098", telegram: "@rahulk", walletAddress: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF", txId: "ABC123TX", screenshotUrl: "", amountUsdt: "500", inrEquivalent: "₹41,750", amountPaid: "₹41,750", status: "pending", createdAt: new Date(Date.now() - 2 * 3600000).toISOString() },
-]
-
-const DEMO_SELL: USDTSellRequest[] = [
-  { id: "s1", userId: "USER-0002", name: "Jane Smith", email: "jane@example.com", phone: "+91 87654 32109", telegram: "@janesmith", upiId: "jane@upi", walletAddress: "TF7gytsAtFPM9f2RQPy...", usdtAmount: "200", txId: "TX9988SELL", screenshotUrl: "", status: "pending", createdAt: new Date(Date.now() - 3600000).toISOString() },
-]
-
-const DEMO_NOTIFICATIONS: AdminNotification[] = [
-  { id: "n1", type: "vip",        message: "New VIP payment received from Priya Singh",         read: false, createdAt: new Date(Date.now() - 30 * 60000).toISOString(),    refId: "4",  refSection: "payment-verification" },
-  { id: "n2", type: "mentorship", message: "New Mentorship payment received from Rahul Kumar",  read: false, createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),  refId: "1",  refSection: "payment-verification" },
-  { id: "n3", type: "usdt",       message: "New USDT buy request submitted by Rahul Kumar",     read: false, createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),  refId: "b1", refSection: "usdt-buy" },
-  { id: "n4", type: "usdt",       message: "New USDT sell request submitted by Jane Smith",     read: true,  createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),  refId: "s1", refSection: "usdt-sell" },
-  { id: "n5", type: "suspicious", message: "Fraud alert: Duplicate UTR detected for Jane Smith",read: false, createdAt: new Date(Date.now() - 6 * 3600000).toISOString(),  refId: "2",  refSection: "suspicious" },
-]
 
 const DEFAULT_SYSTEM = {
   upiEnabled: true,
@@ -263,7 +241,7 @@ export default function AdminPanel() {
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
 
-  // ── Global refresh state ─────────────────────────────────────────────────────
+  // ── Global refresh state ───────────────��─────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false)
 
   // ── Session countdown (30-minute window) ─────────────────────────────────────
@@ -608,6 +586,15 @@ export default function AdminPanel() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ markAll: true }),
+    }).catch(() => {})
+  }
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+    fetch("/api/admin/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
     }).catch(() => {})
   }
 
@@ -1469,19 +1456,32 @@ export default function AdminPanel() {
             {notifications.length === 0
               ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
               : notifications.map(n => (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => handleNotifClick(n)}
-                  className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
+                  className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
-                    <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                  <button
+                    onClick={() => handleNotifClick(n)}
+                    className="flex items-start gap-4 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                      <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                    {!n.read && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    <button
+                      onClick={() => deleteNotification(n.id)}
+                      className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="Delete notification permanently"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
-                </button>
+                </div>
               ))
             }
           </div>

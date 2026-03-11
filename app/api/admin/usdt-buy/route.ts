@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -13,18 +15,18 @@ export async function GET() {
     // Normalize snake_case → camelCase to match admin panel interface
     const normalized = (data ?? []).map(r => ({
       id:            r.id,
-      userId:        r.user_id,
-      name:          r.name,
-      email:         r.email,
-      phone:         r.phone,
-      telegram:      r.telegram ?? "",
-      walletAddress: r.wallet_address,
-      txId:          r.transaction_id,
-      screenshotUrl: r.screenshot_url,
-      amountUsdt:    r.amount_usdt,
-      inrEquivalent: r.inr_equivalent,
-      amountPaid:    r.amount_paid,
-      status:        r.status,
+      userId:        r.user_id        ?? "",
+      name:          r.name           ?? "",
+      email:         r.email          ?? "",
+      phone:         r.phone          ?? "",
+      telegram:      r.telegram       ?? "",  // column may not exist yet — defaults to ""
+      walletAddress: r.wallet_address ?? "",
+      txId:          r.transaction_id ?? "",
+      screenshotUrl: r.screenshot_url ?? "",
+      amountUsdt:    r.amount_usdt    ?? "",
+      inrEquivalent: r.inr_equivalent ?? "",
+      amountPaid:    r.amount_paid    ?? "",
+      status:        r.status         ?? "pending",
       createdAt:     r.created_at,
     }))
     return NextResponse.json({ ok: true, data: normalized })
@@ -37,6 +39,9 @@ export async function PATCH(req: NextRequest) {
   try {
     const { id, status } = await req.json()
     if (!id || !status) return NextResponse.json({ ok: false, error: "Missing id or status" }, { status: 400 })
+    if (!VALID_STATUSES.includes(status)) {
+      return NextResponse.json({ ok: false, error: `Invalid status: ${status}` }, { status: 400 })
+    }
     const supabase = await createClient()
     const { error } = await supabase.from("usdt_buy_requests").update({ status }).eq("id", id)
     if (error) throw error
