@@ -6,6 +6,7 @@ import {
   ArrowLeftRight, Users, TrendingUp, CheckCircle, AlertCircle,
   Loader2, ChevronDown,
 } from "lucide-react"
+import { sendPushNotification } from "./send-push-action"
 
 type NotifType = "announcement" | "mentorship" | "discount" | "kyc" | "usdt_p2p" | "community" | "trading_alert"
 type Target    = "all" | "user"
@@ -84,8 +85,6 @@ const TYPE_CONFIG: Record<NotifType, TypeConfig> = {
   },
 }
 
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ""
-
 export function AdminPushPanel() {
   const [selectedType, setSelectedType] = useState<NotifType>("announcement")
   const [target,       setTarget]       = useState<Target>("all")
@@ -115,27 +114,22 @@ export function AdminPushPanel() {
     setSending(true)
     setResult(null)
     try {
-      const payload: Record<string, unknown> = { title: title.trim(), body: body.trim(), type: selectedType }
-      if (target === "user") payload.user_id = userId.trim()
-
-      const res = await fetch("/api/admin/send-push", {
-        method:  "POST",
-        headers: {
-          "Content-Type":  "application/json",
-          "x-admin-secret": ADMIN_SECRET,
-        },
-        body: JSON.stringify(payload),
+      const res = await sendPushNotification({
+        title:   title.trim(),
+        body:    body.trim(),
+        type:    selectedType,
+        user_id: target === "user" ? userId.trim() : undefined,
       })
 
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        setResult({ ok: false, msg: j.error ?? "Failed to send notification." })
+      if (!res.success) {
+        setResult({ ok: false, msg: res.error ?? "Failed to send notification." })
       } else {
-        setResult({ ok: true, msg: target === "all" ? "Broadcast sent to all users!" : `Notification sent to user ${userId}.` })
+        const modeNote = res.mode === "store-only" ? " (stored, no FCM — add FIREBASE_SERVER_KEY to enable delivery)" : ""
+        setResult({ ok: true, msg: (target === "all" ? "Broadcast sent to all users!" : `Notification sent to user ${userId}.`) + modeNote })
         setTitle(""); setBody(""); setUserId("")
       }
     } catch {
-      setResult({ ok: false, msg: "Network error. Please try again." })
+      setResult({ ok: false, msg: "Unexpected error. Please try again." })
     } finally {
       setSending(false)
     }
