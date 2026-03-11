@@ -379,56 +379,78 @@ export default function MentorshipPage() {
 
                 {/* ── UPI ── */}
                 {paymentMethod === "upi" && (
-                  <div className="p-4 rounded-xl bg-secondary/50 border border-border mb-5 space-y-5">
-                    {/* UPI ID copy row */}
-                    <div>
-                      <p className="text-sm font-semibold text-foreground mb-1">UPI Payment</p>
-                      <p className="text-xs text-muted-foreground mb-3">Copy the UPI ID and pay from any UPI app — Google Pay, PhonePe, Paytm, BHIM, or any UPI supported app.</p>
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-background border border-border">
-                        <span className="text-xs text-muted-foreground shrink-0">UPI ID:</span>
-                        <code className="flex-1 text-sm font-mono font-semibold text-foreground tracking-tight">CXEWANKUSS@YBL</code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 h-8 px-3"
-                          onClick={() => handleCopy("upi-id", "CXEWANKUSS@YBL")}
-                        >
-                          {copiedField === "upi-id"
-                            ? <Check className="w-4 h-4 text-green-500" />
-                            : <Copy className="w-4 h-4" />}
-                        </Button>
+                  <div className="rounded-xl border border-border bg-secondary/40 mb-5 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 py-3 border-b border-border/60 bg-secondary/60">
+                      <p className="text-sm font-semibold text-foreground">Pay via UPI</p>
+                    </div>
+
+                    <div className="p-5 space-y-5">
+                      {/* Step 1 — UPI ID + QR */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold shrink-0">1</span>
+                          <p className="text-sm font-semibold text-foreground">Send payment using the UPI ID or scan the QR code</p>
+                        </div>
+
+                        {/* UPI ID copy row */}
+                        <div className="flex items-center gap-2 p-3 rounded-xl bg-background border border-border ml-7">
+                          <span className="text-xs text-muted-foreground shrink-0">UPI ID:</span>
+                          <code className="flex-1 text-sm font-mono font-bold text-foreground tracking-tight">CXEWANKUSS@YBL</code>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0 h-8 px-3"
+                            onClick={() => handleCopy("upi-id", "CXEWANKUSS@YBL")}
+                          >
+                            {copiedField === "upi-id"
+                              ? <Check className="w-4 h-4 text-green-500" />
+                              : <Copy className="w-4 h-4" />}
+                          </Button>
+                        </div>
+
+                        {/* Clickable QR */}
+                        <div className="ml-7">
+                          <button
+                            type="button"
+                            onClick={() => setQrModalOpen(true)}
+                            className="block mx-auto rounded-xl overflow-hidden border-2 border-border hover:border-primary/60 transition-colors cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            style={{ width: "min(200px, 100%)" }}
+                            aria-label="Click to enlarge QR code"
+                          >
+                            <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
+                              <img
+                                src="/upi-qr.jpeg"
+                                alt="UPI QR Code — click to enlarge and scan"
+                                className="w-full object-cover"
+                                style={{ objectPosition: "center 52%", height: "175%" }}
+                              />
+                            </div>
+                          </button>
+                          <p className="text-xs text-muted-foreground text-center mt-2">
+                            Click to enlarge — scan with Google Pay, PhonePe, Paytm or BHIM
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">2</span>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Upload your payment screenshot</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Take a screenshot of the payment confirmation from your UPI app and upload it below.</p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">3</span>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Enter your UTR / Transaction ID</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">The UTR or transaction reference number is shown in your UPI app after a successful payment.</p>
+                        </div>
                       </div>
                     </div>
-
-                    {/* QR code */}
-                    <div>
-                      <p className="text-sm font-semibold text-foreground mb-1">Scan & Pay</p>
-                      <p className="text-xs text-muted-foreground mb-3">Scan this QR code using any UPI app — Google Pay, PhonePe, Paytm, BHIM.</p>
-
-                      {/* Clickable QR — cropped to hide header */}
-                      <button
-                        type="button"
-                        onClick={() => setQrModalOpen(true)}
-                        className="block mx-auto rounded-xl overflow-hidden border-2 border-border hover:border-primary/50 transition-colors cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        style={{ width: "min(240px, 100%)" }}
-                        aria-label="Click to enlarge QR code"
-                      >
-                        <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
-                          <img
-                            src="/upi-qr.jpeg"
-                            alt="UPI QR Code — click to enlarge and scan"
-                            className="w-full object-cover"
-                            style={{ objectPosition: "center 52%", height: "175%" }}
-                          />
-                        </div>
-                      </button>
-
-                      <p className="text-xs text-muted-foreground text-center mt-3">
-                        Click the QR code to enlarge and scan using any UPI app.
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground text-center">After paying, upload the payment screenshot below for verification.</p>
                   </div>
                 )}
 
