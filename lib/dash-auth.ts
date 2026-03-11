@@ -195,51 +195,46 @@ export async function loginWithBackupCode(
   return { success: true, user }
 }
 
-export async function sendPasswordReset(
+// Send OTP to the user's email (rate-limited to 5/day on server)
+export async function sendPasswordResetOtp(
   email: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch("/api/dashboard/forgot-password", {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      body:    JSON.stringify({ email: email.trim().toLowerCase() }),
     })
     const json = await res.json()
-    if (!res.ok) return { success: false, error: json.error ?? "Failed to send reset email." }
+    if (!res.ok) return { success: false, error: json.error ?? "Failed to send OTP." }
     return { success: true }
   } catch {
     return { success: false, error: "Network error. Please try again." }
   }
 }
 
-export async function resetPasswordWithToken(
-  token: string,
+// Verify OTP and set a new password
+export async function verifyOtpAndResetPassword(
+  email: string,
+  otp: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("dashboard_password_resets")
-    .select("*")
-    .eq("token", token)
-    .single()
-
-  if (error || !data) return { success: false, error: "Invalid or expired reset link." }
-  if (new Date(data.expires_at).getTime() < Date.now()) {
-    return { success: false, error: "Reset link has expired. Please request a new one." }
+  try {
+    const res = await fetch("/api/dashboard/forgot-password", {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        email:       email.trim().toLowerCase(),
+        otp:         otp.trim(),
+        newPassword,
+      }),
+    })
+    const json = await res.json()
+    if (!res.ok) return { success: false, error: json.error ?? "Reset failed." }
+    return { success: true }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
   }
-
-  const hash = await hashPassword(newPassword)
-  const { error: updateErr } = await supabase
-    .from("dashboard_users")
-    .update({ password_hash: hash })
-    .eq("email", data.email)
-
-  if (updateErr) return { success: false, error: "Failed to update password. Please try again." }
-
-  await supabase.from("dashboard_password_resets").delete().eq("token", token)
-
-  return { success: true }
 }
 
 // ── Fetch backup code from DB (auto-generates if missing) ─────────────────────

@@ -12,7 +12,8 @@ import {
 } from "lucide-react"
 import {
   getSession, logout,
-  login, loginWithBackupCode, registerDashboardUser, sendPasswordReset,
+  login, loginWithBackupCode, registerDashboardUser,
+  sendPasswordResetOtp, verifyOtpAndResetPassword,
   storeBackupCode, getStoredBackupCode, fetchBackupCode,
 } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
@@ -82,7 +83,7 @@ function Card({
 
 // ── Auth Screen ───────────────────────────────────────────────────────────────
 
-type AuthMode = "login" | "register" | "backup" | "forgot" | "backup_shown"
+type AuthMode = "login" | "register" | "backup" | "forgot" | "forgot_otp" | "forgot_reset" | "backup_shown"
 
 function AuthScreen({
   onAuth,
@@ -113,7 +114,10 @@ function AuthScreen({
   const [showRegPw2, setShowRegPw2]             = useState(false)
   const [bkEmail, setBkEmail]             = useState("")
   const [bkCode, setBkCode]               = useState("")
-  const [fgEmail, setFgEmail]             = useState("")
+  const [fgEmail,  setFgEmail]                  = useState("")
+  const [fgOtp,    setFgOtp]                    = useState("")
+  const [fgNewPw,  setFgNewPw]                  = useState("")
+  const [fgNewPw2, setFgNewPw2]                 = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true)
@@ -158,12 +162,27 @@ function AuthScreen({
     const s = getSession(); if (s) onAuth(s)
   }
 
-  const handleForgot = async (e: React.FormEvent) => {
+  // Step 1 — send OTP
+  const handleForgotSend = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true)
-    const res = await sendPasswordReset(fgEmail)
+    const res = await sendPasswordResetOtp(fgEmail)
     setLoading(false)
-    if (!res.success) { setError(res.error ?? "Something went wrong.") }
-    else setSuccess("Reset link sent! Check your email inbox.")
+    if (!res.success) { setError(res.error ?? "Something went wrong."); return }
+    setSuccess("OTP sent! Check your email inbox.")
+    setMode("forgot_otp")
+  }
+
+  // Step 2 — verify OTP and set new password
+  const handleForgotReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setError("")
+    if (fgNewPw.length < 8) { setError("Password must be at least 8 characters."); return }
+    if (fgNewPw !== fgNewPw2) { setError("Passwords do not match."); return }
+    setLoading(true)
+    const res = await verifyOtpAndResetPassword(fgEmail, fgOtp, fgNewPw)
+    setLoading(false)
+    if (!res.success) { setError(res.error ?? "Something went wrong."); return }
+    setSuccess("Password updated! You can now sign in.")
+    setMode("login")
   }
 
   return (
@@ -368,9 +387,13 @@ function AuthScreen({
             </form>
           )}
 
+          {/* Step 1: enter email */}
           {mode === "forgot" && (
-            <form onSubmit={handleForgot} className="space-y-4">
-              <p className="text-sm text-muted-foreground">Enter your registered email and we will send a reset link.</p>
+            <form onSubmit={handleForgotSend} className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-0.5">Forgot your password?</p>
+                <p className="text-xs text-muted-foreground">Enter your registered email and we will send a 6-digit OTP.</p>
+              </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
@@ -379,11 +402,59 @@ function AuthScreen({
                     className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 </div>
               </div>
-              <button type="submit" disabled={loading || !!success}
+              <button type="submit" disabled={loading}
                 className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {loading ? "Sending..." : "Send Reset Link"}
+                {loading ? "Sending OTP..." : "Send OTP"}
               </button>
               <button type="button" onClick={() => { setMode("login"); setError(""); setSuccess("") }} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">Back to login</button>
+            </form>
+          )}
+
+          {/* Step 2: enter OTP + new password */}
+          {(mode === "forgot_otp" || mode === "forgot_reset") && (
+            <form onSubmit={handleForgotReset} className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-0.5">Enter your OTP</p>
+                <p className="text-xs text-muted-foreground">A 6-digit code was sent to <span className="text-foreground font-medium">{fgEmail}</span>. It expires in 15 minutes.</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">6-Digit OTP</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input
+                    type="text" inputMode="numeric" pattern="\d{6}" maxLength={6}
+                    value={fgOtp} onChange={e => setFgOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000" required autoComplete="one-time-code"
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none font-mono tracking-widest"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">New Password</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type="password" value={fgNewPw} onChange={e => setFgNewPw(e.target.value)}
+                    placeholder="min. 8 characters" required autoComplete="new-password"
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Confirm New Password</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type="password" value={fgNewPw2} onChange={e => setFgNewPw2(e.target.value)}
+                    placeholder="repeat password" required autoComplete="new-password"
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                </div>
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {loading ? "Resetting..." : "Reset Password"}
+              </button>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <button type="button" onClick={() => { setMode("forgot"); setError(""); setSuccess(""); setFgOtp("") }} className="hover:text-foreground transition-colors">Resend OTP</button>
+                <button type="button" onClick={() => { setMode("login"); setError(""); setSuccess("") }} className="hover:text-foreground transition-colors">Back to login</button>
+              </div>
             </form>
           )}
 
