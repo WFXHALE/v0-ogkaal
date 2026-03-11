@@ -220,78 +220,60 @@ const CORRELATIONS: Correlation[] = [
 
 function MarketCorrelations() {
   return (
-    <section className="space-y-3">
+    <section className="space-y-6">
       {CORRELATIONS.map(c => {
         const isInverse = c.type === "inverse"
-        const accentColor = isInverse ? "red" : "green"
+        const isMixed   = c.type === "mixed"
+        const accent = isInverse
+          ? { border: "border-red-500/25",   headerBg: "bg-red-500/6",   dot: "bg-red-400",   ruleText: "text-red-300",   badgeCls: "bg-red-500/10 border-red-500/25 text-red-400",   badgeIcon: <ArrowDown className="w-3 h-3" />, badgeLabel: "Inverse"  }
+          : isMixed
+          ? { border: "border-amber-500/25", headerBg: "bg-amber-500/6", dot: "bg-amber-400", ruleText: "text-amber-300", badgeCls: "bg-amber-500/10 border-amber-500/25 text-amber-400", badgeIcon: <Minus className="w-3 h-3" />,     badgeLabel: "Mixed"    }
+          : { border: "border-green-500/25", headerBg: "bg-green-500/6", dot: "bg-green-400", ruleText: "text-green-300", badgeCls: "bg-green-500/10 border-green-500/25 text-green-400", badgeIcon: <ArrowUp className="w-3 h-3" />,   badgeLabel: "Positive" }
+
         return (
           <div
             key={c.pair.join("-")}
-            className={`rounded-2xl border bg-card hover:border-primary/30 transition-colors overflow-hidden ${
-              isInverse ? "border-red-500/20" : "border-green-500/20"
-            }`}
+            className={`w-full rounded-2xl border bg-card overflow-hidden hover:border-primary/30 transition-colors ${accent.border}`}
           >
-            {/* Horizontal layout — all content in one row on desktop */}
-            <div className="flex flex-col sm:flex-row sm:items-stretch">
-
-              {/* LEFT — Asset pair identifiers */}
-              <div className={`flex items-center gap-3 px-5 py-4 sm:min-w-[240px] sm:border-r ${
-                isInverse
-                  ? "bg-red-500/5 border-red-500/15"
-                  : "bg-green-500/5 border-green-500/15"
-              }`}>
-                {/* Asset A */}
-                <div className="text-center">
-                  <span className="block font-mono text-sm font-bold text-primary">{c.pair[0]}</span>
-                  <span className="block text-[10px] text-muted-foreground mt-0.5 leading-tight max-w-[80px]">{c.pairLabel[0]}</span>
+            {/* ── Header: pair names + badge ── */}
+            <div className={`flex items-center justify-between gap-4 px-6 py-4 border-b ${accent.headerBg} ${accent.border}`}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <p className="font-mono text-base font-bold text-primary leading-none">{c.pair[0]}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.pairLabel[0]}</p>
                 </div>
-
-                {/* Arrow connector */}
-                <div className={`flex flex-col items-center gap-0.5 px-1 shrink-0`}>
-                  <span className={`text-lg font-black leading-none ${isInverse ? "text-red-400" : "text-green-400"}`}>⇄</span>
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                    isInverse
-                      ? "bg-red-500/10 border-red-500/25 text-red-400"
-                      : "bg-green-500/10 border-green-500/25 text-green-400"
-                  }`}>
-                    {isInverse ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
-                    {isInverse ? "Inverse" : "Positive"}
-                  </div>
-                </div>
-
-                {/* Asset B */}
-                <div className="text-center">
-                  <span className="block font-mono text-sm font-bold text-primary">{c.pair[1]}</span>
-                  <span className="block text-[10px] text-muted-foreground mt-0.5 leading-tight max-w-[80px]">{c.pairLabel[1]}</span>
+                <span className="text-muted-foreground text-lg font-light">vs</span>
+                <div>
+                  <p className="font-mono text-base font-bold text-primary leading-none">{c.pair[1]}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.pairLabel[1]}</p>
                 </div>
               </div>
-
-              {/* MIDDLE — Direction rules */}
-              <div className="flex flex-col justify-center gap-2 px-5 py-4 sm:w-[220px] sm:border-r border-border/40 shrink-0">
-                {c.rules.map((rule, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInverse ? "bg-red-400" : "bg-green-400"}`} />
-                    <span className={`text-xs font-mono font-semibold tracking-tight ${
-                      isInverse ? "text-red-300" : "text-green-300"
-                    }`}>
-                      {rule}
-                    </span>
-                  </div>
-                ))}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold shrink-0 ${accent.badgeCls}`}>
+                {accent.badgeIcon}
+                {accent.badgeLabel}
               </div>
+            </div>
 
-              {/* RIGHT — Explanation */}
-              <div className="flex items-center px-5 py-4 flex-1">
-                <p className="text-xs text-muted-foreground leading-relaxed">{c.explanation}</p>
-              </div>
+            {/* ── Direction rules ── */}
+            <div className="flex flex-col gap-2.5 px-6 py-4 border-b border-border/40">
+              {c.rules.map((rule, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${accent.dot}`} />
+                  <span className={`text-sm font-mono font-semibold ${accent.ruleText}`}>{rule}</span>
+                </div>
+              ))}
+            </div>
 
+            {/* ── Explanation ── */}
+            <div className="px-6 py-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">{c.explanation}</p>
             </div>
           </div>
         )
       })}
 
       {/* Disclaimer */}
-      <p className="text-[11px] text-muted-foreground italic px-1 pt-1">
+      <p className="text-xs text-muted-foreground italic px-1">
         Correlations are dynamic and may weaken or break during major macro events. Always confirm with current price action and your own analysis.
       </p>
     </section>
