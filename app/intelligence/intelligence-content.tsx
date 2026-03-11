@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { TradingSessionsPanel } from "./trading-sessions-panel"
+import { useT } from "@/hooks/useT"
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -307,6 +308,7 @@ const INDIAN_INDICES = [
 ]
 
 export function IntelligenceContent() {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<Tab>("forex")
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -443,11 +445,11 @@ export function IntelligenceContent() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Market Intelligence</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t.intelligence.title}</h1>
                 <MarketStatusBadge tab={activeTab} />
               </div>
               <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-                Real-time market data and analysis
+                {t.intelligence.subtitle}
               </p>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">

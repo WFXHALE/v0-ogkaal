@@ -5,6 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Link from "next/link"
 import { ChevronDown, ChevronUp, BookOpen, ArrowRight } from "lucide-react"
+import { useT } from "@/hooks/useT"
 
 // ── Category colour map ───────────────────────────────────────────────────────
 const catStyle: Record<string, string> = {
@@ -396,6 +397,7 @@ function ArticleCard({ article }: { article: Article }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function BlogPage() {
+  const t = useT()
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -405,7 +407,7 @@ export default function BlogPage() {
         <section className="px-4 py-16 text-center max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Blog</p>
           <h1 className="text-4xl sm:text-5xl font-bold text-foreground text-balance leading-tight mb-5">
-            Trading Education
+            {t.blog.educationTitle}
           </h1>
           <p className="text-lg text-muted-foreground text-pretty leading-relaxed">
             Free articles on Smart Money Concepts, ICT methodology, market psychology, risk management, and funded account strategies.
@@ -432,7 +434,7 @@ export default function BlogPage() {
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <span className="text-xs text-muted-foreground">{p.date}</span>
                   <Link href={`/blog/${p.slug}`} className="text-xs font-semibold text-primary hover:underline">
-                    Read more
+                    {t.blog.readMore}
                   </Link>
                 </div>
               </article>

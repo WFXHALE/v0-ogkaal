@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
 import { BackButton } from "@/components/back-button"
 import { UserAvatar } from "@/components/client-avatar"
+import { LanguagePicker } from "@/components/language-picker"
 
 // ── Nav items — Profile is NOT here; it lives in the UserAvatar dropdown ──────
 interface NavItem { label: string; href: string }
@@ -306,6 +307,11 @@ export function Header() {
                       {isActive(item.href) && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
                     </Link>
                   ))}
+                </div>
+
+                {/* Language picker */}
+                <div className="mt-1 pt-1 border-t border-border/40">
+                  <LanguagePicker onPick={() => setMobileMenuOpen(false)} />
                 </div>
               </nav>
             </div>

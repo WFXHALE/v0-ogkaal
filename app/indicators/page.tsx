@@ -5,6 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { BarChart2, Search, ExternalLink, Layers, Zap, Droplets, Clock, Wrench, TrendingUp, X } from "lucide-react"
 import { INDICATORS, type Indicator, type IndicatorCategory } from "@/lib/indicators-data"
+import { useT } from "@/hooks/useT"
 
 // ── Category config ────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ function IndicatorCard({ indicator }: { indicator: Indicator }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function IndicatorsPage() {
+  const t = useT()
   const [search,    setSearch]    = useState("")
   const [activecat, setActivecat] = useState<IndicatorCategory | "all">("all")
 
@@ -105,10 +107,10 @@ export default function IndicatorsPage() {
               SMC &amp; ICT Based
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground text-balance mb-3">
-              Trading Indicators
+              {t.indicators.title}
             </h1>
             <p className="text-muted-foreground text-base max-w-xl mx-auto text-pretty">
-              A curated library of Smart Money Concepts and ICT indicators, Pine Scripts, and TradingView tools used by the OG Kaal community.
+              {t.indicators.subtitle}
             </p>
           </div>
 

@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { FirebaseProvider } from '@/components/firebase-provider'
 import { PageLoader } from '@/components/page-loader'
+import { LanguageProvider } from '@/contexts/language-context'
 import './globals.css'
 
 const _inter = Inter({
@@ -74,12 +75,14 @@ export default function RootLayout({
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground">
-        <FirebaseProvider>
-          <ThemeProvider>
-            <PageLoader />
-            {children}
-          </ThemeProvider>
-        </FirebaseProvider>
+        <LanguageProvider>
+          <FirebaseProvider>
+            <ThemeProvider>
+              <PageLoader />
+              {children}
+            </ThemeProvider>
+          </FirebaseProvider>
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

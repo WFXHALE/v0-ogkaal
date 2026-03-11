@@ -32,6 +32,7 @@ import {
 } from "@/lib/dash-auth"
 import { signInWithGoogle } from "@/lib/google-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
+import { LanguagePicker } from "@/components/language-picker"
 
 function getInitials(name: string) {
   return name
@@ -372,6 +373,11 @@ function LoggedOutPopup({
               </form>
             )}
           </div>
+
+          {/* Language picker — always visible, no login needed */}
+          <div className="border-t border-border/60">
+            <LanguagePicker />
+          </div>
         </div>
       )}
     </div>
@@ -503,6 +509,10 @@ export function UserAvatar() {
                 {label}
               </Link>
             ))}
+          </div>
+
+          <div className="border-t border-border">
+            <LanguagePicker onPick={() => {}} />
           </div>
 
           <div className="border-t border-border py-1">
