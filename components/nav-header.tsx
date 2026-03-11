@@ -13,22 +13,20 @@ import { UserAvatar } from "@/components/user-avatar"
 // ── Nav items — Profile is NOT here; it lives in the UserAvatar dropdown ──────
 interface NavItem { label: string; href: string }
 
+// Trade Dashboard lives inside Dashboard | Blog lives inside About | SMC Guide lives inside Community
 const NAV_ITEMS: NavItem[] = [
-  { label: "Home",            href: "/"                },
-  { label: "USDT P2P",        href: "/usdt-p2p"        },
-  { label: "Mentorship",      href: "/mentorship"      },
-  { label: "VIP Group",       href: "/vip-group"       },
-  { label: "Intelligence",    href: "/intelligence"    },
-  { label: "Funded Tools",    href: "/funded-tools"    },
-  { label: "Dashboard",       href: "/dashboard"       },
-  { label: "Trade Dashboard", href: "/trade-dashboard" },
-  { label: "Material",        href: "/material"        },
-  { label: "Community",       href: "/community"       },
-  { label: "SMC Guide",       href: "/smc-guide"       },
-  { label: "Blog",            href: "/blog"            },
-  { label: "About",           href: "/about"           },
-  { label: "Contact",         href: "/contact"         },
-  { label: "FAQ",             href: "/faq"             },
+  { label: "Home",         href: "/"             },
+  { label: "USDT P2P",     href: "/usdt-p2p"     },
+  { label: "Mentorship",   href: "/mentorship"   },
+  { label: "VIP Group",    href: "/vip-group"    },
+  { label: "Intelligence", href: "/intelligence" },
+  { label: "Funded Tools", href: "/funded-tools" },
+  { label: "Dashboard",    href: "/dashboard"    },
+  { label: "Material",     href: "/material"     },
+  { label: "Community",    href: "/community"    },
+  { label: "About",        href: "/about"        },
+  { label: "Contact",      href: "/contact"      },
+  { label: "FAQ",          href: "/faq"          },
 ]
 
 // ── Single nav link with gold underline for active page ───────────────────────
@@ -262,20 +260,31 @@ export function Header() {
                     </Link>
                   )
                 })}
-                {/* Profile link in mobile nav too */}
-                <Link
-                  href="/profile"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={[
-                    "flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors",
-                    isActive("/profile")
-                      ? "text-foreground bg-secondary/60 border-l-2 border-[#FCD535] pl-3"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
-                  ].join(" ")}
-                >
-                  My Profile
-                  {isActive("/profile") && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
-                </Link>
+                {/* Sub-pages accessible from mobile — shown as secondary items */}
+                <div className="mt-1 pt-1 border-t border-border/40">
+                  <p className="px-4 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Quick Links</p>
+                  {[
+                    { label: "Trade Dashboard", href: "/trade-dashboard" },
+                    { label: "SMC Guide",       href: "/smc-guide" },
+                    { label: "Blog",            href: "/blog" },
+                    { label: "My Profile",      href: "/profile" },
+                  ].map(item => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={[
+                        "flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-colors",
+                        isActive(item.href)
+                          ? "text-foreground bg-secondary/60 border-l-2 border-[#FCD535] pl-3"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                      {isActive(item.href) && <span className="w-1.5 h-1.5 rounded-full bg-[#FCD535] shrink-0" />}
+                    </Link>
+                  ))}
+                </div>
               </nav>
             </div>
           )}

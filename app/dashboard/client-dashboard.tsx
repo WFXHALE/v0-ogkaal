@@ -8,7 +8,7 @@ import {
   Copy, Check, ChevronDown, ChevronUp,
   Eye, EyeOff, RefreshCw, KeyRound, Mail, Lock,
   Bell, Link2, MessageCircle, BarChart2, BookOpen,
-  Star, Users, Activity,
+  Star, Users, Activity, TrendingUp,
 } from "lucide-react"
 import {
   getSession, logout, touchActivity, isSessionTimedOut,
@@ -588,6 +588,36 @@ export default function ClientDashboard() {
               <LogOut className="w-4 h-4" /><span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
+        </div>
+
+        {/* Sub-section quick links */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <Link
+            href="/trade-dashboard"
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card hover:border-[#FCD535]/50 hover:bg-[#FCD535]/5 transition-colors px-5 py-4 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#FCD535]/10 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-5 h-5 text-[#FCD535]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground group-hover:text-[#FCD535] transition-colors">Trade Dashboard</p>
+              <p className="text-xs text-muted-foreground">Live signals, performance & analysis</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[#FCD535] group-hover:translate-x-0.5 transition-all shrink-0" />
+          </Link>
+          <Link
+            href="/profile"
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors px-5 py-4 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">My Profile</p>
+              <p className="text-xs text-muted-foreground">Edit your account details & settings</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+          </Link>
         </div>
 
         <div className="space-y-4">

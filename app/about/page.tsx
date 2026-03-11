@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { TrendingUp, Shield, Users, Award } from "lucide-react"
+import { TrendingUp, Shield, Users, Award, ArrowRight, Clock } from "lucide-react"
+import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "About OG KAAL TRADER | Smart Money Concepts Mentor",
@@ -27,6 +28,65 @@ const values = [
   { icon: Users,      title: "Community Driven",        body: "Members grow together through shared analysis, live sessions, and open discussions in our private group." },
   { icon: Award,      title: "Proven Track Record",     body: "Monthly performance stats are published publicly so you can verify results before joining." },
 ]
+
+const blogPosts = [
+  {
+    slug: "why-retail-traders-lose",
+    category: "Psychology",
+    title: "Why 90% of Retail Traders Lose — And How to Be in the 10%",
+    excerpt: "Most retail traders fail not because of bad strategies, but because they don't understand who they are trading against.",
+    date: "March 5, 2025",
+    readTime: "8 min",
+  },
+  {
+    slug: "order-blocks-explained",
+    category: "SMC",
+    title: "Order Blocks Explained: Finding Where Institutions Buy and Sell",
+    excerpt: "Order blocks are the most powerful entry tool in Smart Money Concepts. Learn how to identify valid order blocks with minimal risk.",
+    date: "February 20, 2025",
+    readTime: "10 min",
+  },
+  {
+    slug: "funded-account-guide",
+    category: "Funded Accounts",
+    title: "How to Pass FTMO in 30 Days Using SMC Strategies",
+    excerpt: "A step-by-step breakdown of the exact approach OG KAAL students use to pass FTMO with an 80%+ pass rate.",
+    date: "January 28, 2025",
+    readTime: "12 min",
+  },
+  {
+    slug: "risk-management-rules",
+    category: "Risk Management",
+    title: "The 5 Risk Management Rules Every Profitable Trader Follows",
+    excerpt: "Strategy is worthless without proper risk management. These five rules will protect your account.",
+    date: "January 15, 2025",
+    readTime: "6 min",
+  },
+  {
+    slug: "liquidity-zones-guide",
+    category: "SMC",
+    title: "Liquidity Zones: The Key to Reading Institutional Price Action",
+    excerpt: "Price doesn't move randomly — it's engineered to sweep liquidity before reversing. Master this concept to stop getting stop hunted.",
+    date: "February 10, 2025",
+    readTime: "7 min",
+  },
+  {
+    slug: "gold-trading-smc",
+    category: "Analysis",
+    title: "Trading XAUUSD (Gold) with Smart Money Concepts",
+    excerpt: "Gold is one of the most liquid and manipulated markets — making it perfect for SMC traders.",
+    date: "January 3, 2025",
+    readTime: "9 min",
+  },
+]
+
+const categoryColors: Record<string, string> = {
+  "SMC":             "bg-[#FCD535]/10 text-[#FCD535] border-[#FCD535]/30",
+  "Psychology":      "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  "Funded Accounts": "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  "Risk Management": "bg-green-500/10 text-green-400 border-green-500/30",
+  "Analysis":        "bg-orange-500/10 text-orange-400 border-orange-500/30",
+}
 
 export default function AboutPage() {
   return (
@@ -86,6 +146,58 @@ export default function AboutPage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">{v.body}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Divider */}
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="border-t border-border/60" />
+        </div>
+
+        {/* Blog section — anchored so /about#blog works */}
+        <section id="blog" className="px-4 py-16 max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-sm font-semibold text-[#FCD535] uppercase tracking-widest mb-3">Blog</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground text-balance mb-4">
+              Trading Education
+            </h2>
+            <p className="text-muted-foreground text-pretty max-w-xl mx-auto leading-relaxed">
+              Free articles on Smart Money Concepts, market psychology, risk management, and funded account strategies.
+            </p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {blogPosts.map(p => (
+              <article
+                key={p.slug}
+                className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 hover:border-[#FCD535]/40 transition-colors group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${categoryColors[p.category] ?? "bg-secondary text-muted-foreground border-border"}`}>
+                    {p.category}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    {p.readTime}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-foreground leading-snug mb-2 group-hover:text-[#FCD535] transition-colors text-balance">
+                    {p.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed text-pretty">{p.excerpt}</p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                  <span className="text-xs text-muted-foreground">{p.date}</span>
+                  <Link
+                    href={`/blog/${p.slug}`}
+                    className="flex items-center gap-1 text-xs font-semibold text-[#FCD535] hover:underline"
+                  >
+                    Read <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </article>
             ))}
           </div>
         </section>
