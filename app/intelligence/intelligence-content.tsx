@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Newspaper, 
   Calendar, BarChart3, Activity, Clock,
   ArrowUpRight, ArrowDownRight, ExternalLink, DollarSign,
-  Bitcoin, IndianRupee
+  Bitcoin, IndianRupee, ArrowUp, ArrowDown, GitCompare
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { TradingSessionsPanel } from "./trading-sessions-panel"
@@ -137,6 +137,160 @@ interface EconomicEvent {
   impact: "high" | "medium" | "low"
   forecast: string
   previous: string
+}
+
+// ── Market Correlations ────────────────────────────────────────────────────────
+
+type CorrelationType = "positive" | "inverse"
+
+interface Correlation {
+  pair: [string, string]
+  label: string
+  type: CorrelationType
+  explanation: string
+  featured?: boolean
+}
+
+const CORRELATIONS: Correlation[] = [
+  {
+    pair: ["XAUUSD", "DXY"],
+    label: "Gold  ↔  US Dollar Index",
+    type: "inverse",
+    explanation: "When the US Dollar strengthens, Gold typically moves bearish. A weakening Dollar tends to push Gold bullish as it becomes cheaper for holders of other currencies.",
+    featured: true,
+  },
+  {
+    pair: ["XAUUSD", "XAGUSD"],
+    label: "Gold  ↔  Silver",
+    type: "positive",
+    explanation: "Both precious metals react similarly to economic uncertainty, inflation, and risk-off sentiment. They usually move in the same direction.",
+    featured: true,
+  },
+  {
+    pair: ["BTC", "ETH"],
+    label: "Bitcoin  ↔  Ethereum",
+    type: "positive",
+    explanation: "As the two dominant cryptocurrencies they share the same investor sentiment cycle. Bitcoin typically leads and Ethereum follows closely.",
+    featured: true,
+  },
+  {
+    pair: ["EURUSD", "GBPUSD"],
+    label: "EURUSD  ↔  GBPUSD",
+    type: "positive",
+    explanation: "Both pairs use the US Dollar as the quote currency. Dollar strength or weakness drives both pairs in the same direction simultaneously.",
+    featured: true,
+  },
+  {
+    pair: ["USDJPY", "XAUUSD"],
+    label: "USDJPY  ↔  Gold",
+    type: "inverse",
+    explanation: "A stronger Dollar against the Yen signals broad USD strength, which typically weighs on Gold. Both react inversely to safe-haven demand shifts.",
+    featured: true,
+  },
+  {
+    pair: ["EURJPY", "GBPJPY"],
+    label: "EURJPY  ↔  GBPJPY",
+    type: "positive",
+    explanation: "Both are Yen cross pairs. Yen weakness or strength moves both in tandem since the JPY is the shared quote currency.",
+    featured: false,
+  },
+  {
+    pair: ["AUDUSD", "XAUUSD"],
+    label: "AUDUSD  ↔  Gold",
+    type: "positive",
+    explanation: "Australia is a major Gold exporter, so rising Gold prices support the AUD. Both assets also respond positively to risk-on environments.",
+    featured: false,
+  },
+  {
+    pair: ["USDJPY", "DXY"],
+    label: "USDJPY  ↔  DXY",
+    type: "positive",
+    explanation: "The Yen is a safe-haven currency that weakens when the Dollar strengthens broadly. USDJPY rises alongside DXY in most Dollar-driven moves.",
+    featured: false,
+  },
+  {
+    pair: ["BTC", "NDX"],
+    label: "Bitcoin  ↔  Nasdaq",
+    type: "positive",
+    explanation: "Bitcoin has developed a strong positive correlation with tech equities. Risk-on flows into Nasdaq often coincide with Bitcoin rallies.",
+    featured: false,
+  },
+]
+
+function CorrelationBadge({ type }: { type: CorrelationType }) {
+  return type === "positive" ? (
+    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/25 text-green-400">
+      <ArrowUp className="w-3 h-3" />
+      <span className="text-[11px] font-bold uppercase tracking-wide">Positive</span>
+    </div>
+  ) : (
+    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/25 text-red-400">
+      <ArrowDown className="w-3 h-3" />
+      <span className="text-[11px] font-bold uppercase tracking-wide">Inverse</span>
+    </div>
+  )
+}
+
+function MarketCorrelations() {
+  const featured = CORRELATIONS.filter(c => c.featured)
+  const additional = CORRELATIONS.filter(c => !c.featured)
+
+  return (
+    <section className="space-y-5">
+      {/* Featured correlations grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {featured.map(c => (
+          <div
+            key={c.label}
+            className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors"
+          >
+            {/* Pair names */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs font-bold text-primary bg-primary/8 border border-primary/20 px-2 py-0.5 rounded-lg">{c.pair[0]}</span>
+              <span className="text-muted-foreground text-xs">↔</span>
+              <span className="font-mono text-xs font-bold text-primary bg-primary/8 border border-primary/20 px-2 py-0.5 rounded-lg">{c.pair[1]}</span>
+            </div>
+
+            {/* Badge */}
+            <CorrelationBadge type={c.type} />
+
+            {/* Explanation */}
+            <p className="text-xs text-muted-foreground leading-relaxed flex-1">{c.explanation}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Additional correlations — compact list */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/60 bg-secondary/30">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Additional Correlations</p>
+        </div>
+        <div className="divide-y divide-border/40">
+          {additional.map(c => (
+            <div key={c.label} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3">
+              {/* Pair tags */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-mono text-xs font-semibold text-primary">{c.pair[0]}</span>
+                <span className="text-muted-foreground text-[10px]">↔</span>
+                <span className="font-mono text-xs font-semibold text-primary">{c.pair[1]}</span>
+              </div>
+              {/* Badge */}
+              <div className="shrink-0">
+                <CorrelationBadge type={c.type} />
+              </div>
+              {/* Explanation */}
+              <p className="text-xs text-muted-foreground leading-relaxed">{c.explanation}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <p className="text-[11px] text-muted-foreground italic px-1">
+        Correlations are dynamic and may weaken or break during major macro events. Always confirm with current price action and your own analysis.
+      </p>
+    </section>
+  )
 }
 
 // Forex assets — Gold and DXY only
@@ -657,6 +811,18 @@ export function IntelligenceContent() {
                 <h2 className="text-xl font-semibold text-foreground">Trading Sessions</h2>
               </div>
               <TradingSessionsPanel />
+            </section>
+
+            {/* Market Correlations — always visible */}
+            <section>
+              <div className="flex items-center gap-2 mb-5">
+                <GitCompare className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Market Correlations</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-5 max-w-2xl leading-relaxed">
+                Understanding how assets move relative to each other helps traders confirm directional bias before entering a trade. Use these relationships as confluence, not as standalone signals.
+              </p>
+              <MarketCorrelations />
             </section>
           </div>
 
