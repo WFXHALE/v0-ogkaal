@@ -1,53 +1,87 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { DEFAULT_PRICING, DEFAULT_SYSTEM, type PricingConfig, type SystemConfig } from "@/lib/admin-settings"
+import { useEffect, useState } from "react"
 
-export interface SiteConfig extends SystemConfig, PricingConfig {}
+// ─── Types ────────────────────────────────────────────────────────────────────
+// Inline types here so this file has ZERO imports from admin-settings.ts.
+// admin-settings.ts imports supabase/client which causes HMR module factory
+// errors when loaded in the same bundle as this hook.
+
+export interface SiteConfig {
+  // Pricing
+  mentorship_1:           string
+  mentorship_2:           string
+  crypto_mentorship:      string
+  vip_signal:             string
+  funded_account:         string
+  vip_signal_xm_existing: string
+  vip_signal_xm_new:      string
+  // System
+  upiEnabled:          boolean
+  cryptoEnabled:       boolean
+  erupeeEnabled:       boolean
+  maintenanceMode:     boolean
+  telegramEnabled:     boolean
+  notifEnabled:        boolean
+  paymentInstructions: string
+}
 
 const DEFAULT_CONFIG: SiteConfig = {
-  ...DEFAULT_SYSTEM,
-  ...DEFAULT_PRICING,
+  mentorship_1:           "₹6,500",
+  mentorship_2:           "₹15,000",
+  crypto_mentorship:      "₹20,000",
+  vip_signal:             "₹2,999",
+  funded_account:         "₹5,000",
+  vip_signal_xm_existing: "₹2,000",
+  vip_signal_xm_new:      "₹2,500",
+  upiEnabled:          true,
+  cryptoEnabled:       true,
+  erupeeEnabled:       true,
+  maintenanceMode:     false,
+  telegramEnabled:     true,
+  notifEnabled:        true,
+  paymentInstructions: "Pay via UPI or Crypto and upload screenshot with UTR number.",
 }
 
 /**
- * Returns live site config (system settings + pricing) from the database.
+ * Returns live site config from /api/pricing (server-side Supabase read).
  *
- * Fetch priority:
- *   1. GET /api/pricing  — server-side Supabase read (authoritative, no localStorage)
- *   2. Falls back to hard-coded DEFAULT_CONFIG if the network request fails
- *
- * The admin panel writes pricing to Supabase via savePricing() and then fires
- * "og_site_config_change" so any open frontend tab re-fetches from /api/pricing.
+ * Key guarantee: the hook NEVER reads localStorage synchronously.
+ * The initial state on both server and client is always DEFAULT_CONFIG,
+ * which prevents hydration mismatches. Live values load after mount via
+ * useEffect, so the first paint is always consistent.
  */
 export function useSiteConfig(): SiteConfig {
+  // Always start with DEFAULT_CONFIG on both server and client.
+  // Never use a lazy initialiser that reads localStorage — that causes
+  // server/client mismatches because localStorage is browser-only.
   const [config, setConfig] = useState<SiteConfig>(DEFAULT_CONFIG)
-  const fetchedRef = useRef(false)
-
-  const fetchFromApi = async () => {
-    try {
-      const res = await fetch("/api/pricing", { cache: "no-store" })
-      const json = await res.json()
-      if (json?.config) {
-        const merged: SiteConfig = { ...DEFAULT_CONFIG, ...json.config }
-        setConfig(merged)
-      }
-    } catch {
-      // Network failure — keep current state (defaults or prior fetch)
-    }
-  }
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!fetchedRef.current) {
-      fetchedRef.current = true
-      fetchFromApi()
+    setMounted(true)
+
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/pricing", { cache: "no-store" })
+        if (!res.ok) return
+        const json = await res.json()
+        if (json?.config) {
+          setConfig(prev => ({ ...prev, ...json.config }))
+        }
+      } catch {
+        // Network failure — keep defaults
+      }
     }
 
-    // Re-fetch when the admin panel saves new pricing (same tab)
-    const onCustom = () => fetchFromApi()
-    window.addEventListener("og_site_config_change", onCustom)
-    return () => window.removeEventListener("og_site_config_change", onCustom)
+    fetchConfig()
+
+    // Re-fetch when admin saves new pricing in the same tab
+    window.addEventListener("og_site_config_change", fetchConfig)
+    return () => window.removeEventListener("og_site_config_change", fetchConfig)
   }, [])
 
-  return config
+  // Return defaults until mounted to guarantee server/client render parity.
+  // After mount, return the fetched live config.
+  return mounted ? config : DEFAULT_CONFIG
 }
