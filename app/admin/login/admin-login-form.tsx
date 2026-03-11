@@ -26,8 +26,10 @@ import {
   resetPassword,
 } from "@/lib/admin-auth"
 
-const DEFAULT_ADMIN_EMAIL    = "swargakai@gmail.com"
-const DEFAULT_ADMIN_PASSWORD = "Shahidaxkaal"
+const DEFAULT_ADMIN_EMAIL    = "sheikhahmed2724@gmail.com"
+// Password is sourced from the NEXT_PUBLIC_ADMIN_SECRET_KEY env var set in project settings.
+// Falls back to the legacy key only if the env var is not yet set.
+const DEFAULT_ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || "Shahidaxkaal"
 
 type LoginMethod = "email" | "phone" | "username"
 type Screen = "login" | "forgot" | "reset"
@@ -53,7 +55,18 @@ export function AdminLoginForm() {
 
   useEffect(() => {
     if (isSessionValid()) { router.push("/admin"); return }
-    setNeedsSetup(!adminExists())
+    // Auto-create admin account on first visit (no manual setup step required)
+    if (!adminExists()) {
+      createAdminAccount(DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, "OGXSHAHID", "+919541281829")
+        .then(() => {
+          setNeedsSetup(false)
+          setIdentifier(DEFAULT_ADMIN_EMAIL)
+          setMethod("email")
+        })
+        .catch(() => {}) // silently ignore if account already exists
+    } else {
+      setNeedsSetup(false)
+    }
     setIsChecking(false)
   }, [router])
 
@@ -61,7 +74,7 @@ export function AdminLoginForm() {
 
   const handleSetup = async () => {
     clear(); setIsLoading(true)
-    const r = await createAdminAccount(DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD)
+    const r = await createAdminAccount(DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, "OGXSHAHID", "+919541281829")
     if (r.success) {
       setInfo("Admin account created. You can now log in.")
       setNeedsSetup(false)
@@ -157,23 +170,7 @@ export function AdminLoginForm() {
           <p className="text-sm text-muted-foreground mt-1">OG KAAL TRADER — Restricted Access</p>
         </div>
 
-        {/* First-time setup */}
-        {needsSetup && screen === "login" && (
-          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 mb-5">
-            <p className="text-sm font-semibold text-amber-400 mb-1">First-Time Setup Required</p>
-            <p className="text-xs text-muted-foreground mb-4">
-              No admin account found. Click below to create the default admin account.
-            </p>
-            <Button
-              onClick={handleSetup}
-              disabled={isLoading}
-              className="w-full bg-amber-500 text-black hover:bg-amber-400 font-bold"
-            >
-              {isLoading && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
-              Create Admin Account
-            </Button>
-          </div>
-        )}
+        {/* First-time setup — handled automatically, no manual button needed */}
 
         <div className="p-6 rounded-2xl bg-card border border-border shadow-xl">
 
@@ -268,7 +265,7 @@ export function AdminLoginForm() {
 
               <Button
                 type="submit"
-                disabled={isLoading || needsSetup}
+                disabled={isLoading}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-5"
               >
                 {isLoading
