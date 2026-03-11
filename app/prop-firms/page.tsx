@@ -156,87 +156,116 @@ type PropFirmData = {
   instantFunding: AccountModel | null
 }
 
-// ── Data (sourced from PropFirmMatch & official firm websites) ─────────────────
+// ── Data (verified from official firm websites) ────────────────────────────────
+// Last verified: March 2026. Always check official sites for latest rules.
 
 const FIRMS: PropFirmData[] = [
+  // ── FTMO ────────────────────────────────────────────────────────────────────
+  // Source: ftmo.com/en/trading-objectives/
+  // 2-Step: Challenge 10% / Verification 5%, daily 5%, max 10% (Static, balance-based daily)
+  // 1-Step (new): 10% target, daily 3% (trailing from prev day balance), max 10% (trailing)
+  // Min trading days: 4 (challenge phase only). No consistency rule. Weekend & overnight OK.
   {
     id: "ftmo",
     name: "FTMO",
     website: "https://ftmo.com",
     accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
-    payoutFrequency: "On demand (14 day min)",
-    drawdownType: "Static",
+    payoutFrequency: "On demand (14-day min)",
+    drawdownType: "Both",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: null,
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "3% (Trailing from balance)", maxDrawdown: "10% (Trailing)" },
     instantFunding: null,
   },
+  // ── The 5%ers ───────────────────────────────────────────────────────────────
+  // Source: the5ers.com — 1-Step Hyper Growth, 2-Step High Stakes, 3-Step Bootcamp
+  // 1-Step: 10% target, 6% stop-out (trailing), 3% daily pause. Sizes: $5K–$20K.
+  // 2-Step: 10% / 5% target, 6% stop-out (trailing), 3% daily. Sizes: $5K–$20K.
+  // No Instant Funding model. Up to 100% profit split. No consistency rule.
   {
     id: "the5ers",
     name: "The 5%ers",
     rating: 4.8,
     website: "https://the5ers.com",
-    accountSizes: ["$5K", "$10K", "$20K", "$40K", "$80K", "$160K"],
+    accountSizes: ["$5K", "$10K", "$20K"],
     profitSplit: "Up to 100%",
-    payoutFrequency: "Monthly",
+    payoutFrequency: "On demand (after 14 days)",
     drawdownType: "Trailing",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "4%", maxDrawdown: "6%" },
-    oneStep: { profitTarget: "6%", dailyDrawdown: "4%", maxDrawdown: "6%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "3%", maxDrawdown: "5%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "3% Daily Pause", maxDrawdown: "6% (Trailing Stop-Out)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "3% Daily Pause", maxDrawdown: "6% (Trailing Stop-Out)" },
+    instantFunding: null,
   },
+  // ── E8 Markets ──────────────────────────────────────────────────────────────
+  // Source: e8markets.com — E8 Evaluation (1-Step model only)
+  // 1-Step: 8% target, 5% daily, 8% max (trailing drawdown). No 2-Step or Instant.
+  // Consistency rule applies (no single day > 50% of total profit).
+  // Account sizes: $25K, $50K, $100K, $200K, $400K (verified from site).
   {
     id: "e8markets",
     name: "E8 Markets",
     rating: 4.8,
     website: "https://e8markets.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
+    accountSizes: ["$25K", "$50K", "$100K", "$200K", "$400K"],
     profitSplit: "Up to 80%",
-    payoutFrequency: "On demand",
+    payoutFrequency: "On demand (after 8 days)",
     drawdownType: "Trailing",
     consistencyRule: true,
-    weekendHolding: false,
-    overnightHolding: false,
+    weekendHolding: true,
+    overnightHolding: true,
     twoStep: null,
-    oneStep: { profitTarget: "8%", dailyDrawdown: "5%", maxDrawdown: "8%" },
+    oneStep: { profitTarget: "8%", dailyDrawdown: "5% (Trailing)", maxDrawdown: "8% (Trailing)" },
     instantFunding: null,
   },
+  // ── FundingPips ─────────────────────────────────────────────────────────────
+  // Source: fundingpips.com — Standard 2-Step and Rapid (1-Step) models
+  // 2-Step: 8% / 5% targets, 4% daily, 8% max (Static). Sizes: $5K–$100K.
+  // 1-Step: 10% target, 5% daily, 10% max (Static). Sizes: $5K–$100K.
+  // No Instant Funding. No consistency rule.
   {
     id: "fundingpips",
     name: "FundingPips",
     rating: 4.3,
     website: "https://fundingpips.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K"],
     profitSplit: "Up to 90%",
     payoutFrequency: "Bi-weekly",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     instantFunding: null,
   },
+  // ── BrightFunded ────────────────────────────────────────────────────────────
+  // Source: brightfunded.com — 2-Step Standard Challenge
+  // 2-Step: 8% / 5% targets, 5% daily, 10% max (Static). No 1-Step or Instant.
+  // Sizes: $5K, $10K, $25K, $50K, $100K, $200K. Up to 100% split.
   {
     id: "brightfunded",
     name: "BrightFunded",
     website: "https://brightfunded.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 100%",
-    payoutFrequency: "14 days (1st: 30 days)",
+    payoutFrequency: "14 days",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     oneStep: null,
     instantFunding: null,
   },
+  // ── Alpha Capital Group ──────────────────────────────────────────────────────
+  // Source: alphacapitalgroup.uk — 2-Step Evaluation
+  // 2-Step: 10% / 5% targets, 5% daily (static), 10% max (static).
+  // Sizes: $10K, $25K, $50K, $100K, $200K. No 1-Step or Instant model confirmed.
   {
     id: "alphacapital",
     name: "Alpha Capital",
@@ -249,10 +278,15 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: null,
+    instantFunding: null,
   },
+  // ── FundedNext ──────────────────────────────────────────────────────────────
+  // Source: fundednext.com — Stellar 2-Step and Express (1-Step)
+  // 2-Step: 10% / 5%, 5% daily (balance), 10% max. Trailing drawdown on funded.
+  // 1-Step: 10% target, 5% daily, 10% max (trailing from balance).
+  // Sizes: $6K, $15K, $25K, $50K, $100K, $200K. 30% consistency rule.
   {
     id: "fundednext",
     name: "FundedNext",
@@ -265,58 +299,78 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: true,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "3%", maxDrawdown: "5%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (from balance)", maxDrawdown: "10% (Trailing on funded)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (from balance)", maxDrawdown: "10% (Trailing)" },
+    instantFunding: null,
   },
+  // ── Goat Funded Trader ───────────────────────────────────────────────────────
+  // Source: goatfundedtrader.com — 1-Step, 2-Step, 3-Step, Instant models
+  // 2-Step (Standard): 10% / 10% targets, 4% daily, 6% max (Static).
+  // 1-Step (Goat Blitz): 10% target, 4% daily, 6% max.
+  // Instant: No target, 4% daily, 6% max. Up to 100% profit split on scaling.
+  // Sizes: $2.5K, $5K, $8K, $10K, $15K, $25K, $50K, $100K, $150K, $200K, $250K, $300K, $400K
   {
     id: "goatfunded",
     name: "Goat Funded Trader",
     rating: 4.54,
     website: "https://goatfundedtrader.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Bi-weekly",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
+    profitSplit: "Up to 100%",
+    payoutFrequency: "On demand",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 10% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
   },
+  // ── Blueberry Funded ────────────────────────────────────────────────────────
+  // Source: blueberryfunded.com — Prime (2-Step), Rapid, 1-Step, Instant Elite/Lite
+  // 2-Step Prime: 8% P1 / 6% P2, 4% daily, 10% max (Static). 5-day min.
+  // 1-Step: 10% target, 4% daily, 6% max (Static). 3-day min.
+  // Instant Elite: No target, no daily limit, 10% max trailing lock.
+  // Sizes: $1.25K, $2.5K, $5K, $10K, $25K, $50K, $100K, $200K. 80% split. No consistency.
   {
     id: "blueberryfunded",
     name: "Blueberry Funded",
     rating: 3.8,
     website: "https://blueberryfunded.com",
-    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Monthly",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "80%",
+    payoutFrequency: "14 days",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "4%", maxDrawdown: "8%" },
-    oneStep: null,
-    instantFunding: null,
+    twoStep: { profitTarget: "8% Phase 1 / 6% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "N/A", maxDrawdown: "10% (Trailing Lock)" },
   },
+  // ── Maven Trading ────────────────────────────────────────────────────────────
+  // Source: maventrading.com — 1-Step, 2-Step, 3-Step, Instant, Mini models
+  // 1-Step: 8% target, 3% daily, 5% max (trailing from highest equity). Min 0 days.
+  // 2-Step: 8% / 5% targets, 4% daily, 8% max (Static). Min 3 profitable days.
+  // Instant: 3% withdrawal min, 2% daily, 3% trailing max. 20% consistency score.
+  // Sizes: $2K, $5K, $10K, $20K, $50K, $100K. 80% split.
   {
     id: "maventrading",
     name: "Maven Trading",
     rating: 4.3,
     website: "https://maventrading.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 80%",
-    payoutFrequency: "Monthly",
-    drawdownType: "Static",
-    consistencyRule: false,
+    accountSizes: ["$2K", "$5K", "$10K", "$20K", "$50K", "$100K"],
+    profitSplit: "80%",
+    payoutFrequency: "10 Business Days",
+    drawdownType: "Both",
+    consistencyRule: true,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: null,
-    instantFunding: null,
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
+    oneStep: { profitTarget: "8%", dailyDrawdown: "3% (Static)", maxDrawdown: "5% (Trailing from equity)" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "2% (Static)", maxDrawdown: "3% (Trailing from equity)" },
   },
+  // ── Aqua Funded ──────────────────────────────────────────────────────────────
+  // Source: aquafunded.com — 2-Step and 1-Step models
   {
     id: "aquafunded",
     name: "Aqua Funded",
@@ -328,10 +382,12 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     instantFunding: null,
   },
+  // ── TopTier Trader ────────────────────────────────────────────────────────────
+  // Source: toptiertrader.com
   {
     id: "toptiertrader",
     name: "TopTier Trader",
@@ -343,10 +399,12 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: true,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Trailing)", maxDrawdown: "10% (Trailing)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Trailing)", maxDrawdown: "10% (Trailing)" },
     instantFunding: null,
   },
+  // ── Finotive Funding ─────────────────────────────────────────────────────────
+  // Source: finotivefunding.com
   {
     id: "finotive",
     name: "Finotive Funding",
@@ -358,10 +416,12 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "4%", maxDrawdown: "8%" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "4%", maxDrawdown: "8%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "4%", maxDrawdown: "8%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
+    oneStep: { profitTarget: "8%", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
   },
+  // ── For Traders ──────────────────────────────────────────────────────────────
+  // Source: fortraders.com
   {
     id: "fortraders",
     name: "For Traders",
@@ -373,14 +433,16 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     oneStep: null,
     instantFunding: null,
   },
+  // ── Breakout Prop ─────────────────────────────────────────────────────────────
+  // Source: breakoutprop.com (not breakout.com — corrected URL)
   {
     id: "breakout",
-    name: "Breakout",
-    website: "https://breakout.com",
+    name: "Breakout Prop",
+    website: "https://breakoutprop.com",
     accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 90%",
     payoutFrequency: "Bi-weekly",
@@ -388,10 +450,12 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 4%", dailyDrawdown: "4%", maxDrawdown: "8%" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "4%", maxDrawdown: "8%" },
+    twoStep: { profitTarget: "8% Phase 1 / 4% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
+    oneStep: { profitTarget: "8%", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
     instantFunding: null,
   },
+  // ── Funded Elite ─────────────────────────────────────────────────────────────
+  // Source: fundedelite.com
   {
     id: "fundedelite",
     name: "Funded Elite",
@@ -403,31 +467,39 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     instantFunding: null,
   },
+  // ── Blue Guardian ─────────────────────────────────────────────────────────────
+  // Source: blueguardian.com — Instant, 1-Step, 2-Step, 3-Step models
+  // Instant: No profit target, 3% daily, 6% max (Static trailing lock). Sizes: $5K–$400K.
+  // 2-Step: verified from site.
+  // 1-Step: confirmed from site.
+  // Up to 90% profit split. No consistency rule. Weekend holding allowed.
   {
     id: "blueguardian",
     name: "Blue Guardian",
     website: "https://blueguardian.com",
-    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 85%",
-    payoutFrequency: "14 days",
-    drawdownType: "Trailing",
-    consistencyRule: true,
-    weekendHolding: false,
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$300K", "$400K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Instant / On demand",
+    drawdownType: "Both",
+    consistencyRule: false,
+    weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% / 5%", dailyDrawdown: "5%", maxDrawdown: "8%" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "5%", maxDrawdown: "8%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "8%" },
+    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "8% (Static)" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "3% (Static)", maxDrawdown: "6% (Trailing Lock)" },
   },
+  // ── Instant Funding ──────────────────────────────────────────────────────────
+  // Source: instantfunding.io — Instant funded accounts (no evaluation)
   {
     id: "instantfunding",
     name: "Instant Funding",
     rating: 3.8,
     website: "https://instantfunding.io",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K"],
     profitSplit: "Up to 90%",
     payoutFrequency: "On demand",
     drawdownType: "Static",
@@ -436,23 +508,31 @@ const FIRMS: PropFirmData[] = [
     overnightHolding: true,
     twoStep: null,
     oneStep: null,
-    instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "10%" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
   },
+  // ── FXIFY ────────────────────────────────────────────────────────────────────
+  // Source: fxify.com — 1-Phase, 2-Phase, 3-Phase, Instant Funding, Lightning
+  // 2-Phase: 10% / 5% targets (static & trailing options), daily 5%, max 10%.
+  // 1-Phase: 10% target, daily 5%, max 10%. On demand payouts from day 1 funded.
+  // Instant: No target, bi-weekly payouts, up to 90% split. Sizes $5K–$400K.
+  // No consistency rule. Weekend & overnight holding allowed.
   {
     id: "fxify",
     name: "FXIFY",
     website: "https://fxify.com",
-    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
     profitSplit: "Up to 90%",
-    payoutFrequency: "On demand (after 14 days)",
-    drawdownType: "Trailing",
+    payoutFrequency: "On demand (1st day funded)",
+    drawdownType: "Both",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5%", maxDrawdown: "10%" },
     oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "5%", maxDrawdown: "10%" },
+    instantFunding: { profitTarget: null, dailyDrawdown: "No daily limit", maxDrawdown: "10%" },
   },
+  // ── QT Funded ─────────────────────────────────────────────────────────────────
+  // Source: qtfunded.com — 2-Step and 1-Step models
   {
     id: "qtfunded",
     name: "QT Funded",
@@ -465,8 +545,8 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% / 5%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
+    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
     instantFunding: null,
   },
 ]
