@@ -36,17 +36,22 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { type, title, body, message, chatId: overrideChatId } = await req.json() as {
+    const { type, title, body, message, chatId: overrideChatId, _rawText, userChatId } = await req.json() as {
       type?: string
       title?: string
       body?: string
       message?: string
       chatId?: string
+      _rawText?: boolean     // if true, use `message` as-is (pre-built HTML)
+      userChatId?: string    // send to this specific user chat (for user notifications)
     }
 
     // ── Build the message text ────────────────────────────────────────────
     let text: string
-    if (type === "test") {
+    if (_rawText && message) {
+      // Pre-built HTML — use directly (admin_alert from admin-submissions.ts)
+      text = message
+    } else if (type === "test") {
       text = `<b>OG KAAL TRADER — Test Notification</b>\n\n${message || "Bot connection verified. Integration is working."}\n\n<i>Sent from Admin Panel</i>`
     } else {
       const notifTitle = title   || "Admin Notification"
@@ -55,13 +60,22 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Determine targets ─────────────────────────────────────────────────
-    // Use explicit override → TELEGRAM_CHAT_ID env var → fallback to admin user ID
-    const primaryTarget = overrideChatId || chatIdEnv
-    // For broadcasts (non-test), also send to the channel if TELEGRAM_CHAT_ID is set
-    // and it differs from the admin personal chat (8197983781)
-    const targets = new Set<string>([primaryTarget])
-    if (type !== "test" && chatIdEnv !== "8197983781") {
+    const targets = new Set<string>()
+
+    if (userChatId) {
+      // User-directed notification (approval/rejection) — send only to the user
+      targets.add(userChatId)
+    } else if (type === "admin_alert") {
+      // New submission alert — send only to admin chat
       targets.add(chatIdEnv)
+    } else if (type === "test") {
+      // Test — send to override or admin chat
+      targets.add(overrideChatId || chatIdEnv)
+    } else {
+      // Broadcast — send to override or admin chat; also channel if configured separately
+      const primaryTarget = overrideChatId || chatIdEnv
+      targets.add(primaryTarget)
+      if (chatIdEnv !== "8197983781") targets.add(chatIdEnv)
     }
 
     // ── Send to all targets ───────────────────────────────────────────────

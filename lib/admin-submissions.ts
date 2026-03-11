@@ -1,12 +1,81 @@
 // Utility functions for admin submissions
 
 export interface SubmissionData {
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip_membership" | "other"
   name: string
   email?: string
   telegram?: string
   phone?: string
   details: Record<string, unknown>
+}
+
+// ── Telegram admin alert ──────────────────────────────────────────────────────
+// Fires a Telegram message to the admin chat whenever a new submission arrives.
+// Never throws — failure is silent so the user flow is never interrupted.
+async function notifyAdmin(data: SubmissionData): Promise<void> {
+  try {
+    const { type, name, email, telegram, phone, details } = data
+
+    let text = ""
+
+    if (type === "usdt_p2p") {
+      const action = String(details.action ?? "order").toUpperCase()
+      const amount = String(details.amount ?? "N/A")
+      const wallet = details.walletAddress ? `\nWallet: <code>${String(details.walletAddress)}</code>` : ""
+      const utr    = details.utrNumber ? `\nUTR: <code>${String(details.utrNumber)}</code>` : ""
+      text =
+        `<b>⚡ New USDT ${action} Request</b>\n` +
+        `User: ${name}\n` +
+        `Phone: ${phone ?? "N/A"}\n` +
+        `Telegram: ${telegram ?? "N/A"}\n` +
+        `Amount: ${amount}${wallet}${utr}\n\n` +
+        `<i>— OG KAAL TRADER Admin</i>`
+    } else if (type === "mentorship") {
+      const program = String(details.program ?? "Mentorship")
+      text =
+        `<b>📚 New Mentorship Payment</b>\n` +
+        `User: ${name}\n` +
+        `Phone: ${phone ?? "N/A"}\n` +
+        `Telegram: ${telegram ?? "N/A"}\n` +
+        `Plan: ${program}\n\n` +
+        `<i>— OG KAAL TRADER Admin</i>`
+    } else if (type === "vip_membership") {
+      const plan      = String(details.cardType ?? "VIP")
+      const utr       = details.utr ? `\nUTR: <code>${String(details.utr)}</code>` : ""
+      const method    = details.paymentMethod ? `\nMethod: ${String(details.paymentMethod)}` : ""
+      text =
+        `<b>💎 New VIP Payment Received</b>\n` +
+        `User: ${name}\n` +
+        `Phone: ${phone ?? "N/A"}\n` +
+        `Telegram: ${telegram ?? "N/A"}\n` +
+        `Plan: ${plan}${method}${utr}\n\n` +
+        `<i>— OG KAAL TRADER Admin</i>`
+    } else if (type === "funded_account") {
+      const amount = String(details.accountSize ?? details.amount ?? "N/A")
+      text =
+        `<b>💰 New Funded Account Request</b>\n` +
+        `User: ${name}\n` +
+        `Email: ${email ?? "N/A"}\n` +
+        `Phone: ${phone ?? "N/A"}\n` +
+        `Amount: ${amount}\n\n` +
+        `<i>— OG KAAL TRADER Admin</i>`
+    } else {
+      text =
+        `<b>📬 New Submission</b>\n` +
+        `Type: ${type}\n` +
+        `User: ${name}\n` +
+        `Email: ${email ?? "N/A"}\n\n` +
+        `<i>— OG KAAL TRADER Admin</i>`
+    }
+
+    await fetch("/api/telegram-notify", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ type: "admin_alert", message: text, _rawText: true }),
+    })
+  } catch {
+    // Silent — never block user flow
+  }
 }
 
 interface IpInfo {
@@ -68,4 +137,7 @@ export async function saveSubmission(data: SubmissionData): Promise<void> {
   
   // Save back to localStorage
   localStorage.setItem("og_admin_submissions", JSON.stringify(submissions))
+
+  // Notify admin via Telegram (fire-and-forget)
+  notifyAdmin(data)
 }

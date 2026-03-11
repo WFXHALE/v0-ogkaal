@@ -324,9 +324,41 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
   }
 
+  // ── Telegram helpers ─────────────────────────────────────────────────────────
+  const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
+    if (!userTelegram) return
+    // Strip leading @ — Telegram usernames work as chat_id handles
+    const chatId = userTelegram.startsWith("@") ? userTelegram : `@${userTelegram}`
+    fetch("/api/telegram-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ _rawText: true, message: text, userChatId: chatId }),
+    }).catch(() => {})
+  }
+
   const updateStatus = async (id: string, status: Submission["status"]) => {
     saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
+
+    const sub = submissions.find(s => s.id === id)
+
+    // ── Telegram user notification ──────────────────────────────────────
+    if (sub) {
+      const vipGroupLink = "https://t.me/+OgKaalVIPGroup" // update with real link if needed
+      if (status === "approved") {
+        const isVip = sub.type === "vip" || sub.type === "vip_group"
+        const vipLine = isVip ? `\n\nJoin VIP Group: ${vipGroupLink}` : ""
+        await sendTelegramToUser(
+          sub.telegram,
+          `<b>Payment Approved</b>\n\nHi ${sub.name || "there"},\nYour payment has been verified and approved.${vipLine}\n\n<i>— OG KAAL TRADER</i>`
+        )
+      } else if (status === "rejected") {
+        await sendTelegramToUser(
+          sub.telegram,
+          `<b>Payment Rejected</b>\n\nHi ${sub.name || "there"},\nYour payment could not be verified. Please contact support if you believe this is an error.\n\n<i>— OG KAAL TRADER</i>`
+        )
+      }
+    }
 
     // When approving a VIP or Mentorship payment, also activate the membership in Supabase
     if (status === "approved") {
@@ -387,6 +419,17 @@ export default function AdminPanel() {
       sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
         .catch(() => {})
     }
+    // Telegram notification to user
+    if (order?.telegram) {
+      const tgMsg = status === "accepted"
+        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        : status === "completed"
+        ? `<b>USDT Order Completed</b>\n\nPayment confirmed. Your USDT has been sent to your wallet.\n\n<i>— OG KAAL TRADER</i>`
+        : status === "rejected" || status === "cancelled"
+        ? `<b>USDT Buy Order ${status === "rejected" ? "Rejected" : "Cancelled"}</b>\n\nYour USDT buy request was ${status}. Contact support if needed.\n\n<i>— OG KAAL TRADER</i>`
+        : null
+      if (tgMsg) sendTelegramToUser(order.telegram, tgMsg)
+    }
   }
 
   const updateSellStatus = (id: string, status: USDTSellRequest["status"]) => {
@@ -399,6 +442,17 @@ export default function AdminPanel() {
     if (msg && order?.userId) {
       sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
         .catch(() => {})
+    }
+    // Telegram notification to user
+    if (order?.telegram) {
+      const tgMsg = status === "accepted"
+        ? `<b>USDT Sell Order Accepted</b>\n\nYour USDT sell request has been accepted. Processing your INR payout.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        : status === "completed"
+        ? `<b>INR Payout Sent</b>\n\nYour USDT sale is complete. INR has been sent to your account.\n\n<i>— OG KAAL TRADER</i>`
+        : status === "rejected" || status === "cancelled"
+        ? `<b>USDT Sell Order ${status === "rejected" ? "Rejected" : "Cancelled"}</b>\n\nYour USDT sell request was ${status}. Contact support if needed.\n\n<i>— OG KAAL TRADER</i>`
+        : null
+      if (tgMsg) sendTelegramToUser(order.telegram, tgMsg)
     }
   }
 
@@ -1707,7 +1761,7 @@ export default function AdminPanel() {
     )
   }
 
-  // ── Signals Manager ──────────────────────────────────────────────────────────
+  // ── Signals Manager ────────────────────────────────────────────────────���─────
   const renderSignals = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Signals Manager</h2>
