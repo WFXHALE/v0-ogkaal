@@ -8,112 +8,131 @@ import { ArrowLeft, RefreshCw, KeyRound } from "lucide-react"
 import { loginWithSecretKey, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Bouncing-dot-writes-text intro animation
-// The dot drops from top, bounces, and each bounce "types" a word.
-// After 3 bounces: WELCOME → KAAL → WELCOME KAAL (overwrite)
-// Total runtime: 2.6s, then fades out in 0.4s.
+// Bouncing-dot intro animation
+// Uses translateY (compositor-only) — never top/left — for reliable rendering.
+// Sequence: dot drops → WELCOME (0.8s) → KAAL (1.5s) → WELCOME KAAL (2.2s)
+// Hard fallback: onDone fires at max 3s no matter what.
 // ─────────────────────────────────────────────────────────────────────────────
 function BouncingDotIntro({ onDone }: { onDone: () => void }) {
-  const [word, setWord] = useState("")
-  const done = useRef(false)
+  const [phase, setPhase]     = useState<"dropping"|"word1"|"word2"|"word3"|"exit">("dropping")
+  const [visible, setVisible] = useState(true)
+  const calledDone = useRef(false)
 
-  useEffect(() => {
-    if (done.current) return
-    done.current = true
-
-    // Sequence: drop → WELCOME (0.7s), bounce → KAAL (1.3s), bounce → WELCOME KAAL (1.9s), fade (2.6s)
-    const t1 = setTimeout(() => setWord("WELCOME"),      700)
-    const t2 = setTimeout(() => setWord("KAAL"),         1300)
-    const t3 = setTimeout(() => setWord("WELCOME KAAL"), 1900)
-    const t4 = setTimeout(onDone, 3000)
-
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
+  const finish = useCallback(() => {
+    if (calledDone.current) return
+    calledDone.current = true
+    setVisible(false)
+    onDone()
   }, [onDone])
 
+  useEffect(() => {
+    // Hard safety fallback — never let intro block the form for more than 3s
+    const safety = setTimeout(finish, 3000)
+
+    const t1 = setTimeout(() => setPhase("word1"), 800)
+    const t2 = setTimeout(() => setPhase("word2"), 1500)
+    const t3 = setTimeout(() => setPhase("word3"), 2200)
+    const t4 = setTimeout(() => { setPhase("exit"); finish() }, 2800)
+
+    return () => {
+      clearTimeout(safety)
+      clearTimeout(t1); clearTimeout(t2)
+      clearTimeout(t3); clearTimeout(t4)
+    }
+  }, [finish])
+
+  if (!visible) return null
+
+  const wordMap: Record<string, string> = {
+    word1: "WELCOME",
+    word2: "KAAL",
+    word3: "WELCOME KAAL",
+  }
+  const currentWord = wordMap[phase] ?? ""
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", animation: "intro-exit 0.4s ease forwards 2.6s", willChange: "opacity" }}>
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "#000", zIndex: 100,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: "1.5rem",
+        opacity: phase === "exit" ? 0 : 1,
+        transition: phase === "exit" ? "opacity 0.4s ease" : "none",
+        pointerEvents: phase === "exit" ? "none" : "all",
+      }}
+    >
       <style>{`
-        /* ── Initial drop from top ── */
-        @keyframes dot-initial-drop {
-          0%   { top: 2vh;  opacity: 0; }
-          8%   { opacity: 1; }
-          40%  { top: 50vh; }
-          55%  { top: 45vh; }   /* first bounce */
-          70%  { top: 50vh; }
-          80%  { top: 47vh; }   /* second bounce */
-          90%  { top: 50vh; }
-          95%  { top: 48.5vh; } /* third mini bounce */
-          100% { top: 50vh; }
+        @keyframes dot-drop {
+          0%   { transform: translateY(-45vh) scale(0.5); opacity: 0; }
+          10%  { opacity: 1; }
+          55%  { transform: translateY(0) scale(1); }
+          65%  { transform: translateY(-12px) scale(0.95); }
+          75%  { transform: translateY(0) scale(1); }
+          83%  { transform: translateY(-5px) scale(0.98); }
+          90%  { transform: translateY(0) scale(1); }
+          100% { transform: translateY(0) scale(1); }
         }
-
-        /* ── Each text swap: flash in ── */
-        @keyframes word-pop {
-          0%   { opacity: 0; transform: scale(0.88) translateY(4px); }
-          60%  { opacity: 1; transform: scale(1.04) translateY(0); }
-          100% { opacity: 1; transform: scale(1)    translateY(0); }
+        @keyframes word-in {
+          0%   { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.9); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1);   }
         }
-
-        /* ── Screen exit ── */
-        @keyframes intro-exit {
-          to { opacity: 0; pointer-events: none; }
+        @keyframes sub-in {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
         }
-
-        .dot-intro {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #FCD535;
-          box-shadow: 0 0 18px 5px rgba(252,213,53,0.4);
-          animation: dot-initial-drop 2.0s cubic-bezier(0.22,1,0.36,1) forwards;
-          will-change: top, opacity;
-        }
-
-        .word-display {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translateX(-50%) translateY(-50%);
-          white-space: nowrap;
-          font-family: system-ui, -apple-system, sans-serif;
-          font-weight: 800;
-          font-size: clamp(1.8rem, 7vw, 3.2rem);
-          letter-spacing: 0.22em;
-          color: #FCD535;
-          animation: word-pop 0.25s cubic-bezier(0.22,1,0.36,1) forwards;
-          will-change: opacity, transform;
-        }
-
-        .sub-line {
-          position: absolute;
-          left: 50%;
-          top: calc(50% + clamp(2.4rem, 7vw + 0.5rem, 4.4rem));
-          transform: translateX(-50%);
-          font-family: system-ui, -apple-system, sans-serif;
-          font-size: clamp(0.55rem, 1.8vw, 0.72rem);
-          font-weight: 500;
-          letter-spacing: 0.35em;
-          color: rgba(252,213,53,0.35);
-          text-transform: uppercase;
-          white-space: nowrap;
-          opacity: 0;
-          transition: opacity 0.5s ease;
-        }
-
-        .sub-line.visible { opacity: 1; }
       `}</style>
 
-      <div className="dot-intro" />
+      {/* Yellow bouncing dot */}
+      <div
+        style={{
+          width: 12, height: 12, borderRadius: "50%",
+          background: "#FCD535",
+          boxShadow: "0 0 20px 6px rgba(252,213,53,0.45)",
+          animation: "dot-drop 1.6s cubic-bezier(0.22,1,0.36,1) forwards",
+          willChange: "transform, opacity",
+          flexShrink: 0,
+        }}
+      />
 
-      {word && (
-        <span key={word} className="word-display">{word}</span>
-      )}
+      {/* Text block — always rendered, opacity driven by currentWord */}
+      <div style={{ position: "relative", height: "4rem", minWidth: "20ch", textAlign: "center" }}>
+        {currentWord && (
+          <span
+            key={currentWord}
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              whiteSpace: "nowrap",
+              fontFamily: "system-ui, -apple-system, sans-serif",
+              fontWeight: 800,
+              fontSize: "clamp(1.6rem, 6vw, 2.8rem)",
+              letterSpacing: "0.2em",
+              color: "#FCD535",
+              animation: "word-in 0.3s cubic-bezier(0.22,1,0.36,1) forwards",
+              willChange: "opacity, transform",
+            }}
+          >
+            {currentWord}
+          </span>
+        )}
+      </div>
 
-      <span className={`sub-line ${word === "WELCOME KAAL" ? "visible" : ""}`}>
+      {/* Sub-label */}
+      <p
+        style={{
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontSize: "0.65rem",
+          letterSpacing: "0.35em",
+          color: "rgba(252,213,53,0.35)",
+          textTransform: "uppercase",
+          whiteSpace: "nowrap",
+          opacity: phase === "word3" ? 1 : 0,
+          animation: phase === "word3" ? "sub-in 0.5s ease forwards" : "none",
+        }}
+      >
         OG KAAL TRADER — Admin
-      </span>
+      </p>
     </div>
   )
 }
@@ -226,8 +245,8 @@ export function AdminLoginForm() {
       <div
         className="min-h-screen bg-black flex items-center justify-center p-4"
         style={{
-          opacity: showIntro ? 0 : 1,
-          transition: "opacity 0.5s ease",
+          opacity: 1,
+          // Form is always rendered; the intro overlay sits on top (z-index 100)
         }}
       >
         <Link
