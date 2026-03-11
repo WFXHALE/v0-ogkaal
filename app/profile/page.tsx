@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
-  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle, Shield, Loader2,
+  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle, Shield,
+  Loader2, BadgeCheck, Clock, XCircle, ChevronRight,
 } from "lucide-react"
 import { getSession, setSession } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
@@ -170,11 +171,140 @@ function Field({
   )
 }
 
+// ── KYC Verification tab ──────────────────────────────────────────────────────
+
+function KycTab({ session }: { session: DashboardSession }) {
+  const [aadhaar, setAadhaar]       = useState("")
+  const [pan,     setPan]           = useState("")
+  const [phone,   setKycPhone]      = useState("")
+  const [loading, setLoading]       = useState(false)
+  const [success, setSuccess]       = useState(false)
+  const [error,   setError]         = useState("")
+  const [kycStatus, setKycStatus]   = useState(session.kycStatus ?? "none")
+
+  const isVerified = session.isVerified
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setSuccess(false)
+    if (!aadhaar && !pan && !phone) {
+      setError("Please fill in at least one field to submit for verification."); return
+    }
+    setLoading(true)
+    const res = await fetch("/api/dashboard/kyc", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ userId: session.id, aadhaarNumber: aadhaar, panNumber: pan, kycPhone: phone }),
+    })
+    const json = await res.json()
+    setLoading(false)
+    if (!res.ok) { setError(json.error ?? "Submission failed."); return }
+    setKycStatus("pending")
+    setSuccess(true)
+  }
+
+  if (isVerified) {
+    return (
+      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 flex flex-col items-center gap-3 text-center">
+        <BadgeCheck className="w-12 h-12 text-emerald-400" />
+        <h3 className="text-base font-bold text-foreground">Identity Verified</h3>
+        <p className="text-sm text-muted-foreground">Your account is fully verified. You have access to all member features.</p>
+      </div>
+    )
+  }
+
+  if (kycStatus === "pending") {
+    return (
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 flex flex-col items-center gap-3 text-center">
+        <Clock className="w-12 h-12 text-amber-400" />
+        <h3 className="text-base font-bold text-foreground">Verification Pending</h3>
+        <p className="text-sm text-muted-foreground">Your details have been submitted and are under review. This usually takes 1–2 business days.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card px-6 py-6 space-y-5">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">Identity Verification</h2>
+        <p className="text-xs text-muted-foreground mt-1">Verify your identity to unlock the Verified badge and full member access. Your data is kept private and secure.</p>
+      </div>
+
+      {kycStatus === "rejected" && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Verification Rejected</p>
+            <p className="text-xs mt-0.5 text-red-400/80">Your previous submission was rejected. Please re-submit with correct details.</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+      {success && (
+        <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+          <CheckCircle className="w-4 h-4 shrink-0" /> Submitted! Your details are under review.
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field
+          label="Aadhaar Number"
+          icon={Shield}
+          value={aadhaar}
+          onChange={v => setAadhaar(v.replace(/\D/g, "").slice(0, 12))}
+          placeholder="12-digit Aadhaar number"
+        />
+        <Field
+          label="PAN Number"
+          icon={Shield}
+          value={pan}
+          onChange={v => setPan(v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))}
+          placeholder="e.g. ABCDE1234F"
+        />
+        <Field
+          label="Phone Number"
+          icon={Phone}
+          value={phone}
+          onChange={setKycPhone}
+          placeholder="+91 00000 00000"
+          type="tel"
+        />
+
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-secondary/30 border border-border">
+          <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            By submitting, you confirm the details are accurate. OG KAAL will review your submission and update your verification status within 1–2 business days.
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || success}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
+        >
+          {loading ? (
+            <span className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+          {loading ? "Submitting..." : "Submit for Verification"}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const router = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
   const [session, setSessionState] = useState<DashboardSession | null>(null)
+  const [activeTab, setActiveTab]  = useState<"profile" | "verify">("profile")
 
   // Profile fields
   const [fullName,  setFullName]  = useState("")
@@ -186,6 +316,12 @@ export default function ProfilePage() {
   const [success,  setSuccess]  = useState(false)
   const [error,    setError]    = useState("")
   const [booting,  setBooting]  = useState(true)
+
+  // Read tab from URL query param
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "verify") setActiveTab("verify")
+  }, [searchParams])
 
   // Fetch profile from API
   useEffect(() => {
@@ -251,6 +387,36 @@ export default function ProfilePage() {
       <Header />
       <main className="min-h-screen bg-background pt-20 pb-16">
         <div className="max-w-xl mx-auto px-4">
+
+          {/* Tab switcher */}
+          <div className="flex rounded-xl border border-border bg-secondary/30 p-1 gap-1 mb-5">
+            {([
+              { id: "profile", label: "My Profile" },
+              { id: "verify",  label: session?.isVerified ? "Verified" : "Get Verified" },
+            ] as const).map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  activeTab === id
+                    ? "bg-card text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+                {id === "verify" && !session?.isVerified && session?.kycStatus === "pending" && (
+                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-400 align-middle" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* KYC tab */}
+          {activeTab === "verify" && session && <KycTab session={session} />}
+
+          {/* Profile tab */}
+          {activeTab === "profile" && (
+          <>
 
           {/* Header card */}
           <div className="relative rounded-2xl border border-border bg-card overflow-hidden mb-6">
@@ -342,6 +508,9 @@ export default function ProfilePage() {
               {loading ? "Saving..." : "Save Changes"}
             </button>
           </form>
+          </>
+          )}
+
         </div>
       </main>
     </>
