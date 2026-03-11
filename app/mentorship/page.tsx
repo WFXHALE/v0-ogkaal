@@ -36,6 +36,7 @@ import { saveSubmission } from "@/lib/admin-submissions"
 const UPI_LINKS = {
   "1.0": "https://payments.cashfree.com/forms/OGMENTOR1",
   "2.0": "https://payments.cashfree.com/forms/MENTOR2",
+  "crypto": "https://payments.cashfree.com/forms/OGMENTOR1",
 }
 
 const ERUPEE_QR = "/erupee-qr.png"
@@ -117,9 +118,46 @@ const mentorship2Features = [
   "Top Trader Advancement to ICT 2.0 Elite Group",
 ]
 
+const cryptoTopics: { name: string; desc: string }[] = [
+  { name: "What is Cryptocurrency", desc: "Introduction to digital currencies, their origin, and how they differ from traditional money." },
+  { name: "How Blockchain Works", desc: "The technology behind crypto — decentralised ledgers, consensus mechanisms, and blocks." },
+  { name: "How Crypto Markets Operate", desc: "24/7 trading, price discovery, global exchanges, and how crypto market structure differs from Forex and equities." },
+  { name: "Centralized vs Decentralized Exchanges", desc: "Differences between CEXs (Binance, OKX) and DEXs (Uniswap) — pros, cons, and when to use each." },
+  { name: "Spot Trading vs Futures Trading", desc: "Buying the actual asset versus trading contracts with expiry and margin requirements." },
+  { name: "What is Leverage", desc: "How leverage amplifies gains and losses, and why proper risk management is essential when using it." },
+  { name: "Bid Price and Ask Price", desc: "Understanding the order book, spread, and how buy and sell prices are set in the market." },
+  { name: "Market Orders vs Limit Orders", desc: "Instant execution versus waiting for price — how and when to use each order type." },
+  { name: "Crypto Market Liquidity", desc: "What liquidity means, why it matters, and how thin markets lead to slippage and volatility." },
+  { name: "How to Read Crypto Charts", desc: "Candlestick basics, timeframe selection, and interpreting price movement across different chart types." },
+  { name: "Basic Technical Analysis", desc: "Trends, moving averages, volume, and how to combine indicators for a clearer market picture." },
+  { name: "Support and Resistance in Crypto", desc: "Identifying key price levels, round numbers, and historical zones that attract buyers and sellers." },
+  { name: "Trend Identification", desc: "Higher highs, higher lows, lower highs, lower lows — reading the overall direction of any crypto asset." },
+  { name: "Risk Management in Crypto Trading", desc: "Position sizing, stop-loss placement, and protecting capital in a highly volatile market." },
+  { name: "Portfolio Management", desc: "How to allocate capital across assets, diversify risk, and rebalance a crypto portfolio over time." },
+  { name: "Long vs Short Positions", desc: "Profiting in both bull and bear markets — understanding directional bias in futures trading." },
+  { name: "Funding Rates", desc: "What funding rates are, how they affect futures traders, and how to use them as a sentiment indicator." },
+  { name: "Crypto Market Cycles", desc: "Bull markets, bear markets, accumulation, and distribution — understanding the bigger picture." },
+  { name: "Bitcoin Dominance", desc: "How BTC dominance affects altcoins and why it is a key indicator for altcoin season timing." },
+  { name: "Altcoin Rotation", desc: "How capital flows from Bitcoin into large-cap and then small-cap altcoins during bull market phases." },
+  { name: "Security and Wallet Safety", desc: "Keeping your assets safe — private keys, seed phrases, 2FA, and best practices for account security." },
+  { name: "Cold Wallet vs Hot Wallet", desc: "The difference between hardware wallets (offline) and software wallets (online) and when to use each." },
+  { name: "Crypto Scams and Risk Awareness", desc: "Common scams — rug pulls, phishing, fake projects — and how to research before investing." },
+]
+
+const cryptoMentorshipFeatures = [
+  "Crypto Fundamentals from the Ground Up",
+  "Live Classes on Spot and Futures Trading",
+  "Risk Management and Portfolio Strategy",
+  "Practical Chart Analysis and Trade Examples",
+  "Crypto Market Cycles and Bitcoin Dominance",
+  "Security, Wallets, and Exchange Setup Guidance",
+  "Community Learning Environment",
+  "Recorded Classes for Revision",
+]
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ProgramType = "1.0" | "2.0" | null
+type ProgramType = "1.0" | "2.0" | "crypto" | null
 type FlowStep = "idle" | "contact" | "payment" | "success"
 type PaymentMethod = "upi" | "crypto" | "erupee" | null
 
@@ -260,7 +298,9 @@ export default function MentorshipPage() {
             {flowStep !== "success" && (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 mb-6">
                 <Star className="w-3.5 h-3.5 text-primary" />
-                <span className="text-xs font-semibold text-primary">Mentorship {selectedProgram}</span>
+                <span className="text-xs font-semibold text-primary">
+                  {selectedProgram === "crypto" ? "Crypto Mentorship" : `Mentorship ${selectedProgram}`}
+                </span>
               </div>
             )}
 
@@ -578,11 +618,11 @@ export default function MentorshipPage() {
 
         {/* ── Mentorship Programs ───────────────────────────────────────── */}
         <section className="py-16 sm:py-20">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-bold text-foreground mb-10 text-center">
               Mentorship <span className="text-primary">Programs</span>
             </h2>
-            <div className="grid sm:grid-cols-2 gap-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
               {/* Card 1 — Mentorship 1.0 */}
               <div className="flex flex-col p-7 rounded-2xl bg-card border border-border/60 hover:border-primary/40 transition-colors">
@@ -646,6 +686,73 @@ export default function MentorshipPage() {
                 </Button>
               </div>
 
+              {/* Card 3 — Crypto Mentorship */}
+              <div className="flex flex-col p-7 rounded-2xl bg-card border border-amber-500/40 hover:border-amber-500/70 transition-colors relative overflow-hidden">
+                <div className="absolute top-4 right-4">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+                    <Bitcoin className="w-3 h-3 text-amber-400" />
+                    <span className="text-xs font-bold text-amber-400">₹20,000</span>
+                  </div>
+                </div>
+                <div className="mb-5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-xs font-semibold text-amber-400 border border-amber-500/20 mb-3">
+                    Crypto Mentorship — New Program
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    Crypto Mentorship
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                    Learn cryptocurrency markets, investing strategies, trading methods, and risk management — from spot investing to futures trading.
+                  </p>
+                </div>
+                <ul className="space-y-3 mb-8 flex-1">
+                  {cryptoMentorshipFeatures.map((f) => (
+                    <li key={f} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="w-3 h-3 text-amber-400" />
+                      </div>
+                      <span className="text-sm text-muted-foreground">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  onClick={() => handleEnroll("crypto")}
+                  className="w-full bg-amber-500 text-white hover:bg-amber-400 font-bold"
+                >
+                  Enroll in Crypto Mentorship
+                </Button>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ── Crypto Topics ─────────────────────────────────────────────── */}
+        <section className="py-16 sm:py-20 border-t border-border/50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <Bitcoin className="w-5 h-5 text-amber-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">
+                Crypto Mentorship — Topics Covered
+              </h2>
+            </div>
+            <p className="text-muted-foreground text-sm mb-8 max-w-2xl leading-relaxed">
+              This program teaches the fundamentals of cryptocurrency markets, investing strategies, trading methods, and risk management. Students will learn how crypto markets work, how to analyse price movements, and how to manage both spot investments and futures trading strategies.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {cryptoTopics.map((topic, i) => (
+                <div key={topic.name} className="flex gap-3 p-4 rounded-xl bg-card border border-border/60 hover:border-amber-500/30 transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[11px] font-bold text-amber-400 shrink-0 mt-0.5">
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground leading-snug mb-0.5">{topic.name}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{topic.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
