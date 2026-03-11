@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle, Shield,
-  Loader2, BadgeCheck, Clock, XCircle, ChevronRight,
+  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle,
+  Loader2, BadgeCheck, Clock, XCircle, ChevronRight, Upload, FileCheck, Lock,
 } from "lucide-react"
 import { getSession, setSession } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
@@ -173,36 +173,114 @@ function Field({
 
 // ── KYC Verification tab ──────────────────────────────────────────────────────
 
-function KycTab({ session }: { session: DashboardSession }) {
-  const [aadhaar, setAadhaar]       = useState("")
-  const [pan,     setPan]           = useState("")
-  const [phone,   setKycPhone]      = useState("")
-  const [loading, setLoading]       = useState(false)
-  const [success, setSuccess]       = useState(false)
-  const [error,   setError]         = useState("")
-  const [kycStatus, setKycStatus]   = useState(session.kycStatus ?? "none")
+// Small file-drop zone for a single document
+function DocUpload({
+  label,
+  hint,
+  file,
+  onChange,
+}: {
+  label: string
+  hint: string
+  file: File | null
+  onChange: (f: File | null) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left ${
+          file
+            ? "border-emerald-500/40 bg-emerald-500/5"
+            : "border-dashed border-border bg-secondary/20 hover:border-primary/50 hover:bg-secondary/40"
+        }`}
+      >
+        {file ? (
+          <FileCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+        ) : (
+          <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
+        )}
+        <div className="min-w-0">
+          {file ? (
+            <p className="text-xs font-medium text-emerald-400 truncate">{file.name}</p>
+          ) : (
+            <>
+              <p className="text-xs font-medium text-foreground">Click to upload</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>
+            </>
+          )}
+        </div>
+        {file && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onChange(null) }}
+            className="ml-auto text-muted-foreground hover:text-red-400 text-[10px] shrink-0"
+          >
+            Remove
+          </button>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,.pdf"
+        className="sr-only"
+        onChange={e => onChange(e.target.files?.[0] ?? null)}
+      />
+    </div>
+  )
+}
 
-  const isVerified = session.isVerified
+function KycTab({ session }: { session: DashboardSession }) {
+  const [aadhaar,      setAadhaar]     = useState("")
+  const [pan,          setPan]         = useState("")
+  const [phone,        setKycPhone]    = useState("")
+  const [aadhaarFront, setAF]          = useState<File | null>(null)
+  const [aadhaarBack,  setAB]          = useState<File | null>(null)
+  const [panDoc,       setPanDoc]      = useState<File | null>(null)
+  const [loading,      setLoading]     = useState(false)
+  const [progress,     setProgress]    = useState("")
+  const [success,      setSuccess]     = useState(false)
+  const [error,        setError]       = useState("")
+  const [kycStatus,    setKycStatus]   = useState(session.kycStatus ?? "none")
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setSuccess(false)
-    if (!aadhaar && !pan && !phone) {
-      setError("Please fill in at least one field to submit for verification."); return
+    e.preventDefault()
+    setError(""); setSuccess(false)
+
+    const hasText = aadhaar || pan || phone
+    const hasDocs = aadhaarFront || aadhaarBack || panDoc
+    if (!hasText && !hasDocs) {
+      setError("Please fill in at least one field or upload at least one document.")
+      return
     }
+
     setLoading(true)
-    const res = await fetch("/api/dashboard/kyc", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ userId: session.id, aadhaarNumber: aadhaar, panNumber: pan, kycPhone: phone }),
-    })
+    setProgress(hasDocs ? "Uploading documents..." : "Submitting...")
+
+    const fd = new FormData()
+    fd.append("userId", session.id)
+    if (aadhaar)      fd.append("aadhaarNumber", aadhaar)
+    if (pan)          fd.append("panNumber",     pan)
+    if (phone)        fd.append("kycPhone",      phone)
+    if (aadhaarFront) fd.append("aadhaarFront",  aadhaarFront)
+    if (aadhaarBack)  fd.append("aadhaarBack",   aadhaarBack)
+    if (panDoc)       fd.append("panDoc",        panDoc)
+
+    const res  = await fetch("/api/dashboard/kyc", { method: "POST", body: fd })
     const json = await res.json()
     setLoading(false)
+    setProgress("")
+
     if (!res.ok) { setError(json.error ?? "Submission failed."); return }
     setKycStatus("pending")
     setSuccess(true)
   }
 
-  if (isVerified) {
+  if (session.isVerified) {
     return (
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 flex flex-col items-center gap-3 text-center">
         <BadgeCheck className="w-12 h-12 text-emerald-400" />
@@ -226,7 +304,10 @@ function KycTab({ session }: { session: DashboardSession }) {
     <div className="rounded-2xl border border-border bg-card px-6 py-6 space-y-5">
       <div>
         <h2 className="text-base font-semibold text-foreground">Identity Verification</h2>
-        <p className="text-xs text-muted-foreground mt-1">Verify your identity to unlock the Verified badge and full member access. Your data is kept private and secure.</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Upload your documents or enter your details to unlock the Verified badge and full member access.
+          Your data is encrypted and kept private.
+        </p>
       </div>
 
       {kycStatus === "rejected" && (
@@ -234,7 +315,7 @@ function KycTab({ session }: { session: DashboardSession }) {
           <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold">Verification Rejected</p>
-            <p className="text-xs mt-0.5 text-red-400/80">Your previous submission was rejected. Please re-submit with correct details.</p>
+            <p className="text-xs mt-0.5 text-red-400/80">Your previous submission was rejected. Please re-submit with correct details and clear document photos.</p>
           </div>
         </div>
       )}
@@ -250,34 +331,63 @@ function KycTab({ session }: { session: DashboardSession }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Field
-          label="Aadhaar Number"
-          icon={Shield}
-          value={aadhaar}
-          onChange={v => setAadhaar(v.replace(/\D/g, "").slice(0, 12))}
-          placeholder="12-digit Aadhaar number"
-        />
-        <Field
-          label="PAN Number"
-          icon={Shield}
-          value={pan}
-          onChange={v => setPan(v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))}
-          placeholder="e.g. ABCDE1234F"
-        />
-        <Field
-          label="Phone Number"
-          icon={Phone}
-          value={phone}
-          onChange={setKycPhone}
-          placeholder="+91 00000 00000"
-          type="tel"
-        />
+      <form onSubmit={handleSubmit} className="space-y-5">
 
+        {/* Text details */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Details</p>
+          <Field
+            label="Aadhaar Number"
+            icon={User}
+            value={aadhaar}
+            onChange={v => setAadhaar(v.replace(/\D/g, "").slice(0, 12))}
+            placeholder="12-digit Aadhaar number"
+          />
+          <Field
+            label="PAN Number"
+            icon={User}
+            value={pan}
+            onChange={v => setPan(v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))}
+            placeholder="e.g. ABCDE1234F"
+          />
+          <Field
+            label="Phone Number"
+            icon={Phone}
+            value={phone}
+            onChange={setKycPhone}
+            placeholder="+91 00000 00000"
+            type="tel"
+          />
+        </div>
+
+        {/* Document uploads */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Documents</p>
+          <DocUpload
+            label="Aadhaar Card — Front"
+            hint="JPG, PNG or PDF · max 5 MB"
+            file={aadhaarFront}
+            onChange={setAF}
+          />
+          <DocUpload
+            label="Aadhaar Card — Back"
+            hint="JPG, PNG or PDF · max 5 MB"
+            file={aadhaarBack}
+            onChange={setAB}
+          />
+          <DocUpload
+            label="PAN Card"
+            hint="JPG, PNG or PDF · max 5 MB"
+            file={panDoc}
+            onChange={setPanDoc}
+          />
+        </div>
+
+        {/* Consent notice */}
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-secondary/30 border border-border">
-          <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+          <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            By submitting, you confirm the details are accurate. OG KAAL will review your submission and update your verification status within 1–2 business days.
+            By submitting, you confirm all details and documents are accurate. OG KAAL will review your submission within 1–2 business days. Your data is never shared with third parties.
           </p>
         </div>
 
@@ -287,11 +397,10 @@ function KycTab({ session }: { session: DashboardSession }) {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
         >
           {loading ? (
-            <span className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+            <><span className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />{progress}</>
           ) : (
-            <ChevronRight className="w-4 h-4" />
+            <><ChevronRight className="w-4 h-4" />Submit for Verification</>
           )}
-          {loading ? "Submitting..." : "Submit for Verification"}
         </button>
       </form>
     </div>
