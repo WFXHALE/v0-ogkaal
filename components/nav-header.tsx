@@ -8,7 +8,7 @@ import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { getSession } from "@/lib/community-utils"
 import { BackButton } from "@/components/back-button"
-import { UserAvatar } from "@/components/user-avatar"
+import { UserAvatar } from "@/components/client-avatar"
 
 // ── Nav items — Profile is NOT here; it lives in the UserAvatar dropdown ──────
 interface NavItem { label: string; href: string }
