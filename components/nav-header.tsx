@@ -64,22 +64,23 @@ function NavLink({
   )
 }
 
-// ── Overflow nav — measures fitted items; puts extras in "More" dropdown ───────
+// ── Overflow nav — renders nothing until mounted so SSR and client always match ─
 function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }) {
-  const navRef      = useRef<HTMLElement>(null)
+  const containerRef              = useRef<HTMLDivElement>(null)
+  const measureRef                = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted]     = useState(false)
   const [visibleCount, setVisibleCount] = useState(items.length)
-  const [moreOpen, setMoreOpen]         = useState(false)
+  const [moreOpen, setMoreOpen]   = useState(false)
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
 
   const measure = useCallback(() => {
-    const nav = navRef.current
-    if (!nav) return
-    const els = Array.from(nav.querySelectorAll<HTMLElement>("[data-navitem]"))
-    if (!els.length) return
-    els.forEach(el => { el.style.visibility = "visible" })
-    const available = nav.offsetWidth - 80 // reserve for "More" button
+    const container = containerRef.current
+    const ruler     = measureRef.current
+    if (!container || !ruler) return
+    const available = container.offsetWidth - 72 // reserve ~72px for "More"
+    const els = Array.from(ruler.querySelectorAll<HTMLElement>("[data-measure]"))
     let total = 0
     let count = 0
     for (const el of els) {
@@ -90,12 +91,18 @@ function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }
     setVisibleCount(Math.max(1, count))
   }, [])
 
+  // Only run on the client — avoids any SSR/client mismatch
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     measure()
     const ro = new ResizeObserver(measure)
-    if (navRef.current) ro.observe(navRef.current)
+    if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-  }, [measure])
+  }, [mounted, measure])
 
   useEffect(() => {
     if (!moreOpen) return
@@ -106,32 +113,48 @@ function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }
     return () => document.removeEventListener("mousedown", close)
   }, [moreOpen])
 
-  const overflow     = items.slice(visibleCount)
+  const visible  = mounted ? items.slice(0, visibleCount) : items
+  const overflow = mounted ? items.slice(visibleCount)    : []
   const moreHasActive = overflow.some(i => isActive(i.href))
 
   return (
-    <nav ref={navRef} className="hidden lg:flex items-center flex-1 min-w-0 overflow-hidden">
-      {items.map((item, i) => (
-        <NavLink
-          key={item.href}
-          item={item}
-          active={isActive(item.href)}
-          onClick={undefined}
-        />
-      ))}
+    <div ref={containerRef} className="hidden lg:flex items-center flex-1 min-w-0 overflow-hidden relative">
+      {/* Invisible ruler — all items rendered off-screen to measure widths */}
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="absolute inset-0 flex items-center pointer-events-none opacity-0 overflow-hidden"
+      >
+        {items.map(item => (
+          <span
+            key={item.href}
+            data-measure
+            className="shrink-0 px-3 py-1 text-xs font-medium whitespace-nowrap pb-[14px]"
+          >
+            {item.label}
+          </span>
+        ))}
+      </div>
 
-      {/* We hide overflow items via CSS after measurement so widths stay accurate */}
-      <style>{`
-        nav [data-navitem]:nth-child(n+${visibleCount + 1}) { display: none; }
-      `}</style>
+      {/* Visible items */}
+      <nav className="flex items-center">
+        {visible.map(item => (
+          <NavLink
+            key={item.href}
+            item={item}
+            active={isActive(item.href)}
+          />
+        ))}
+      </nav>
 
-      {overflow.length > 0 && (
+      {/* "More" dropdown for overflow items — only shown after mount */}
+      {mounted && overflow.length > 0 && (
         <div className="relative shrink-0 ml-1" data-more-menu>
           <button
             onClick={() => setMoreOpen(v => !v)}
             aria-expanded={moreOpen}
             className={[
-              "flex items-center gap-0.5 px-2 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-150",
+              "relative flex items-center gap-0.5 px-2 py-1 pb-[14px] text-xs font-medium whitespace-nowrap transition-colors duration-150",
               moreHasActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             ].join(" ")}
           >
@@ -167,7 +190,7 @@ function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }
           )}
         </div>
       )}
-    </nav>
+    </div>
   )
 }
 
