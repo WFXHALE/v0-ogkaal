@@ -5,8 +5,131 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import {
   Building2, ChevronDown, ChevronUp, Check, X,
-  AlertCircle, Search, Filter,
+  AlertCircle, Search, Filter, ExternalLink, Copy, CheckCheck,
 } from "lucide-react"
+
+// ── Featured / Recommended Firms ──────────────────────────────────────────────
+
+type FeaturedFirm = {
+  id: string
+  name: string
+  rating: number
+  description: string
+  referralLink: string
+  discountCode?: string
+  logoUrl?: string
+  logoAlt?: string
+}
+
+const FEATURED_FIRMS: FeaturedFirm[] = [
+  {
+    id:          "fundingpips",
+    name:        "FundingPips",
+    rating:      4.3,
+    description: "Instant & two-step challenges with one of the most trader-friendly rule sets. Competitive spreads and no consistency rule.",
+    referralLink: "https://app.fundingpips.com/register?ref=2d35d78b",
+    discountCode: "2d35d78b",
+    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.29%E2%80%AFPM-Fll2JdGmjy43ZO2BP9QKWzCPHglqcf.png",
+    logoAlt:     "FundingPips logo",
+  },
+  {
+    id:          "goatfunded",
+    name:        "Goat Funded Trader",
+    rating:      4.54,
+    description: "High-growth funding model with fast payouts and generous scaling plan. Ideal for swing and breakout traders.",
+    referralLink: "https://checkout.goatfundedtrader.com/aff/swargakai@gmail.com/",
+    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.38%E2%80%AFPM-Asm8LaMbSgw3VDJOPdJ7aLLJmDxihM.png",
+    logoAlt:     "Goat Funded Trader logo",
+  },
+  {
+    id:          "blueberry",
+    name:        "Blueberry Funded",
+    rating:      3.8,
+    description: "Straightforward evaluation process with transparent rules, weekend holding allowed, and multiple account size options.",
+    referralLink: "https://blueberryfunded.com/?utm_source=affiliate&ref=6538",
+    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.11%E2%80%AFPM-pUuxSCUjpCyGlmrY2OQ8EBEwhwyJha.png",
+    logoAlt:     "Blueberry Funded logo",
+  },
+]
+
+// ── FeaturedFirmCard ───────────────────────────────────────────────────────────
+
+function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    if (!firm.discountCode) return
+    navigator.clipboard.writeText(firm.discountCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <article className="relative flex flex-col rounded-2xl border border-primary/20 bg-card overflow-hidden shadow-md shadow-black/10 transition-shadow hover:shadow-lg hover:shadow-black/20">
+      {/* Top accent bar */}
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+
+      {/* Logo / Image */}
+      <div className="h-32 bg-secondary/30 flex items-center justify-center overflow-hidden border-b border-border/50">
+        {firm.logoUrl ? (
+          <img
+            src={firm.logoUrl}
+            alt={firm.logoAlt ?? firm.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-1.5">
+            <Building2 className="w-8 h-8 text-primary/50" />
+            <span className="text-xs text-muted-foreground font-medium">{firm.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col flex-1 gap-3 p-5">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h3 className="font-bold text-foreground text-base leading-tight">{firm.name}</h3>
+            <StarRating rating={firm.rating} />
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{firm.description}</p>
+        </div>
+
+        {/* Discount code display */}
+        {firm.discountCode && (
+          <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Code</span>
+            <span className="flex-1 font-mono text-xs font-bold text-primary tracking-wider">{firm.discountCode}</span>
+          </div>
+        )}
+
+        {/* Buttons — pushed to bottom */}
+        <div className="flex flex-col gap-2 mt-auto pt-1">
+          <a
+            href={firm.referralLink}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[.98] transition-all"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Buy Account
+          </a>
+
+          {firm.discountCode && (
+            <button
+              onClick={handleCopy}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/8 text-primary text-sm font-semibold hover:bg-primary/15 active:scale-[.98] transition-all"
+            >
+              {copied
+                ? <><CheckCheck className="w-3.5 h-3.5" /> Copied!</>
+                : <><Copy className="w-3.5 h-3.5" /> Copy Discount Code</>}
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -588,6 +711,25 @@ export default function PropFirmsPage() {
               Compare profit targets, drawdown rules, account models, and payout structures across {FIRMS.length} leading prop firms — all in one place.
             </p>
           </div>
+
+          {/* Top Recommended Firms */}
+          <section className="mb-12" aria-labelledby="featured-heading">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex-1 h-px bg-border/50" />
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                  Top Recommended
+                </span>
+              </div>
+              <div className="flex-1 h-px bg-border/50" />
+            </div>
+            <h2 id="featured-heading" className="sr-only">Top Recommended Prop Firms</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {FEATURED_FIRMS.map(firm => (
+                <FeaturedFirmCard key={firm.id} firm={firm} />
+              ))}
+            </div>
+          </section>
 
           {/* Disclaimer */}
           <div className="mb-8 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3.5 flex items-start gap-3">
