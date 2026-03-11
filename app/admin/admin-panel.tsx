@@ -12,6 +12,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Menu, Folder, Lock,
   Globe, ToggleLeft, ToggleRight, Mail, Phone,
   ExternalLink, Send, Bot, Zap, Settings,
+  Crown, UserPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,6 +40,7 @@ type Section =
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
   | "signals" | "memberships" | "performance" | "indicators"
+  | "analytics"
 
 interface Submission {
   id: string
@@ -127,6 +129,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "telegram",             label: "Telegram Settings",    icon: Send           },
   { key: "security",             label: "Security Settings",    icon: Lock           },
   { key: "logs",                 label: "Admin Logs",           icon: Activity       },
+  { key: "analytics",           label: "Analytics",            icon: BarChart2,      group: "Insights" },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -240,6 +243,10 @@ export default function AdminPanel() {
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
 
+  // ── Analytics state ──────────────────────────────────────────────────────────
+  const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
   // ── Indicators state ─────────────────────────────────────────────────────────
   const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
   const [indicatorsLoading, setIndicatorsLoading] = useState(false)
@@ -290,6 +297,12 @@ export default function AdminPanel() {
     } else if (activeSection === "indicators") {
       setIndicatorsLoading(true)
       listIndicators(false).then(list => { setIndicatorsList(list); setIndicatorsLoading(false) })
+    } else if (activeSection === "analytics") {
+      setAnalyticsLoading(true)
+      fetch("/api/admin/analytics")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setAnalyticsData(d); })
+        .finally(() => setAnalyticsLoading(false))
     }
   }, [activeSection, isAuthenticated])
 
@@ -1552,6 +1565,148 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Analytics ─────────────────────────────────────────────────────────────────
+  const renderAnalytics = () => {
+    const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
+    const recent = (analyticsData as Record<string, unknown> | null)?.recentSignups as Record<string, unknown>[] | undefined
+    const visitors = (analyticsData as Record<string, unknown> | null)?.visitors14d as { date: string; count: number }[] | undefined
+    const plans    = (analyticsData as Record<string, unknown> | null)?.planBreakdown as { plan: string; count: number }[] | undefined
+
+    const statCards: { label: string; value: number | undefined; icon: typeof Users; color: string }[] = [
+      { label: "Total Registered Users",  value: stats?.totalUsers,      icon: Users,      color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+      { label: "Verified Emails",          value: stats?.verifiedUsers,   icon: CheckCircle, color: "text-green-400 bg-green-500/10 border-green-500/20" },
+      { label: "Active Members",           value: stats?.activeMembers,   icon: Crown,       color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+      { label: "Pending Payments",         value: stats?.pendingPayments, icon: Clock,       color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+      { label: "Signups Today",            value: stats?.todaySignups,    icon: UserPlus,    color: "text-primary bg-primary/10 border-primary/20" },
+      { label: "Total Memberships",        value: stats?.totalMembers,    icon: Star,        color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+    ]
+
+    // Simple bar chart using div widths
+    const maxVisitors = visitors ? Math.max(1, ...visitors.map(v => v.count)) : 1
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-xl font-bold text-foreground">Analytics</h2>
+          <button
+            onClick={() => {
+              setAnalyticsLoading(true)
+              fetch("/api/admin/analytics").then(r => r.json()).then(d => { if (d.ok) setAnalyticsData(d) }).finally(() => setAnalyticsLoading(false))
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${analyticsLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        {analyticsLoading ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">Loading analytics...</div>
+        ) : !analyticsData ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">No data available. Click Refresh to load.</div>
+        ) : (
+          <>
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {statCards.map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="rounded-2xl border border-border bg-card p-4 flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${color}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{value ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-snug">{label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Visitor chart (14 days) */}
+            {visitors && visitors.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-foreground text-sm">Site Visitors — Last 14 Days</h3>
+                <div className="flex items-end gap-1.5 h-28">
+                  {visitors.map(({ date, count }) => (
+                    <div key={date} className="flex-1 flex flex-col items-center gap-1 group" title={`${date}: ${count}`}>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                      <div
+                        className="w-full rounded-t bg-primary/60 hover:bg-primary transition-colors"
+                        style={{ height: `${Math.max(4, Math.round((count / maxVisitors) * 96))}px` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                        {new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Plan breakdown */}
+            {plans && plans.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <h3 className="font-semibold text-foreground text-sm">Active Memberships by Plan</h3>
+                <div className="space-y-2.5">
+                  {plans.map(({ plan, count }) => {
+                    const total = plans.reduce((s, p) => s + p.count, 0)
+                    const pct   = total > 0 ? Math.round((count / total) * 100) : 0
+                    return (
+                      <div key={plan} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-foreground font-medium">{plan}</span>
+                          <span className="text-muted-foreground">{count} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Recent signups */}
+            {recent && recent.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="font-semibold text-foreground text-sm">Recent Signups</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/30">
+                        {["User ID", "Name", "Email", "Verified", "Joined"].map(h => (
+                          <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.map((u) => (
+                        <tr key={String(u.user_id)} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{String(u.user_id)}</td>
+                          <td className="py-3 px-4 text-sm text-foreground">{String(u.full_name || "—")}</td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">{String(u.email || "—")}</td>
+                          <td className="py-3 px-4">
+                            {u.is_verified
+                              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs bg-green-500/10 text-green-400 border-green-500/30"><CheckCircle className="w-3 h-3" />Yes</span>
+                              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs bg-amber-500/10 text-amber-400 border-amber-500/30"><Clock className="w-3 h-3" />No</span>
+                            }
+                          </td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(String(u.created_at))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
   // ── Signals Manager ──────────────────────────────────────────────────────────
   const renderSignals = () => (
     <div className="space-y-6">
@@ -2011,6 +2166,7 @@ export default function AdminPanel() {
       case "memberships":          return renderMemberships()
       case "performance":          return renderPerformanceManager()
       case "indicators":           return renderIndicators()
+      case "analytics":            return renderAnalytics()
       default:                     return renderDashboard()
     }
   }
