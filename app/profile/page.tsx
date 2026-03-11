@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle, Shield,
+  User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle, Shield, Loader2,
 } from "lucide-react"
 import { getSession, setSession } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
 import { Header } from "@/components/header"
 
-// ── Avatar with initials fallback ─────────────────────────────────────────────
+// ── Avatar circle with initials fallback ─────────────────────────────────────
 
 function AvatarCircle({ name, avatarUrl, size = 80 }: { name: string; avatarUrl?: string | null; size?: number }) {
   const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
@@ -19,12 +19,119 @@ function AvatarCircle({ name, avatarUrl, size = 80 }: { name: string; avatarUrl?
       style={{ width: size, height: size }}
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+        <img src={avatarUrl} alt={name} className="w-full h-full object-cover" crossOrigin="anonymous" />
       ) : (
         <span className="font-bold text-primary-foreground" style={{ fontSize: size * 0.32 }}>
           {initials}
         </span>
       )}
+    </div>
+  )
+}
+
+// ── Clickable avatar upload widget ───────────────────────────────────────────
+
+function AvatarUpload({
+  name,
+  avatarUrl,
+  onUploaded,
+}: {
+  name: string
+  avatarUrl: string
+  onUploaded: (url: string) => void
+}) {
+  const inputRef              = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState("")
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadErr("")
+    setUploading(true)
+
+    // Preview immediately from local object URL
+    const localPreview = URL.createObjectURL(file)
+    onUploaded(localPreview)
+
+    // Get session id for upload
+    const session = getSession()
+    if (!session) { setUploading(false); return }
+
+    const fd = new FormData()
+    fd.append("file",   file)
+    fd.append("userId", session.id)
+
+    const res  = await fetch("/api/dashboard/avatar", { method: "POST", body: fd })
+    const json = await res.json()
+    setUploading(false)
+
+    if (!res.ok) {
+      setUploadErr(json.error ?? "Upload failed.")
+      URL.revokeObjectURL(localPreview)
+      return
+    }
+
+    // Replace preview with the permanent Blob URL
+    URL.revokeObjectURL(localPreview)
+    onUploaded(json.url)
+
+    // Broadcast to all components (UserAvatar in header, etc.)
+    window.dispatchEvent(new CustomEvent("avatar-updated", { detail: { url: json.url } }))
+
+    // Reset the input so the same file can be re-selected
+    if (inputRef.current) inputRef.current.value = ""
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest self-start">
+        Profile Picture
+      </p>
+
+      {/* Clickable avatar */}
+      <div className="relative group cursor-pointer" onClick={() => !uploading && inputRef.current?.click()}>
+        <AvatarCircle name={name || "U"} avatarUrl={avatarUrl} size={88} />
+
+        {/* Hover / uploading overlay */}
+        <div className={`absolute inset-0 rounded-full flex flex-col items-center justify-center bg-black/50 transition-opacity ${uploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+          {uploading ? (
+            <Loader2 className="w-6 h-6 text-white animate-spin" />
+          ) : (
+            <>
+              <Camera className="w-5 h-5 text-white mb-0.5" />
+              <span className="text-[10px] font-semibold text-white">Change</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Helper text */}
+      <div className="text-center space-y-1">
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className="text-sm font-semibold text-primary hover:underline disabled:opacity-50"
+        >
+          {uploading ? "Uploading..." : "Update Your Profile Picture"}
+        </button>
+        <p className="text-xs text-muted-foreground">JPG, PNG or GIF &bull; max 5 MB</p>
+      </div>
+
+      {uploadErr && (
+        <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 w-full">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {uploadErr}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handleFile}
+      />
     </div>
   )
 }
@@ -165,6 +272,23 @@ export default function ProfilePage() {
           <form onSubmit={handleSave} className="rounded-2xl border border-border bg-card px-6 py-6 space-y-5">
             <h2 className="text-base font-semibold text-foreground">Edit Profile</h2>
 
+            {/* Avatar upload — sits at the top of the form */}
+            <AvatarUpload
+              name={fullName || session?.fullName || "U"}
+              avatarUrl={avatarUrl}
+              onUploaded={(url) => {
+                setAvatarUrl(url)
+                // Also update the in-memory session so the header avatar refreshes
+                if (session) {
+                  const updated = { ...session, avatarUrl: url }
+                  setSession(updated)
+                  setSessionState(updated)
+                }
+              }}
+            />
+
+            <div className="border-t border-border/50" />
+
             {/* Read-only fields */}
             <Field label="Email" icon={Mail} value={session?.email ?? ""} readOnly />
             <Field label="User ID" icon={Shield} value={session?.userId ?? ""} readOnly />
@@ -192,21 +316,6 @@ export default function ProfilePage() {
               placeholder="+1 234 567 890"
               type="tel"
             />
-            <Field
-              label="Avatar URL"
-              icon={Camera}
-              value={avatarUrl}
-              onChange={setAvatarUrl}
-              placeholder="https://..."
-            />
-
-            {/* Avatar preview */}
-            {avatarUrl && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border">
-                <AvatarCircle name={fullName} avatarUrl={avatarUrl} size={40} />
-                <p className="text-xs text-muted-foreground">Avatar preview</p>
-              </div>
-            )}
 
             {/* Feedback */}
             {error && (

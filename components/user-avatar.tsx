@@ -28,6 +28,14 @@ export function UserAvatar() {
 
   useEffect(() => {
     setSession(getSession())
+
+    // Refresh avatar whenever the profile page uploads a new picture
+    const handler = (e: Event) => {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url
+      setSession(prev => prev ? { ...prev, avatarUrl: url } : prev)
+    }
+    window.addEventListener("avatar-updated", handler)
+    return () => window.removeEventListener("avatar-updated", handler)
   }, [])
 
   useEffect(() => {
