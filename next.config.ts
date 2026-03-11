@@ -1,3 +1,4 @@
+// cache-bust: 2026-03-11
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
