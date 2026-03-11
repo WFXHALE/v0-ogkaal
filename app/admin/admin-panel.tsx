@@ -18,6 +18,12 @@ import {
   isSessionValid, logout, getSession, getSecurityLogs, changePassword,
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
+import {
+  getMemberships, updateMembershipStatus, approveMembership,
+  getVipSignals, createSignal, updateSignalStatus, deleteSignal,
+  getPerformanceStats, upsertPerformanceStat,
+} from "@/lib/membership-store"
+import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +32,7 @@ type Section =
   | "payment-verification" | "suspicious" | "members"
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
+  | "signals" | "memberships" | "performance"
 
 interface Submission {
   id: string
@@ -103,6 +110,9 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "usdt-sell",            label: "USDT Sell Requests",   icon: ArrowUpRight,  group: "USDT Trading" },
   { key: "suspicious",           label: "Fraud Detection",      icon: AlertTriangle  },
   { key: "members",              label: "Member Database",      icon: Users          },
+  { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
+  { key: "memberships",          label: "Memberships",          icon: UserCheck,      group: "Content" },
+  { key: "performance",          label: "Performance Manager",  icon: TrendingUp,     group: "Content" },
   { key: "notifications",        label: "Notifications",        icon: Bell           },
   { key: "files",                label: "File Manager",         icon: Folder         },
   { key: "export",               label: "Export Data",          icon: Download       },
@@ -209,6 +219,17 @@ export default function AdminPanel() {
   const [twoFAEnabled, setTwoFAEnabled]       = useState(false)
   const [tgTestStatus, setTgTestStatus]       = useState<"idle" | "sending" | "sent" | "error">("idle")
 
+  // ── New section state ──────────────────────────────────────────────────────
+  const [signals, setSignals]               = useState<VipSignal[]>([])
+  const [membershipsData, setMembershipsData] = useState<Membership[]>([])
+  const [perfStats, setPerfStats]           = useState<PerformanceStat[]>([])
+  const [signalForm, setSignalForm]         = useState({ pair: "", entry: "", sl: "", tp1: "", tp2: "", tp3: "", direction: "BUY" as "BUY" | "SELL", notes: "" })
+  const [signalSaving, setSignalSaving]     = useState(false)
+  const [membershipSearch, setMembershipSearch] = useState("")
+  const [perfForm, setPerfForm]             = useState({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+  const [perfSaving, setPerfSaving]         = useState(false)
+  const [newSectionLoading, setNewSectionLoading] = useState(false)
+
   const loadData = useCallback(() => {
     const stored = localStorage.getItem("og_admin_submissions")
     setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
@@ -233,6 +254,21 @@ export default function AdminPanel() {
     setSecurityLogs(getSecurityLogs())
   }, [])
 
+  // Load Supabase-backed data when relevant sections are opened
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (activeSection === "signals") {
+      setNewSectionLoading(true)
+      getVipSignals().then(s => { setSignals(s); setNewSectionLoading(false) })
+    } else if (activeSection === "memberships") {
+      setNewSectionLoading(true)
+      getMemberships().then(m => { setMembershipsData(m); setNewSectionLoading(false) })
+    } else if (activeSection === "performance") {
+      setNewSectionLoading(true)
+      getPerformanceStats().then(p => { setPerfStats(p); setNewSectionLoading(false) })
+    }
+  }, [activeSection, isAuthenticated])
+
   useEffect(() => {
     setMounted(true)
     if (!isSessionValid()) { router.push("/admin/login"); return }
@@ -251,9 +287,37 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
   }
 
-  const updateStatus = (id: string, status: Submission["status"]) => {
+  const updateStatus = async (id: string, status: Submission["status"]) => {
     saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
+
+    // When approving a VIP or Mentorship payment, also activate the membership in Supabase
+    if (status === "approved") {
+      const sub = submissions.find(s => s.id === id)
+      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "mentorship")) {
+        const email = sub.email ?? String(sub.details?.email ?? "")
+        if (email) {
+          const supabase = (await import("@/lib/supabase/client")).createClient()
+
+          // Find the pending membership record for this user
+          const { data: rows } = await supabase
+            .from("memberships")
+            .select("id, plan")
+            .eq("email", email)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(1)
+
+          if (rows && rows.length > 0) {
+            const mem = rows[0]
+            await approveMembership(String(mem.id), String(mem.plan), id)
+          } else {
+            // No pending membership row — just mark submission approved in Supabase too
+            await supabase.from("admin_submissions").update({ status: "approved" }).eq("id", id)
+          }
+        }
+      }
+    }
   }
 
   const deleteSubmission = (id: string) => {
@@ -1381,6 +1445,285 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Signals Manager ──────────────────────────────────────────────────────────
+  const renderSignals = () => (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold text-foreground">Signals Manager</h2>
+
+      {/* Add signal form */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <h3 className="font-semibold text-foreground">Post New Signal</h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Pair</label>
+            <input value={signalForm.pair} onChange={e => setSignalForm(f => ({ ...f, pair: e.target.value }))} placeholder="XAUUSD" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Direction</label>
+            <select value={signalForm.direction} onChange={e => setSignalForm(f => ({ ...f, direction: e.target.value as "BUY" | "SELL" }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Entry</label>
+            <input value={signalForm.entry} onChange={e => setSignalForm(f => ({ ...f, entry: e.target.value }))} placeholder="2365" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Stop Loss</label>
+            <input value={signalForm.sl} onChange={e => setSignalForm(f => ({ ...f, sl: e.target.value }))} placeholder="2355" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Take Profit 1</label>
+            <input value={signalForm.tp1} onChange={e => setSignalForm(f => ({ ...f, tp1: e.target.value }))} placeholder="2385" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Take Profit 2 (opt)</label>
+            <input value={signalForm.tp2} onChange={e => setSignalForm(f => ({ ...f, tp2: e.target.value }))} placeholder="2400" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">Notes (optional)</label>
+          <input value={signalForm.notes} onChange={e => setSignalForm(f => ({ ...f, notes: e.target.value }))} placeholder="Risk 1%, wait for retest..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+        </div>
+        <Button
+          onClick={async () => {
+            if (!signalForm.pair || !signalForm.entry || !signalForm.sl || !signalForm.tp1) return
+            setSignalSaving(true)
+            const s = await createSignal({
+              pair: signalForm.pair, entry: signalForm.entry, stopLoss: signalForm.sl,
+              takeProfit1: signalForm.tp1, takeProfit2: signalForm.tp2 || undefined,
+              takeProfit3: signalForm.tp3 || undefined, direction: signalForm.direction,
+              status: "active", notes: signalForm.notes || undefined, postedAt: new Date().toISOString(), result: undefined,
+            })
+            if (s) { setSignals(prev => [s, ...prev]); setSignalForm({ pair: "", entry: "", sl: "", tp1: "", tp2: "", tp3: "", direction: "BUY", notes: "" }) }
+            setSignalSaving(false)
+          }}
+          disabled={signalSaving || !signalForm.pair || !signalForm.entry || !signalForm.sl || !signalForm.tp1}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {signalSaving ? "Posting..." : "Post Signal"}
+        </Button>
+      </div>
+
+      {/* Signals list */}
+      {newSectionLoading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">Loading signals...</div>
+      ) : signals.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No signals posted yet.</div>
+      ) : (
+        <div className="space-y-3">
+          {signals.map(s => (
+            <div key={s.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className={`px-2 py-0.5 rounded text-xs font-bold ${s.direction === "BUY" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{s.direction}</span>
+                <span className="font-bold text-foreground">{s.pair}</span>
+                <span className="text-xs text-muted-foreground">Entry: {s.entry} | SL: {s.stopLoss} | TP: {s.takeProfit1}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${s.status === "active" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : s.status === "hit_tp" ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>{s.status}</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {s.status === "active" && (
+                  <>
+                    <button onClick={() => updateSignalStatus(s.id, "hit_tp", "+profit").then(() => setSignals(p => p.map(x => x.id === s.id ? { ...x, status: "hit_tp" as const, result: "+profit" } : x)))} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors">TP Hit</button>
+                    <button onClick={() => updateSignalStatus(s.id, "hit_sl", "-loss").then(() => setSignals(p => p.map(x => x.id === s.id ? { ...x, status: "hit_sl" as const, result: "-loss" } : x)))} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">SL Hit</button>
+                    <button onClick={() => updateSignalStatus(s.id, "cancelled").then(() => setSignals(p => p.map(x => x.id === s.id ? { ...x, status: "cancelled" as const } : x)))} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-secondary text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+                  </>
+                )}
+                <button onClick={() => deleteSignal(s.id).then(ok => ok && setSignals(p => p.filter(x => x.id !== s.id)))} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Memberships Manager ───────────────────────────────────────────────────────
+  const renderMemberships = () => {
+    const filtered = membershipsData.filter(m =>
+      !membershipSearch ||
+      m.userName.toLowerCase().includes(membershipSearch.toLowerCase()) ||
+      m.userEmail.toLowerCase().includes(membershipSearch.toLowerCase()) ||
+      m.plan.toLowerCase().includes(membershipSearch.toLowerCase())
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-xl font-bold text-foreground">Memberships</h2>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <input value={membershipSearch} onChange={e => setMembershipSearch(e.target.value)} placeholder="Search by name, email, plan..." className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none w-48" />
+          </div>
+        </div>
+
+        {newSectionLoading ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">Loading memberships...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">No memberships found.</div>
+        ) : (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["User", "Plan", "Status", "Joined", "Expires", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(m => (
+                    <tr key={m.id} className="border-b border-border/50 hover:bg-secondary/20">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-foreground">{m.userName}</p>
+                        <p className="text-xs text-muted-foreground">{m.userEmail}</p>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-foreground">{m.plan}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${m.status === "active" ? "bg-green-500/10 text-green-400 border-green-500/30" : m.status === "pending" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : m.status === "expired" ? "bg-red-500/10 text-red-400 border-red-500/30" : "bg-secondary text-muted-foreground border-border"}`}>
+                          {m.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{m.joinDate ? new Date(m.joinDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{m.expiryDate ? new Date(m.expiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1.5 flex-wrap">
+                          {m.status !== "active" && (
+                            <button
+                              onClick={async () => {
+                                const result = await approveMembership(m.id, m.plan)
+                                if (result) {
+                                  setMembershipsData(p => p.map(x => x.id === m.id
+                                    ? { ...x, status: "active" as const, joinDate: result.joinedAt, expiryDate: result.expiresAt }
+                                    : x))
+                                }
+                              }}
+                              className="px-2 py-1 rounded text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+                            >Activate</button>
+                          )}
+                          {m.status === "active" && (
+                            <>
+                              <button
+                                onClick={async () => {
+                                  const exp = m.expiryDate ? new Date(m.expiryDate) : new Date()
+                                  exp.setMonth(exp.getMonth() + 1)
+                                  await updateMembershipStatus(m.id, "active", exp.toISOString())
+                                  setMembershipsData(p => p.map(x => x.id === m.id ? { ...x, expiryDate: exp.toISOString() } : x))
+                                }}
+                                className="px-2 py-1 rounded text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                              >+1 Month</button>
+                              <button
+                                onClick={async () => {
+                                  await updateMembershipStatus(m.id, "expired")
+                                  setMembershipsData(p => p.map(x => x.id === m.id ? { ...x, status: "expired" as const } : x))
+                                }}
+                                className="px-2 py-1 rounded text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                              >Expire</button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Performance Manager ───────────────────────────────────────────────────────
+  const renderPerformanceManager = () => (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold text-foreground">Performance Manager</h2>
+
+      {/* Add/Edit stat form */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <h3 className="font-semibold text-foreground">Add / Update Monthly Stat</h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {([
+            { key: "month",          label: "Month (YYYY-MM)", ph: "2025-01" },
+            { key: "monthLabel",     label: "Label",           ph: "January 2025" },
+            { key: "profitPercent",  label: "Profit %",        ph: "18" },
+            { key: "winRate",        label: "Win Rate %",      ph: "72" },
+            { key: "totalTrades",    label: "Total Trades",    ph: "32" },
+            { key: "winningTrades",  label: "Winning",         ph: "23" },
+            { key: "losingTrades",   label: "Losing",          ph: "9"  },
+          ] as const).map(({ key, label, ph }) => (
+            <div key={key}>
+              <label className="text-xs text-muted-foreground block mb-1">{label}</label>
+              <input
+                value={(perfForm as Record<string, string>)[key]}
+                onChange={e => setPerfForm(f => ({ ...f, [key]: e.target.value }))}
+                placeholder={ph}
+                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+          ))}
+        </div>
+        <Button
+          onClick={async () => {
+            if (!perfForm.month || !perfForm.monthLabel) return
+            setPerfSaving(true)
+            const ok = await upsertPerformanceStat({
+              month: perfForm.month, monthLabel: perfForm.monthLabel,
+              profitPercent: Number(perfForm.profitPercent) || 0,
+              winRate: Number(perfForm.winRate) || 0,
+              totalTrades: Number(perfForm.totalTrades) || 0,
+              winningTrades: Number(perfForm.winningTrades) || 0,
+              losingTrades: Number(perfForm.losingTrades) || 0,
+            })
+            if (ok) {
+              const updated = await getPerformanceStats()
+              setPerfStats(updated)
+              setPerfForm({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+            }
+            setPerfSaving(false)
+          }}
+          disabled={perfSaving || !perfForm.month || !perfForm.monthLabel}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {perfSaving ? "Saving..." : "Save Stat"}
+        </Button>
+      </div>
+
+      {/* Stats table */}
+      {newSectionLoading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">Loading stats...</div>
+      ) : perfStats.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No performance stats yet. Add your first month above.</div>
+      ) : (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  {["Month", "Profit", "Win Rate", "Trades", "W / L"].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...perfStats].reverse().map(s => (
+                  <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20">
+                    <td className="px-4 py-3 font-medium text-foreground">{s.monthLabel}</td>
+                    <td className={`px-4 py-3 font-bold ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>{s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%</td>
+                    <td className="px-4 py-3 text-foreground">{s.winRate}%</td>
+                    <td className="px-4 py-3 text-foreground">{s.totalTrades}</td>
+                    <td className="px-4 py-3"><span className="text-green-400">{s.winningTrades}W</span> / <span className="text-red-400">{s.losingTrades}L</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
@@ -1396,6 +1739,9 @@ export default function AdminPanel() {
       case "telegram":             return renderTelegram()
       case "security":             return renderSecurity()
       case "logs":                 return renderLogs()
+      case "signals":              return renderSignals()
+      case "memberships":          return renderMemberships()
+      case "performance":          return renderPerformanceManager()
       default:                     return renderDashboard()
     }
   }

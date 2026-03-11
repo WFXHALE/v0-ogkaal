@@ -78,10 +78,10 @@ const nextConfig: NextConfig = {
   },
 
   // Experimental optimizations
+  // optimizeCss disabled — requires "critters" package which is not available in this env
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: [
-      "lucide-react",
+      // lucide-react excluded — causes HMR stale-factory errors with Turbopack
       "@radix-ui/react-accordion",
       "@radix-ui/react-dialog",
       "@radix-ui/react-dropdown-menu",
