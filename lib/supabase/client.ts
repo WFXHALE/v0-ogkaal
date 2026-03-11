@@ -6,10 +6,9 @@ const g = globalThis as typeof globalThis & { _supabaseBrowserClient?: SupabaseC
 
 export function createClient(): SupabaseClient {
   if (!g._supabaseBrowserClient) {
-    g._supabaseBrowserClient = _createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
+    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL  || process.env.SUPABASE_URL!
+    const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!
+    g._supabaseBrowserClient = _createClient(url, key)
   }
   return g._supabaseBrowserClient
 }
