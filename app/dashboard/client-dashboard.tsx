@@ -203,10 +203,10 @@ function AuthScreen({
           {mode === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">User ID</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">User ID or Email</label>
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <input value={loginId} onChange={e => setLoginId(e.target.value)} placeholder="your_user_id" required autoComplete="username"
+                  <input value={loginId} onChange={e => setLoginId(e.target.value.trim())} placeholder="your_user_id or email" required autoComplete="username"
                     className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
                 </div>
               </div>

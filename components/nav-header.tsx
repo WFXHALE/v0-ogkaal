@@ -13,7 +13,7 @@ import { UserAvatar } from "@/components/user-avatar"
 // ── Nav items — Profile is NOT here; it lives in the UserAvatar dropdown ──────
 interface NavItem { label: string; href: string }
 
-// Trade Dashboard lives inside Dashboard | Blog lives inside About | SMC Guide lives inside Community
+// Dashboard is accessed via the Profile icon — not a nav link
 const NAV_ITEMS: NavItem[] = [
   { label: "Home",         href: "/"             },
   { label: "USDT P2P",     href: "/usdt-p2p"     },
@@ -21,7 +21,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "VIP Group",    href: "/vip-group"    },
   { label: "Intelligence", href: "/intelligence" },
   { label: "Funded Tools", href: "/funded-tools" },
-  { label: "Dashboard",    href: "/dashboard"    },
   { label: "Material",     href: "/material"     },
   { label: "Community",    href: "/community"    },
   { label: "About",        href: "/about"        },

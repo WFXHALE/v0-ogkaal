@@ -97,22 +97,34 @@ export function logout(): void {
 // ── Auth operations (Supabase-backed) ────────────────────────────────────────
 
 export async function login(
-  userId: string,
+  identifier: string,   // accepts either user_id OR email
   password: string
 ): Promise<{ success: true; user: DashboardUser } | { success: false; error: string }> {
   const supabase = createClient()
-  const hash = await hashPassword(password)
+  const hash     = await hashPassword(password)
+  const cleaned  = identifier.trim().toLowerCase()
 
-  const { data, error } = await supabase
+  // Try user_id first; if nothing found, fall back to email lookup
+  let { data, error } = await supabase
     .from("dashboard_users")
     .select("*")
-    .eq("user_id", userId.trim())
-    .single()
+    .eq("user_id", cleaned)
+    .maybeSingle()
 
-  if (error || !data) return { success: false, error: "Invalid User ID or password." }
+  if (!data) {
+    const byEmail = await supabase
+      .from("dashboard_users")
+      .select("*")
+      .eq("email", cleaned)
+      .maybeSingle()
+    data  = byEmail.data
+    error = byEmail.error
+  }
+
+  if (error || !data) return { success: false, error: "No account found. Check your User ID or email." }
 
   if (data.password_hash !== hash) {
-    return { success: false, error: "Invalid User ID or password." }
+    return { success: false, error: "Incorrect password. Please try again." }
   }
 
   const user: DashboardUser = {
