@@ -486,6 +486,8 @@ export default function AdminPanel() {
     localStorage.setItem("og_admin_system", JSON.stringify(updated))
     // Publish to a shared key so the rest of the site can read it
     localStorage.setItem("og_site_config", JSON.stringify(updated))
+    // Notify same-tab listeners (useSiteConfig hook)
+    window.dispatchEvent(new Event("og_site_config_change"))
   }
 
   const handleLogout = async () => { await logout(); router.push("/admin/login") }
@@ -920,20 +922,39 @@ export default function AdminPanel() {
           <div className="pt-1"><ScreenshotCell url={r.screenshotUrl} /></div>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — contextual by status, locked when final */}
         <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-          {isBuy ? (
-            <>
-              <button onClick={() => updateBuyStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
-              <button onClick={() => updateBuyStatus(r.id, "completed")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
-              <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
-            </>
+          {(r.status === "completed" || r.status === "approved") ? (
+            <span className="flex-1 text-center text-xs text-green-400 font-semibold py-1.5">Order Completed</span>
+          ) : (r.status === "cancelled" || r.status === "rejected") ? (
+            <span className="flex-1 text-center text-xs text-red-400 font-semibold py-1.5">Order Cancelled</span>
+          ) : r.status === "accepted" ? (
+            isBuy ? (
+              <>
+                <span className="flex-1 text-center text-xs text-blue-400 font-medium py-1.5">Accepted — Waiting for Completion</span>
+                <button onClick={() => updateBuyStatus(r.id, "completed")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+                <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-center text-xs text-blue-400 font-medium py-1.5">Accepted — Waiting for Completion</span>
+                <button onClick={() => updateSellStatus(r.id, "completed")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            )
           ) : (
-            <>
-              <button onClick={() => updateSellStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
-              <button onClick={() => updateSellStatus(r.id, "completed")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
-              <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
-            </>
+            /* pending */
+            isBuy ? (
+              <>
+                <button onClick={() => updateBuyStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+                <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => updateSellStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </>
+            )
           )}
         </div>
       </div>

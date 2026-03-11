@@ -30,6 +30,7 @@ import {
   User,
 } from "lucide-react"
 import { saveSubmission } from "@/lib/admin-submissions"
+import { useSiteConfig } from "@/lib/use-site-config"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -164,6 +165,7 @@ type PaymentMethod = "upi" | "crypto" | "erupee" | null
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MentorshipPage() {
+  const siteConfig = useSiteConfig()
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null)
   const [flowStep, setFlowStep] = useState<FlowStep>("idle")
 
@@ -351,13 +353,13 @@ export default function MentorshipPage() {
                 <h2 className="text-2xl font-bold text-foreground mb-1">Payment</h2>
                 <p className="text-muted-foreground mb-6 text-sm">Choose a payment method and upload your proof.</p>
 
-                {/* Method selector */}
+                {/* Method selector — filtered by system config */}
                 <div className="grid grid-cols-3 gap-3 mb-6">
                   {[
-                    { key: "upi", label: "UPI", icon: QrCode },
-                    { key: "crypto", label: "Crypto", icon: Bitcoin },
-                    { key: "erupee", label: "E-Rupee", icon: CreditCard },
-                  ].map(({ key, label, icon: Icon }) => (
+                    { key: "upi",    label: "UPI",     icon: QrCode,     enabled: siteConfig.upiEnabled    },
+                    { key: "crypto", label: "Crypto",  icon: Bitcoin,    enabled: siteConfig.cryptoEnabled },
+                    { key: "erupee", label: "E-Rupee", icon: CreditCard, enabled: siteConfig.erupeeEnabled },
+                  ].filter(m => m.enabled).map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
                       onClick={() => {
@@ -758,7 +760,7 @@ export default function MentorshipPage() {
                 <div className="absolute top-4 right-4">
                   <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
                     <Bitcoin className="w-3 h-3 text-amber-400" />
-                    <span className="text-xs font-bold text-amber-400">₹20,000</span>
+                    <span className="text-xs font-bold text-amber-400">{siteConfig.mentorshipPrice}</span>
                   </div>
                 </div>
                 <div className="mb-5">
