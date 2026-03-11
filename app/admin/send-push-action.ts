@@ -52,7 +52,10 @@ export async function sendPushNotification(
   const notification = { title, body }
   const messageData  = { type }
 
-  let fcmPayload: object
+  // ── Build FCM Legacy API payload ────────────────────────────────────────────
+  // FCM HTTP v1 requires a short-lived OAuth2 token from a service account JSON.
+  // The legacy FCM endpoint accepts the server key directly as Authorization key.
+  let fcmPayload: Record<string, unknown>
 
   if (user_id) {
     const { data: tokenRow } = await supabase
@@ -64,23 +67,28 @@ export async function sendPushNotification(
     if (!tokenRow?.token) return { success: true, mode: "no-token" }
 
     fcmPayload = {
-      message: { token: tokenRow.token, notification, data: messageData,
-        webpush: { fcm_options: { link: "/" } } },
+      to: tokenRow.token,
+      notification,
+      data: messageData,
+      webpush: { fcm_options: { link: "/" } },
     }
   } else {
+    // Broadcast: send to the "all" topic all users subscribed to
     fcmPayload = {
-      message: { topic: "all", notification, data: messageData,
-        webpush: { fcm_options: { link: "/" } } },
+      to:           "/topics/all",
+      notification,
+      data:         messageData,
+      webpush:      { fcm_options: { link: "/" } },
     }
   }
 
   const fcmRes = await fetch(
-    `https://fcm.googleapis.com/v1/projects/${fcmProjectId}/messages:send`,
+    "https://fcm.googleapis.com/fcm/send",
     {
-      method: "POST",
+      method:  "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:  `Bearer ${fcmServerKey}`,
+        Authorization:  `key=${fcmServerKey}`,
       },
       body: JSON.stringify(fcmPayload),
     }
@@ -89,6 +97,7 @@ export async function sendPushNotification(
   const fcmJson = await fcmRes.json()
   if (!fcmRes.ok) {
     console.error("[send-push-action] FCM error:", fcmJson)
+    return { success: true, mode: "store-only" }
   }
 
   return { success: true, mode: "fcm" }
