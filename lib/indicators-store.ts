@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
 
-export type IndicatorCategory = "SMC" | "ICT" | "Liquidity" | "Sessions" | "Tools"
+export type IndicatorCategory = "SMC" | "ICT" | "Liquidity" | "Sessions" | "Tools" | "Price Action"
 
 export interface Indicator {
   id:               string
