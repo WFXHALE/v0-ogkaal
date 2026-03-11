@@ -1331,15 +1331,21 @@ export default function AdminPanel() {
       {/* Test notification */}
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
         <h3 className="font-semibold text-foreground text-sm">Test Notification</h3>
-        <p className="text-xs text-muted-foreground">Send a test message to the admin Telegram chat (ID: 8197983781) to verify the bot is working.</p>
+        <p className="text-xs text-muted-foreground">Send a test message to the configured Telegram chat to verify the bot token and chat ID are working correctly.</p>
         <Button
           onClick={sendTelegramTest}
-          disabled={tgTestStatus === "sending" || !systemSettings.telegramEnabled}
+          disabled={tgTestStatus === "sending"}
           className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm"
         >
           {tgTestStatus === "sending" ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Bot className="w-4 h-4 mr-2" />}
-          {tgTestStatus === "sending" ? "Sending..." : tgTestStatus === "sent" ? "Sent!" : tgTestStatus === "error" ? "Failed — check bot token" : "Send Test Message"}
+          {tgTestStatus === "sending" ? "Sending..." : tgTestStatus === "sent" ? "Sent Successfully!" : tgTestStatus === "error" ? "Failed — check token/chat ID" : "Send Test Message"}
         </Button>
+        {tgTestStatus === "sent" && (
+          <p className="text-xs text-green-400">Message delivered. Check your Telegram channel/group.</p>
+        )}
+        {tgTestStatus === "error" && (
+          <p className="text-xs text-red-400">Delivery failed. Verify TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in project environment variables, and confirm the bot is an admin in your channel/group.</p>
+        )}
       </div>
       {/* What gets notified */}
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
@@ -1367,10 +1373,11 @@ export default function AdminPanel() {
           <h3 className="font-semibold text-foreground text-sm">Setup Instructions</h3>
         </div>
         <ol className="space-y-2 text-xs text-muted-foreground list-decimal list-inside">
-          <li>Add <code className="font-mono bg-card px-1 rounded">TELEGRAM_BOT_TOKEN</code> to your environment variables</li>
-          <li>Start a chat with @OGKAALBOT and press START so the bot can message you</li>
-          <li>The admin chat ID is pre-configured as <code className="font-mono bg-card px-1 rounded">8197983781</code></li>
-          <li>Users who submit payments are redirected to start the bot and receive approval/rejection messages</li>
+          <li><code className="font-mono bg-card px-1 rounded">TELEGRAM_BOT_TOKEN</code> — set to your bot token (already configured)</li>
+          <li><code className="font-mono bg-card px-1 rounded">TELEGRAM_CHAT_ID</code> — set to your channel or group numeric ID (e.g. <code className="font-mono bg-card px-1 rounded">-100xxxxxxxxxx</code> for channels/groups)</li>
+          <li>Add @OGKAALBOT to your Telegram channel or group and promote it to <strong className="text-foreground">Admin</strong> so it can post messages</li>
+          <li>Use "Send Test Message" above to verify the connection — a message should appear in your channel/group instantly</li>
+          <li>To find your group/channel ID: forward any message from it to @userinfobot on Telegram</li>
         </ol>
       </div>
     </div>
