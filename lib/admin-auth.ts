@@ -8,7 +8,7 @@ const SECURITY_LOGS_KEY   = "og_security_logs"
 
 const MAX_LOGIN_ATTEMPTS   = 5
 const LOCKOUT_DURATION_MS  = 24 * 60 * 60 * 1000 // 24 hours (per spec)
-const SESSION_DURATION_MS  = 24 * 60 * 60 * 1000 // 24 hours
+const SESSION_DURATION_MS  = 30 * 60 * 1000       // 30 minutes — "Remember Admin Session" feature
 
 // ─── Password hashing ────────────────────────────────────────────────────────
 

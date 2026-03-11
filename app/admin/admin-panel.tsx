@@ -264,6 +264,9 @@ export default function AdminPanel() {
   // ── Global refresh state ─────────────────────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false)
 
+  // ── Session countdown (30-minute window) ─────────────────────────────────────
+  const [sessionSecsLeft, setSessionSecsLeft] = useState<number | null>(null)
+
   // ── Indicators state ─────────────────────────────────────────────────────────
   const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
   const [indicatorsLoading, setIndicatorsLoading] = useState(false)
@@ -404,11 +407,26 @@ export default function AdminPanel() {
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
+    // Session countdown — tick every second, auto-logout on expiry
+    const sessionInterval = setInterval(() => {
+      const s = getSession()
+      if (!s) { clearInterval(sessionInterval); router.push("/admin/login"); return }
+      const secsLeft = Math.ceil((new Date(s.expiresAt).getTime() - Date.now()) / 1000)
+      if (secsLeft <= 0) {
+        clearInterval(sessionInterval)
+        logout().then(() => router.push("/admin/login"))
+      } else {
+        setSessionSecsLeft(secsLeft)
+      }
+    }, 1000)
+
     // Pre-fetch dashboard DB stats
     fetch("/api/admin/analytics")
       .then(r => r.json())
       .then(d => { if (d.ok) setDbStats(d.stats) })
       .catch(() => {})
+
+    return () => clearInterval(sessionInterval)
   }, [router, loadData])
 
   // ── Telegram helpers ─────────────────────────────────────────────────────────
@@ -2511,6 +2529,19 @@ export default function AdminPanel() {
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>}
             </button>
+            {/* Session countdown badge */}
+            {sessionSecsLeft !== null && (
+              <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold transition-colors ${
+                sessionSecsLeft <= 300
+                  ? "bg-red-500/10 border-red-500/30 text-red-400"
+                  : "bg-primary/10 border-primary/20 text-primary"
+              }`}>
+                <Clock className="w-3 h-3" />
+                {sessionSecsLeft >= 60
+                  ? `${Math.floor(sessionSecsLeft / 60)}m ${String(sessionSecsLeft % 60).padStart(2, "0")}s`
+                  : `${sessionSecsLeft}s`}
+              </div>
+            )}
             <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors font-medium">
               <LogOut className="w-4 h-4" /> Logout
             </button>
