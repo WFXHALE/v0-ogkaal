@@ -25,6 +25,7 @@ import {
 } from "@/lib/membership-store"
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { AdminPushPanel } from "./admin-push-panel"
+import { sendPushNotification } from "./send-push-action"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ interface USDTBuyRequest {
   amountUsdt: string
   inrEquivalent: string
   amountPaid: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -87,7 +88,7 @@ interface USDTSellRequest {
   usdtAmount: string
   txId: string
   screenshotUrl: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -139,8 +140,10 @@ function statusBadge(status: string) {
   const map: Record<string, string> = {
     pending:   "bg-amber-500/10 text-amber-400 border-amber-500/30",
     approved:  "bg-green-500/10 text-green-400 border-green-500/30",
+    accepted:  "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    cancelled: "bg-orange-500/10 text-orange-400 border-orange-500/30",
     rejected:  "bg-red-500/10 text-red-400 border-red-500/30",
-    completed: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
@@ -327,14 +330,44 @@ export default function AdminPanel() {
     saveSubmissions(submissions.filter(s => s.id !== id))
   }
 
+  const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
+    accepted:  { title: "USDT Order Accepted",       body: "Your USDT buy order has been accepted. Please complete payment."          },
+    completed: { title: "USDT Order Completed",      body: "Payment confirmed. Your USDT has been sent to your wallet."              },
+    cancelled: { title: "USDT Order Cancelled",      body: "Your USDT buy request was cancelled. Contact support if needed."         },
+    rejected:  { title: "USDT Order Rejected",       body: "Your USDT buy request was rejected. Please contact support."             },
+  }
+
+  const USDT_SELL_MESSAGES: Record<string, { title: string; body: string }> = {
+    accepted:  { title: "USDT Sell Order Accepted",  body: "Your USDT sell order has been accepted. Processing your INR payout."     },
+    completed: { title: "INR Payout Sent",           body: "Your USDT sale is complete. INR has been sent to your UPI account."      },
+    cancelled: { title: "USDT Sell Order Cancelled", body: "Your USDT sell request was cancelled. Contact support if needed."        },
+    rejected:  { title: "USDT Sell Order Rejected",  body: "Your USDT sell request was rejected. Please contact support."           },
+  }
+
   const updateBuyStatus = (id: string, status: USDTBuyRequest["status"]) => {
+    const order = usdtBuy.find(r => r.id === id)
     const updated = usdtBuy.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtBuy(updated); localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    setUsdtBuy(updated)
+    localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    // Fire targeted push notification to the affected user
+    const msg = USDT_BUY_MESSAGES[status]
+    if (msg && order?.userId) {
+      sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
+        .catch(() => {})
+    }
   }
 
   const updateSellStatus = (id: string, status: USDTSellRequest["status"]) => {
+    const order = usdtSell.find(r => r.id === id)
     const updated = usdtSell.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtSell(updated); localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    setUsdtSell(updated)
+    localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    // Fire targeted push notification to the affected user
+    const msg = USDT_SELL_MESSAGES[status]
+    if (msg && order?.userId) {
+      sendPushNotification({ title: msg.title, body: msg.body, type: "usdt_p2p", user_id: order.userId })
+        .catch(() => {})
+    }
   }
 
   const markNotifRead = (id: string) => {
@@ -755,110 +788,133 @@ export default function AdminPanel() {
     </div>
   )
 
-  const renderUSDTBuy = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ArrowDownLeft className="w-6 h-6 text-green-400" />
-        <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
-        <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold">{usdtBuy.length}</span>
-      </div>
-      <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then send USDT to their wallet.</p>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-border">
-          <table className="w-full text-sm min-w-[1100px]">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Email","Phone","Telegram","Wallet Address","TX ID","Screenshot","USDT Amount","INR Equiv.","Amount Paid","Submitted","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usdtBuy.length === 0
-                ? <tr><td colSpan={14} className="py-12 text-center text-muted-foreground text-sm">No USDT buy requests yet</td></tr>
-                : usdtBuy.map(r => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{r.userId}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.name}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.email}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.phone}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.telegram || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[120px] truncate" title={r.walletAddress}>{r.walletAddress}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.txId}>{r.txId || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={r.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs font-medium text-green-400 whitespace-nowrap">{r.amountUsdt} USDT</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.inrEquivalent}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.amountPaid}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(r.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => updateBuyStatus(r.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
-                        <button onClick={() => updateBuyStatus(r.id, "pending")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Pending"><Clock className="w-4 h-4" /></button>
-                        <button onClick={() => updateBuyStatus(r.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+  const USDTOrderCard = ({ r, type }: { r: USDTBuyRequest | USDTSellRequest; type: "buy" | "sell" }) => {
+    const isBuy = type === "buy"
+    const buy   = r as USDTBuyRequest
+    const sell  = r as USDTSellRequest
+    return (
+      <div className="rounded-xl bg-card border border-border p-4 space-y-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${isBuy ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
+                {isBuy ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                {isBuy ? "Buy" : "Sell"}
+              </span>
+              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span>
+            </div>
+            <p className="text-sm font-semibold text-foreground mt-1">{r.name}</p>
+            <p className="text-xs text-muted-foreground font-mono">{r.userId}</p>
+          </div>
+          <div className="text-right">
+            <p className={`text-lg font-bold ${isBuy ? "text-green-400" : "text-amber-400"}`}>
+              {isBuy ? buy.amountUsdt : sell.usdtAmount} USDT
+            </p>
+            {isBuy && <p className="text-xs text-muted-foreground">{buy.amountPaid} paid</p>}
+          </div>
+        </div>
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          {r.email && <><span className="text-muted-foreground">Email</span><span className="text-foreground truncate">{r.email}</span></>}
+          {r.phone && <><span className="text-muted-foreground">Phone</span><span className="text-foreground">{r.phone}</span></>}
+          {r.telegram && <><span className="text-muted-foreground">Telegram</span><span className="text-foreground">{r.telegram}</span></>}
+          {isBuy && buy.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={buy.walletAddress}>{buy.walletAddress.slice(0, 16)}…</span></>}
+          {isBuy && buy.inrEquivalent && <><span className="text-muted-foreground">INR Equiv.</span><span className="text-foreground">{buy.inrEquivalent}</span></>}
+          {isBuy && buy.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{buy.txId}</span></>}
+          {!isBuy && sell.upiId && <><span className="text-muted-foreground">UPI ID</span><span className="text-foreground font-mono">{sell.upiId}</span></>}
+          {!isBuy && sell.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={sell.walletAddress}>{sell.walletAddress.slice(0, 16)}…</span></>}
+          {!isBuy && sell.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{sell.txId}</span></>}
+          <span className="text-muted-foreground">Submitted</span><span className="text-foreground">{timeAgo(r.createdAt)}</span>
+        </div>
+
+        {/* Screenshot */}
+        {r.screenshotUrl && (
+          <div className="pt-1"><ScreenshotCell url={r.screenshotUrl} /></div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+          {isBuy ? (
+            <>
+              <button onClick={() => updateBuyStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+              <button onClick={() => updateBuyStatus(r.id, "completed")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+              <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => updateSellStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
+              <button onClick={() => updateSellStatus(r.id, "completed")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+              <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+            </>
+          )}
         </div>
       </div>
+    )
+  }
+
+  const USDTSection = ({ label, orders, type, accent }: {
+    label: string
+    orders: (USDTBuyRequest | USDTSellRequest)[]
+    type: "buy" | "sell"
+    accent: string
+  }) => (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${accent}`}>{orders.length}</span>
+      </div>
+      {orders.length === 0
+        ? <div className="rounded-xl border border-border border-dashed py-8 text-center text-muted-foreground text-sm">No orders in this category</div>
+        : <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {orders.map(r => <USDTOrderCard key={r.id} r={r} type={type} />)}
+          </div>
+      }
     </div>
   )
 
-  const renderUSDTSell = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <ArrowUpRight className="w-6 h-6 text-amber-400" />
-        <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
-        <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold">{usdtSell.length}</span>
-      </div>
-      <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI.</p>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-border">
-          <table className="w-full text-sm min-w-[1000px]">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Email","Phone","Telegram","UPI ID","Wallet Address","USDT Sent","TX ID","Screenshot","Submitted","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usdtSell.length === 0
-                ? <tr><td colSpan={13} className="py-12 text-center text-muted-foreground text-sm">No USDT sell requests yet</td></tr>
-                : usdtSell.map(r => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{r.userId}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{r.name}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.email}</td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{r.phone}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{r.telegram || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-foreground whitespace-nowrap">{r.upiId}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.walletAddress}>{r.walletAddress}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-amber-400 whitespace-nowrap">{r.usdtAmount} USDT</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate" title={r.txId}>{r.txId || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={r.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(r.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(r.status)}`}>{r.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => updateSellStatus(r.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve — Send INR"><CheckCircle className="w-4 h-4" /></button>
-                        <button onClick={() => updateSellStatus(r.id, "pending")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Pending"><Clock className="w-4 h-4" /></button>
-                        <button onClick={() => updateSellStatus(r.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+  const renderUSDTBuy = () => {
+    const pending   = usdtBuy.filter(r => r.status === "pending")
+    const accepted  = usdtBuy.filter(r => r.status === "accepted")
+    const completed = usdtBuy.filter(r => r.status === "completed" || r.status === "approved")
+    const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <ArrowDownLeft className="w-6 h-6 text-green-400" />
+          <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
+          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
         </div>
+        <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order. Notifications are sent automatically.</p>
+        <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+        <USDTSection label="Accepted Orders"   orders={accepted}  type="buy" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+        <USDTSection label="Completed Orders"  orders={completed} type="buy" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="buy" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
       </div>
-    </div>
-  )
+    )
+  }
+
+  const renderUSDTSell = () => {
+    const pending   = usdtSell.filter(r => r.status === "pending")
+    const accepted  = usdtSell.filter(r => r.status === "accepted")
+    const completed = usdtSell.filter(r => r.status === "completed" || r.status === "approved")
+    const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <ArrowUpRight className="w-6 h-6 text-amber-400" />
+          <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
+          <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI. Notifications are sent automatically.</p>
+        <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+        <USDTSection label="Accepted Orders"   orders={accepted}  type="sell" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+        <USDTSection label="Completed Orders"  orders={completed} type="sell" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="sell" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+      </div>
+    )
+  }
 
   const renderSuspicious = () => (
     <div className="space-y-4">
