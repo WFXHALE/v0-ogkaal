@@ -36,4 +36,11 @@ ON CONFLICT (key) DO NOTHING;
 ALTER TABLE admin_settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations (admin panel runs server-side with service role)
-CREATE POLICY IF NOT EXISTS admin_all_settings ON admin_settings FOR ALL USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'admin_settings' AND policyname = 'admin_all_settings'
+  ) THEN
+    EXECUTE 'CREATE POLICY admin_all_settings ON admin_settings FOR ALL USING (true) WITH CHECK (true)';
+  END IF;
+END $$;

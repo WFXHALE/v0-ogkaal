@@ -20,10 +20,18 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getMemberships, updateMembershipStatus, approveMembership,
-  getVipSignals, createSignal, updateSignalStatus, deleteSignal,
-  getPerformanceStats, upsertPerformanceStat,
+  getVipSignals, addVipSignal, deleteVipSignal,
+  getMemberships, approveMembership, revokeMembership,
+  getPerformanceStats, addPerformanceStat, deletePerformanceStat,
 } from "@/lib/membership-store"
+import {
+  loadSystemConfig, saveSystemConfig,
+  loadPricing, savePricing,
+  loadAdminProfile, saveAdminProfile,
+  loadReadIds, saveReadIds,
+  DEFAULT_PRICING,
+  type PricingConfig,
+} from "@/lib/admin-settings"
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { AdminPushPanel } from "./admin-push-panel"
 import { sendPushNotification } from "./send-push-action"
@@ -243,6 +251,13 @@ export default function AdminPanel() {
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
 
+  // ── Pricing config (DB-backed) ───────────────────────────────────────────────
+  const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
+  const [pricingSaving, setPricingSaving]       = useState(false)
+
+  // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
+  const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
+
   // ── Analytics state ──────────────────────────────────────────────────────────
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
@@ -303,6 +318,43 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setAnalyticsData(d); })
         .finally(() => setAnalyticsLoading(false))
+    } else if (activeSection === "members") {
+      // Also pull live users from Supabase to merge with localStorage demo data
+      import("@/lib/supabase/client").then(({ createClient }) => {
+        createClient()
+          .from("dashboard_users")
+          .select("user_id, full_name, email, phone, created_at, is_verified")
+          .order("created_at", { ascending: false })
+          .limit(200)
+          .then(({ data }) => {
+            if (!data?.length) return
+            const liveUsers: Submission[] = data.map(u => ({
+              id: String(u.user_id),
+              userId: String(u.user_id),
+              type: "member" as Submission["type"],
+              name: String(u.full_name || "—"),
+              email: String(u.email || ""),
+              phone: String(u.phone || ""),
+              telegram: "",
+              details: {},
+              status: u.is_verified ? ("approved" as const) : ("pending" as const),
+              paymentMethod: "",
+              amount: "",
+              utr: "",
+              screenshotUrl: "",
+              ipAddress: "",
+              location: "",
+              createdAt: String(u.created_at),
+            }))
+            // Merge: prefer Supabase over demo entries with same userId
+            setSubmissions(prev => {
+              const existingIds = new Set(liveUsers.map(u => u.userId))
+              const filtered = prev.filter(p => !existingIds.has(p.userId))
+              return [...liveUsers, ...filtered]
+            })
+          })
+          .catch(() => {})
+      })
     }
   }, [activeSection, isAuthenticated])
 
@@ -317,6 +369,27 @@ export default function AdminPanel() {
     setIsAuthenticated(true)
     setIsLoading(false)
     loadData()
+
+    // Load DB-backed settings in parallel
+    loadSystemConfig().then(cfg => {
+      setSystemSettings(s => ({ ...s, ...cfg }))
+      localStorage.setItem("og_site_config", JSON.stringify(cfg))
+      window.dispatchEvent(new Event("og_site_config_change"))
+    })
+    loadPricing().then(p => setPricingConfig(p))
+    loadAdminProfile().then(p => {
+      if (p.name) setSecForm(f => ({ ...f, name: p.name }))
+    })
+    loadReadIds().then(({ read_ids }) => {
+      if (read_ids.length > 0) {
+        setNotifications(ns => ns.map(n => read_ids.includes(n.id) ? { ...n, read: true } : n))
+      }
+    })
+    // Pre-fetch dashboard DB stats
+    fetch("/api/admin/analytics")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setDbStats(d.stats) })
+      .catch(() => {})
   }, [router, loadData])
 
   const saveSubmissions = (updated: Submission[]) => {
@@ -458,12 +531,18 @@ export default function AdminPanel() {
 
   const markNotifRead = (id: string) => {
     const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n)
-    setNotifications(updated); localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    setNotifications(updated)
+    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    // Persist all read IDs to DB
+    saveReadIds(updated.filter(n => n.read).map(n => n.id)).catch(() => {})
   }
 
   const markAllRead = () => {
     const updated = notifications.map(n => ({ ...n, read: true }))
-    setNotifications(updated); localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    setNotifications(updated)
+    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
+    // Persist read IDs to Supabase so they survive refresh
+    saveReadIds(updated.map(n => n.id)).catch(() => {})
   }
 
   // Navigate to the relevant section and open detail when notification is clicked
@@ -488,6 +567,8 @@ export default function AdminPanel() {
     localStorage.setItem("og_site_config", JSON.stringify(updated))
     // Notify same-tab listeners (useSiteConfig hook)
     window.dispatchEvent(new Event("og_site_config_change"))
+    // Persist to Supabase admin_settings (fire-and-forget)
+    saveSystemConfig(updated).catch(() => {})
   }
 
   const handleLogout = async () => { await logout(); router.push("/admin/login") }
@@ -752,6 +833,23 @@ export default function AdminPanel() {
   const renderDashboard = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Dashboard Overview</h2>
+
+      {/* Live DB stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Registered Users",  value: dbStats?.totalUsers    ?? "—", icon: Users,       color: "text-blue-400"   },
+          { label: "Active Members",    value: dbStats?.activeMembers ?? "—", icon: Crown,       color: "text-primary"    },
+          { label: "Signups Today",     value: dbStats?.todaySignups  ?? "—", icon: UserPlus,    color: "text-green-400"  },
+          { label: "Visits (14d)",      value: dbStats?.totalVisits14d ?? "—", icon: BarChart2,  color: "text-amber-400"  },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="p-5 rounded-xl bg-card border border-border">
+            <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* localStorage/demo stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "VIP Members",      value: vipSubs.length,    icon: Star,          color: "text-primary"   },
@@ -1337,15 +1435,34 @@ export default function AdminPanel() {
         </div>
       </div>
       <div className="rounded-xl bg-card border border-border p-5 space-y-4">
-        <h3 className="font-semibold text-foreground text-sm">Pricing</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-foreground text-sm">Pricing — All Plans</h3>
+          {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+        </div>
+        <p className="text-xs text-muted-foreground">Changes are saved to the database and shown on checkout pages immediately.</p>
         {([
-          { key: "vipPrice"         as const, label: "VIP Signals Price"  },
-          { key: "mentorshipPrice"  as const, label: "Mentorship Price"   },
+          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"                },
+          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP + XM (Existing Client)" },
+          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP + XM (New Client)"      },
+          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"              },
+          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"              },
+          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"           },
+          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account"              },
         ]).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-40 shrink-0">{label}</label>
-            <input value={systemSettings[key]} onChange={e => setSystemSettings(s => ({ ...s, [key]: e.target.value }))} onBlur={() => saveSystem({})}
-              className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50" />
+            <label className="text-sm text-foreground w-48 shrink-0">{label}</label>
+            <input
+              value={pricingConfig[key]}
+              onChange={e => setPricingConfig(p => ({ ...p, [key]: e.target.value }))}
+              onBlur={async () => {
+                setPricingSaving(true)
+                await savePricing(pricingConfig)
+                // Keep legacy vipPrice / mentorshipPrice keys in sync for useSiteConfig reads
+                saveSystem({ vipPrice: pricingConfig.vip_signal, mentorshipPrice: pricingConfig.mentorship_1 })
+                setPricingSaving(false)
+              }}
+              className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
+            />
           </div>
         ))}
       </div>
@@ -1483,6 +1600,8 @@ export default function AdminPanel() {
         const result = await changePassword(secForm.oldPw, secForm.newPw)
         if (!result.success) { setSecMsg({ type: "err", text: result.error ?? "Current password incorrect." }); return }
       }
+      // Persist admin profile (name, phone) to Supabase
+      saveAdminProfile({ name: secForm.name, phone: secForm.phone }).catch(() => {})
       setSecMsg({ type: "ok", text: "Settings saved successfully." })
       setTimeout(() => setSecMsg(null), 3000)
     }
@@ -1643,21 +1762,23 @@ export default function AdminPanel() {
   // ── Analytics ─────────────────────────────────────────────────────────────────
   const renderAnalytics = () => {
     const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
-    const recent = (analyticsData as Record<string, unknown> | null)?.recentSignups as Record<string, unknown>[] | undefined
-    const visitors = (analyticsData as Record<string, unknown> | null)?.visitors14d as { date: string; count: number }[] | undefined
-    const plans    = (analyticsData as Record<string, unknown> | null)?.planBreakdown as { plan: string; count: number }[] | undefined
+    const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined
+    const visitors  = (analyticsData as Record<string, unknown> | null)?.visitors14d   as { date: string; count: number }[] | undefined
+    const signupsTrend = (analyticsData as Record<string, unknown> | null)?.signups14d as { date: string; count: number }[] | undefined
+    const plans     = (analyticsData as Record<string, unknown> | null)?.planBreakdown as { plan: string; count: number }[] | undefined
 
     const statCards: { label: string; value: number | undefined; icon: typeof Users; color: string }[] = [
-      { label: "Total Registered Users",  value: stats?.totalUsers,      icon: Users,      color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
-      { label: "Verified Emails",          value: stats?.verifiedUsers,   icon: CheckCircle, color: "text-green-400 bg-green-500/10 border-green-500/20" },
-      { label: "Active Members",           value: stats?.activeMembers,   icon: Crown,       color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-      { label: "Pending Payments",         value: stats?.pendingPayments, icon: Clock,       color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
-      { label: "Signups Today",            value: stats?.todaySignups,    icon: UserPlus,    color: "text-primary bg-primary/10 border-primary/20" },
-      { label: "Total Memberships",        value: stats?.totalMembers,    icon: Star,        color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+      { label: "Total Registered Users", value: stats?.totalUsers,      icon: Users,      color: "text-blue-400 bg-blue-500/10 border-blue-500/20"  },
+      { label: "Verified Emails",        value: stats?.verifiedUsers,   icon: CheckCircle, color: "text-green-400 bg-green-500/10 border-green-500/20" },
+      { label: "Active Members",         value: stats?.activeMembers,   icon: Crown,       color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+      { label: "Site Visits (14 days)",  value: stats?.totalVisits14d,  icon: BarChart2,   color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+      { label: "Signups Today",          value: stats?.todaySignups,    icon: UserPlus,    color: "text-primary bg-primary/10 border-primary/20"      },
+      { label: "Total Memberships",      value: stats?.totalMembers,    icon: Star,        color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
     ]
 
     // Simple bar chart using div widths
     const maxVisitors = visitors ? Math.max(1, ...visitors.map(v => v.count)) : 1
+    const maxSignups  = signupsTrend ? Math.max(1, ...signupsTrend.map(v => v.count)) : 1
 
     return (
       <div className="space-y-6">
@@ -1707,6 +1828,27 @@ export default function AdminPanel() {
                       <div
                         className="w-full rounded-t bg-primary/60 hover:bg-primary transition-colors"
                         style={{ height: `${Math.max(4, Math.round((count / maxVisitors) * 96))}px` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                        {new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Signups trend (14 days) */}
+            {signupsTrend && signupsTrend.some(v => v.count > 0) && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-foreground text-sm">New Signups — Last 14 Days</h3>
+                <div className="flex items-end gap-1.5 h-28">
+                  {signupsTrend.map(({ date, count }) => (
+                    <div key={date} className="flex-1 flex flex-col items-center gap-1 group" title={`${date}: ${count}`}>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                      <div
+                        className="w-full rounded-t bg-green-500/60 hover:bg-green-500 transition-colors"
+                        style={{ height: `${Math.max(4, Math.round((count / maxSignups) * 96))}px` }}
                       />
                       <span className="text-[9px] text-muted-foreground rotate-45 origin-left whitespace-nowrap hidden sm:block">
                         {new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
