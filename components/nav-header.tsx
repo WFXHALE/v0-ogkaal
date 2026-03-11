@@ -20,12 +20,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Mentorship",   href: "/mentorship"   },
   { label: "VIP Group",    href: "/vip-group"    },
   { label: "Intelligence", href: "/intelligence" },
-  { label: "Funded Tools", href: "/funded-tools" },
-  { label: "Material",     href: "/material"     },
+  { label: "Indicators",   href: "/indicators"   },
+  { label: "Prop Firms",   href: "/prop-firms"   },
   { label: "Community",    href: "/community"    },
-  { label: "About",        href: "/about"        },
+  { label: "Blog",         href: "/blog"         },
   { label: "Contact",      href: "/contact"      },
-  { label: "FAQ",          href: "/faq"          },
 ]
 
 // ── Single nav link with gold underline for active page ───────────────────────
