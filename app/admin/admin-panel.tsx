@@ -58,7 +58,7 @@ interface Submission {
   telegram?: string
   phone?: string
   details: Record<string, unknown>
-  status: "pending" | "approved" | "rejected" | "completed"
+  status: "pending" | "approved" | "rejected" | "completed" | "dismissed" | "deleted"
   paymentMethod?: string
   amount?: string
   utr?: string
@@ -157,8 +157,10 @@ function statusBadge(status: string) {
     approved:  "bg-green-500/10 text-green-400 border-green-500/30",
     accepted:  "bg-blue-500/10 text-blue-400 border-blue-500/30",
     completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    cancelled: "bg-orange-500/10 text-orange-400 border-orange-500/30",
-    rejected:  "bg-red-500/10 text-red-400 border-red-500/30",
+    cancelled:  "bg-orange-500/10 text-orange-400 border-orange-500/30",
+    rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+    dismissed:  "bg-zinc-500/10 text-zinc-400 border-zinc-500/30",
+    deleted:    "bg-zinc-700/20 text-zinc-500 border-zinc-600/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
@@ -501,16 +503,23 @@ export default function AdminPanel() {
   }
 
   const deleteSubmission = async (id: string) => {
-    if (!confirm("Delete this submission?")) return
+    if (!confirm("Permanently delete this submission? This cannot be undone.")) return
     // Remove from UI immediately for instant feedback
     setSubmissions(prev => prev.filter(s => s.id !== id))
-    // Persist deletion to Supabase
+    // Hard-delete from Supabase
     fetch("/api/admin/submissions", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).catch(() => {})
   }
+
+  // Soft-delete: marks status as "deleted" so it appears in the Deleted column
+  // and disappears from Fraud Detection without losing the record permanently.
+  const softDeleteSubmission = (id: string) => updateStatus(id, "deleted")
+
+  // Dismiss: marks status as "dismissed" — clears from fraud queue permanently
+  const dismissSubmission = (id: string) => updateStatus(id, "dismissed")
 
   const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
     accepted:  { title: "USDT Order Accepted",       body: "Your USDT buy order has been accepted. Please complete payment."          },
@@ -653,8 +662,16 @@ export default function AdminPanel() {
   const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
   const mentorSubs     = submissions.filter(s => s.type === "mentorship")
   const utrCounts: Record<string, string[]> = {}
-  submissions.forEach(s => { if (s.utr) { utrCounts[s.utr] = utrCounts[s.utr] || []; utrCounts[s.utr].push(s.id) } })
-  const suspiciousSubs = submissions.filter(s => s.utr && utrCounts[s.utr]?.length > 1)
+  submissions.forEach(s => {
+    if (s.utr && s.status !== "dismissed" && s.status !== "deleted") {
+      utrCounts[s.utr] = utrCounts[s.utr] || []
+      utrCounts[s.utr].push(s.id)
+    }
+  })
+  const suspiciousSubs = submissions.filter(s =>
+    s.utr && utrCounts[s.utr]?.length > 1 &&
+    s.status !== "dismissed" && s.status !== "deleted"
+  )
   const unreadCount    = notifications.filter(n => !n.read).length
 
   const userList = submissions.reduce<Submission[]>((acc, s) => {
@@ -977,66 +994,119 @@ export default function AdminPanel() {
     </div>
   )
 
-  const renderPaymentVerification = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-foreground">Payment Verification</h2>
-        <button
-          onClick={() => loadData({ spinning: true })}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-opacity"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Telegram","Payment Method","Amount Paid","UTR / TXID","Screenshot","Date","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.length === 0
-                ? <tr><td colSpan={10} className="py-12 text-center text-muted-foreground text-sm">No submissions yet</td></tr>
-                : submissions.map((s, i) => (
-                  <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
-                    <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
-                      <button onClick={() => setDetailView(s)} className="hover:text-primary hover:underline">{s.name}</button>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{s.paymentMethod || "—"}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{s.amount || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[110px] truncate">{s.utr || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={s.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
-                        {s.status === "pending" && (
-                          <>
-                            <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
-                            <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                          </>
-                        )}
-                        <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </div>
+  const SubTable = ({ rows, cols, emptyMsg }: {
+    rows: Submission[]
+    cols: string[]
+    emptyMsg: string
+  }) => (
+    <div className="rounded-xl bg-card border border-border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary/40">
+              {cols.map(h => (
+                <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0
+              ? <tr><td colSpan={cols.length} className="py-10 text-center text-muted-foreground text-sm">{emptyMsg}</td></tr>
+              : rows.map((s, i) => (
+                <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                  <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
+                  <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
+                    <button onClick={() => setDetailView(s)} className="hover:text-primary hover:underline">{s.name}</button>
+                  </td>
+                  <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
+                  <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{s.paymentMethod || "—"}</td>
+                  <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{s.amount || "—"}</td>
+                  <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[110px] truncate">{s.utr || "—"}</td>
+                  <td className="py-3 px-4"><ScreenshotCell url={s.screenshotUrl} /></td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
+                      {s.status === "pending" && (
+                        <>
+                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                          <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                        </>
+                      )}
+                      {s.status !== "deleted" && (
+                        <button onClick={() => softDeleteSubmission(s.id)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-500/10" title="Move to Deleted"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                      {s.status === "deleted" && (
+                        <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Hard Delete (permanent)"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
       </div>
     </div>
   )
+
+  const renderPaymentVerification = () => {
+    const cols = ["User ID","Name","Telegram","Payment Method","Amount Paid","UTR / TXID","Screenshot","Date","Actions"]
+    const pending   = submissions.filter(s => s.status === "pending")
+    const completed = submissions.filter(s => s.status === "approved" || s.status === "completed")
+    const dismissed = submissions.filter(s => s.status === "dismissed" || s.status === "rejected")
+    const deleted   = submissions.filter(s => s.status === "deleted")
+
+    const ColHeader = ({ label, count, accent }: { label: string; count: number; accent: string }) => (
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${accent}`}>{count}</span>
+      </div>
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Payment Verification</h2>
+          <button
+            onClick={() => loadData({ spinning: true })}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-opacity"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {/* Pending */}
+        <div>
+          <ColHeader label="Pending Review" count={pending.length} accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+          <SubTable rows={pending} cols={cols} emptyMsg="No pending submissions" />
+        </div>
+
+        {/* Completed / Approved */}
+        <div>
+          <ColHeader label="Completed / Approved" count={completed.length} accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+          <SubTable rows={completed} cols={cols} emptyMsg="No completed submissions yet" />
+        </div>
+
+        {/* Dismissed / Rejected */}
+        <div>
+          <ColHeader label="Dismissed / Rejected" count={dismissed.length} accent="bg-zinc-500/10 text-zinc-400 border-zinc-500/20" />
+          <SubTable rows={dismissed} cols={cols} emptyMsg="No dismissed submissions" />
+        </div>
+
+        {/* Deleted (soft) */}
+        {deleted.length > 0 && (
+          <div>
+            <ColHeader label="Deleted" count={deleted.length} accent="bg-zinc-700/20 text-zinc-500 border-zinc-600/20" />
+            <p className="text-xs text-muted-foreground mb-2">These rows are soft-deleted. Click the trash icon to permanently remove a record from the database.</p>
+            <SubTable rows={deleted} cols={cols} emptyMsg="No deleted submissions" />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const USDTOrderCard = ({ r, type }: { r: USDTBuyRequest | USDTSellRequest; type: "buy" | "sell" }) => {
     const isBuy = type === "buy"
@@ -1257,10 +1327,22 @@ export default function AdminPanel() {
                       <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><UserCheck className="w-4 h-4" /></button>
-                          <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><UserX className="w-4 h-4" /></button>
-                          <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Block"><Ban className="w-4 h-4" /></button>
+                          <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View Details"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve — mark as legitimate"><UserCheck className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => dismissSubmission(s.id)}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-500/10"
+                            title="Dismiss — removes from fraud queue permanently (saved as dismissed in DB)"
+                          >
+                            <UserX className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => softDeleteSubmission(s.id)}
+                            className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10"
+                            title="Delete — moves to Deleted column in Payment Verification (soft delete)"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
