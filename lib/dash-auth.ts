@@ -205,6 +205,45 @@ export async function loginWithBackupCode(
   return { success: true, user }
 }
 
+// ── Email verification ────────────────────────────────────────────────────────
+
+export async function sendVerificationEmail(
+  email: string,
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res  = await fetch("/api/dashboard/send-verification", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ email: email.trim().toLowerCase(), userId: userId.trim().toLowerCase() }),
+    })
+    const json = await res.json()
+    if (!res.ok) return { success: false, error: json.error ?? "Failed to send verification email." }
+    return { success: true }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
+  }
+}
+
+export async function verifyEmailOtp(
+  email: string,
+  userId: string,
+  otp: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res  = await fetch("/api/dashboard/verify-email", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ email: email.trim().toLowerCase(), userId: userId.trim().toLowerCase(), otp: otp.trim() }),
+    })
+    const json = await res.json()
+    if (!res.ok) return { success: false, error: json.error ?? "Verification failed." }
+    return { success: true }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
+  }
+}
+
 // Send OTP to the user's email (rate-limited to 5/day on server)
 export async function sendPasswordResetOtp(
   email: string
