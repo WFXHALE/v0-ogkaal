@@ -182,6 +182,7 @@ export default function MentorshipPage() {
   const [screenshot, setScreenshot] = useState<File | null>(null)
   const [utr, setUtr] = useState("")
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
   const screenshotRef = useRef<HTMLInputElement>(null)
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -402,19 +403,32 @@ export default function MentorshipPage() {
                     {/* QR code */}
                     <div>
                       <p className="text-sm font-semibold text-foreground mb-1">Scan & Pay</p>
-                      <p className="text-xs text-muted-foreground mb-3">Scan this QR code using your UPI app and complete the payment.</p>
-                      {/* Crop out the top header (name + phone) — show only the QR square */}
-                      <div className="w-56 mx-auto rounded-xl overflow-hidden border border-border bg-white" style={{ aspectRatio: "1 / 1" }}>
-                        <img
-                          src="/upi-qr.jpeg"
-                          alt="UPI QR Code — scan to pay"
-                          className="w-full object-cover"
-                          style={{ objectPosition: "center 52%", height: "175%" }}
-                        />
-                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Scan this QR code using any UPI app — Google Pay, PhonePe, Paytm, BHIM.</p>
+
+                      {/* Clickable QR — cropped to hide header */}
+                      <button
+                        type="button"
+                        onClick={() => setQrModalOpen(true)}
+                        className="block mx-auto rounded-xl overflow-hidden border-2 border-border hover:border-primary/50 transition-colors cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        style={{ width: "min(240px, 100%)" }}
+                        aria-label="Click to enlarge QR code"
+                      >
+                        <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
+                          <img
+                            src="/upi-qr.jpeg"
+                            alt="UPI QR Code — click to enlarge and scan"
+                            className="w-full object-cover"
+                            style={{ objectPosition: "center 52%", height: "175%" }}
+                          />
+                        </div>
+                      </button>
+
+                      <p className="text-xs text-muted-foreground text-center mt-3">
+                        Click the QR code to enlarge and scan using any UPI app.
+                      </p>
                     </div>
 
-                    <p className="text-xs text-muted-foreground text-center">Send the payment using any UPI app, then upload the payment screenshot below for verification.</p>
+                    <p className="text-xs text-muted-foreground text-center">After paying, upload the payment screenshot below for verification.</p>
                   </div>
                 )}
 
@@ -784,6 +798,48 @@ export default function MentorshipPage() {
 
       </main>
       <Footer />
+
+      {/* ── QR Zoom Modal ─────────────────────────────────────────────── */}
+      {qrModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => setQrModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="UPI QR Code enlarged view"
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-sm w-full"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setQrModalOpen(false)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center transition-colors"
+              aria-label="Close QR code"
+            >
+              <X className="w-4 h-4 text-black" />
+            </button>
+
+            {/* Full QR image — cropped to remove name/phone header */}
+            <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1 / 1" }}>
+              <img
+                src="/upi-qr.jpeg"
+                alt="UPI QR Code — scan to pay"
+                className="w-full object-cover"
+                style={{ objectPosition: "center 52%", height: "175%" }}
+              />
+            </div>
+
+            {/* UPI ID below */}
+            <div className="px-5 py-4 border-t border-gray-100 text-center">
+              <p className="text-xs text-gray-500 mb-1">UPI ID</p>
+              <p className="font-mono text-base font-bold text-gray-900 tracking-tight">CXEWANKUSS@YBL</p>
+              <p className="text-xs text-gray-400 mt-2">Scan using Google Pay, PhonePe, Paytm, BHIM or any UPI app</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
