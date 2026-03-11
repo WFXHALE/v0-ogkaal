@@ -26,6 +26,10 @@ import {
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { AdminPushPanel } from "./admin-push-panel"
 import { sendPushNotification } from "./send-push-action"
+import {
+  listIndicators, createIndicator, updateIndicator, deleteIndicator,
+} from "@/lib/indicators-store"
+import type { Indicator, IndicatorCategory } from "@/lib/indicators-store"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +38,7 @@ type Section =
   | "payment-verification" | "suspicious" | "members"
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
-  | "signals" | "memberships" | "performance"
+  | "signals" | "memberships" | "performance" | "indicators"
 
 interface Submission {
   id: string
@@ -115,6 +119,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
   { key: "memberships",          label: "Memberships",          icon: UserCheck,      group: "Content" },
   { key: "performance",          label: "Performance Manager",  icon: TrendingUp,     group: "Content" },
+  { key: "indicators",           label: "Indicators Manager",   icon: BarChart2,      group: "Content" },
   { key: "notifications",        label: "Notifications",        icon: Bell           },
   { key: "files",                label: "File Manager",         icon: Folder         },
   { key: "export",               label: "Export Data",          icon: Download       },
@@ -235,6 +240,17 @@ export default function AdminPanel() {
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
 
+  // ── Indicators state ─────────────────────────────────────────────────────────
+  const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
+  const [indicatorsLoading, setIndicatorsLoading] = useState(false)
+  const [indicatorForm, setIndicatorForm] = useState({
+    name: "", creator: "", category: "SMC" as IndicatorCategory,
+    description: "", tradingview_link: "", thumbnail_url: "", is_published: true,
+  })
+  const [indicatorSaving,   setIndicatorSaving]   = useState(false)
+  const [indicatorEditId,   setIndicatorEditId]   = useState<string | null>(null)
+  const [indicatorMsg,      setIndicatorMsg]      = useState<{ ok: boolean; text: string } | null>(null)
+
   const loadData = useCallback(() => {
     const stored = localStorage.getItem("og_admin_submissions")
     setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
@@ -271,6 +287,9 @@ export default function AdminPanel() {
     } else if (activeSection === "performance") {
       setNewSectionLoading(true)
       getPerformanceStats().then(p => { setPerfStats(p); setNewSectionLoading(false) })
+    } else if (activeSection === "indicators") {
+      setIndicatorsLoading(true)
+      listIndicators(false).then(list => { setIndicatorsList(list); setIndicatorsLoading(false) })
     }
   }, [activeSection, isAuthenticated])
 
@@ -1805,6 +1824,167 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Indicators Manager ───────────────────────────────────────────────────────
+  const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools"]
+
+  const resetIndicatorForm = () => {
+    setIndicatorForm({ name: "", creator: "", category: "SMC", description: "", tradingview_link: "", thumbnail_url: "", is_published: true })
+    setIndicatorEditId(null)
+    setIndicatorMsg(null)
+  }
+
+  const handleSaveIndicator = async () => {
+    if (!indicatorForm.name.trim() || !indicatorForm.creator.trim()) return
+    setIndicatorSaving(true)
+    setIndicatorMsg(null)
+    try {
+      if (indicatorEditId) {
+        const updated = await updateIndicator({ id: indicatorEditId, ...indicatorForm })
+        setIndicatorsList(list => list.map(i => i.id === indicatorEditId ? updated : i))
+        setIndicatorMsg({ ok: true, text: "Indicator updated." })
+      } else {
+        const created = await createIndicator(indicatorForm)
+        setIndicatorsList(list => [created, ...list])
+        setIndicatorMsg({ ok: true, text: "Indicator added." })
+      }
+      resetIndicatorForm()
+    } catch (err) {
+      setIndicatorMsg({ ok: false, text: String(err) })
+    } finally {
+      setIndicatorSaving(false)
+    }
+  }
+
+  const handleDeleteIndicator = async (id: string) => {
+    if (!confirm("Delete this indicator?")) return
+    await deleteIndicator(id)
+    setIndicatorsList(list => list.filter(i => i.id !== id))
+  }
+
+  const handleEditIndicator = (ind: Indicator) => {
+    setIndicatorForm({
+      name:             ind.name,
+      creator:          ind.creator,
+      category:         ind.category,
+      description:      ind.description ?? "",
+      tradingview_link: ind.tradingview_link ?? "",
+      thumbnail_url:    ind.thumbnail_url ?? "",
+      is_published:     ind.is_published,
+    })
+    setIndicatorEditId(ind.id)
+    setIndicatorMsg(null)
+  }
+
+  const handleTogglePublish = async (ind: Indicator) => {
+    const updated = await updateIndicator({ id: ind.id, is_published: !ind.is_published })
+    setIndicatorsList(list => list.map(i => i.id === ind.id ? updated : i))
+  }
+
+  const renderIndicators = () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <BarChart2 className="w-6 h-6 text-primary" />
+        <h2 className="text-xl font-bold text-foreground">Indicators Manager</h2>
+        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold border border-primary/20">{indicatorsList.length}</span>
+      </div>
+
+      {/* Add / Edit form */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <h3 className="font-semibold text-foreground text-sm">{indicatorEditId ? "Edit Indicator" : "Add New Indicator"}</h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Name *</label>
+            <input value={indicatorForm.name} onChange={e => setIndicatorForm(f => ({ ...f, name: e.target.value }))} placeholder="Order Block Detector" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Creator / Author *</label>
+            <input value={indicatorForm.creator} onChange={e => setIndicatorForm(f => ({ ...f, creator: e.target.value }))} placeholder="OG Kaal" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Category</label>
+            <select value={indicatorForm.category} onChange={e => setIndicatorForm(f => ({ ...f, category: e.target.value as IndicatorCategory }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary">
+              {INDICATOR_CATEGORIES_ADMIN.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">TradingView Link</label>
+            <input value={indicatorForm.tradingview_link} onChange={e => setIndicatorForm(f => ({ ...f, tradingview_link: e.target.value }))} placeholder="https://tradingview.com/script/..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-muted-foreground block mb-1">Description</label>
+            <textarea rows={2} value={indicatorForm.description} onChange={e => setIndicatorForm(f => ({ ...f, description: e.target.value }))} placeholder="Short description..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-muted-foreground block mb-1">Thumbnail URL (optional)</label>
+            <input value={indicatorForm.thumbnail_url} onChange={e => setIndicatorForm(f => ({ ...f, thumbnail_url: e.target.value }))} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIndicatorForm(f => ({ ...f, is_published: !f.is_published }))} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${indicatorForm.is_published ? "bg-green-500/10 border-green-500/25 text-green-400" : "bg-secondary border-border text-muted-foreground"}`}>
+            {indicatorForm.is_published ? "Published" : "Draft"}
+          </button>
+          <div className="flex-1" />
+          {indicatorEditId && (
+            <button onClick={resetIndicatorForm} className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">Cancel</button>
+          )}
+          <Button onClick={handleSaveIndicator} disabled={indicatorSaving || !indicatorForm.name.trim() || !indicatorForm.creator.trim()} size="sm">
+            {indicatorSaving ? "Saving..." : indicatorEditId ? "Update" : "Add Indicator"}
+          </Button>
+        </div>
+
+        {indicatorMsg && (
+          <p className={`text-xs ${indicatorMsg.ok ? "text-green-400" : "text-red-400"}`}>{indicatorMsg.text}</p>
+        )}
+      </div>
+
+      {/* List */}
+      {indicatorsLoading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading indicators...</div>
+      ) : indicatorsList.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">No indicators yet. Add one above.</div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/40">
+                {["Name", "Creator", "Category", "TV Link", "Published", "Actions"].map(h => (
+                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {indicatorsList.map(ind => (
+                <tr key={ind.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                  <td className="py-3 px-4 text-xs font-medium text-foreground">{ind.name}</td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground">{ind.creator}</td>
+                  <td className="py-3 px-4"><span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-semibold">{ind.category}</span></td>
+                  <td className="py-3 px-4">
+                    {ind.tradingview_link
+                      ? <a href={ind.tradingview_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" />Link</a>
+                      : <span className="text-muted-foreground text-xs">—</span>}
+                  </td>
+                  <td className="py-3 px-4">
+                    <button onClick={() => handleTogglePublish(ind)} className={`text-xs px-2 py-0.5 rounded-full border font-semibold transition-colors ${ind.is_published ? "bg-green-500/10 border-green-500/25 text-green-400 hover:bg-green-500/20" : "bg-secondary border-border text-muted-foreground hover:bg-secondary/60"}`}>
+                      {ind.is_published ? "Published" : "Draft"}
+                    </button>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => handleEditIndicator(ind)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Edit"><Settings className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteIndicator(ind.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
@@ -1823,6 +2003,7 @@ export default function AdminPanel() {
       case "signals":              return renderSignals()
       case "memberships":          return renderMemberships()
       case "performance":          return renderPerformanceManager()
+      case "indicators":           return renderIndicators()
       default:                     return renderDashboard()
     }
   }

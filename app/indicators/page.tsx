@@ -1,91 +1,116 @@
+"use client"
+
+import { useEffect, useState, useMemo } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { BarChart2, BookOpen, Code2, Link2, Layers, ChevronRight } from "lucide-react"
+import { BarChart2, Search, ExternalLink, Layers, Zap, Droplets, Clock, Wrench, X } from "lucide-react"
+import { listIndicators, type Indicator, type IndicatorCategory } from "@/lib/indicators-store"
 
-const INDICATOR_CATEGORIES = [
-  {
-    id: "smc",
-    label: "SMC Indicators",
-    icon: <Layers className="w-5 h-5" />,
-    description: "Smart Money Concepts indicators covering order blocks, fair value gaps, liquidity, and market structure.",
-    color: "text-[#FCD535]",
-    border: "border-[#FCD535]/20",
-    bg: "bg-[#FCD535]/5",
-    items: [
-      "Order Block Detector",
-      "Fair Value Gap (FVG) Scanner",
-      "Liquidity Sweep Alert",
-      "Market Structure Break (MSB / BOS)",
-      "Premium & Discount Zones",
-    ],
-  },
-  {
-    id: "ict",
-    label: "ICT Indicators",
-    icon: <BarChart2 className="w-5 h-5" />,
-    description: "Inner Circle Trader methodology indicators for kill zones, power of 3, optimal trade entries, and more.",
-    color: "text-blue-400",
-    border: "border-blue-500/20",
-    bg: "bg-blue-500/5",
-    items: [
-      "Kill Zone Highlighter",
-      "Power of 3 (Accumulation / Manipulation / Distribution)",
-      "Optimal Trade Entry (OTE) Levels",
-      "Daily / Weekly Profiles",
-      "ICT Bias Indicator",
-    ],
-  },
-  {
-    id: "tradingview",
-    label: "TradingView Indicators",
-    icon: <Link2 className="w-5 h-5" />,
-    description: "Curated public and private TradingView script links used by the OG Kaal community.",
-    color: "text-emerald-400",
-    border: "border-emerald-500/20",
-    bg: "bg-emerald-500/5",
-    items: [
-      "OG Kaal SMC Suite (Community Script)",
-      "ICT Concepts Full Pack",
-      "Session Killzones",
-      "Multi-Timeframe Structure",
-      "News Event Marker",
-    ],
-  },
-  {
-    id: "pine",
-    label: "Pine Script Indicators",
-    icon: <Code2 className="w-5 h-5" />,
-    description: "Open-source Pine Script v5 indicators you can copy and customise directly on TradingView.",
-    color: "text-purple-400",
-    border: "border-purple-500/20",
-    bg: "bg-purple-500/5",
-    items: [
-      "Custom OB + FVG Script",
-      "Auto Fibonacci Levels",
-      "Swing High / Low Detector",
-      "NWOG / NDOG Marker",
-      "Session Range Box",
-    ],
-  },
-  {
-    id: "explanations",
-    label: "Indicator Explanations",
-    icon: <BookOpen className="w-5 h-5" />,
-    description: "In-depth guides explaining how each indicator works and how to use it in your trading plan.",
-    color: "text-orange-400",
-    border: "border-orange-500/20",
-    bg: "bg-orange-500/5",
-    items: [
-      "How to Read Order Blocks",
-      "Using FVGs for Entry Precision",
-      "Understanding Liquidity Pools",
-      "Kill Zones vs. Session Ranges",
-      "Combining SMC + ICT Concepts",
-    ],
-  },
+// ── Category config ────────────────────────────────────────────────────────────
+
+const CATEGORIES: { id: IndicatorCategory | "all"; label: string; icon: typeof BarChart2; color: string; border: string; bg: string }[] = [
+  { id: "all",       label: "All",       icon: BarChart2, color: "text-foreground",    border: "border-border",          bg: "bg-secondary/30" },
+  { id: "SMC",       label: "SMC",       icon: Layers,    color: "text-[#FCD535]",     border: "border-[#FCD535]/25",    bg: "bg-[#FCD535]/8" },
+  { id: "ICT",       label: "ICT",       icon: Zap,       color: "text-sky-400",       border: "border-sky-500/25",      bg: "bg-sky-500/8" },
+  { id: "Liquidity", label: "Liquidity", icon: Droplets,  color: "text-emerald-400",   border: "border-emerald-500/25",  bg: "bg-emerald-500/8" },
+  { id: "Sessions",  label: "Sessions",  icon: Clock,     color: "text-orange-400",    border: "border-orange-500/25",   bg: "bg-orange-500/8" },
+  { id: "Tools",     label: "Tools",     icon: Wrench,    color: "text-purple-400",    border: "border-purple-500/25",   bg: "bg-purple-500/8" },
 ]
 
+function catConfig(category: IndicatorCategory) {
+  return CATEGORIES.find(c => c.id === category) ?? CATEGORIES[0]
+}
+
+// ── Indicator card ─────────────────────────────────────────────────────────────
+
+function IndicatorCard({ indicator }: { indicator: Indicator }) {
+  const cfg = catConfig(indicator.category)
+  const Icon = cfg.icon
+
+  return (
+    <article className={`flex flex-col rounded-2xl border ${cfg.border} bg-card overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/10`}>
+      {/* Thumbnail */}
+      {indicator.thumbnail_url ? (
+        <div className="h-36 bg-secondary/30 overflow-hidden">
+          <img
+            src={indicator.thumbnail_url}
+            alt={indicator.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className={`h-28 ${cfg.bg} flex items-center justify-center border-b ${cfg.border}`}>
+          <Icon className={`w-8 h-8 ${cfg.color} opacity-40`} />
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="flex flex-col flex-1 gap-3 p-4">
+        {/* Category badge */}
+        <span className={`self-start inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.border} ${cfg.color} ${cfg.bg}`}>
+          <Icon className="w-3 h-3" />
+          {indicator.category}
+        </span>
+
+        {/* Name + creator */}
+        <div>
+          <h2 className="font-bold text-foreground text-sm leading-snug">{indicator.name}</h2>
+          {indicator.creator && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">by {indicator.creator}</p>
+          )}
+        </div>
+
+        {/* Description */}
+        {indicator.description && (
+          <p className="text-xs text-muted-foreground leading-relaxed flex-1 line-clamp-3">{indicator.description}</p>
+        )}
+
+        {/* TradingView link */}
+        {indicator.tradingview_link && (
+          <a
+            href={indicator.tradingview_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`mt-auto flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border ${cfg.border} ${cfg.bg} ${cfg.color} text-xs font-semibold hover:opacity-80 active:scale-[.98] transition-all`}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            View on TradingView
+          </a>
+        )}
+      </div>
+    </article>
+  )
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+
 export default function IndicatorsPage() {
+  const [indicators, setIndicators] = useState<Indicator[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [search,     setSearch]     = useState("")
+  const [activecat,  setActivecat]  = useState<IndicatorCategory | "all">("all")
+
+  useEffect(() => {
+    listIndicators(true)
+      .then(setIndicators)
+      .catch(() => setIndicators([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filtered = useMemo(() => {
+    let items = indicators
+    if (activecat !== "all") items = items.filter(i => i.category === activecat)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      items = items.filter(i =>
+        i.name.toLowerCase().includes(q) ||
+        i.creator.toLowerCase().includes(q) ||
+        (i.description ?? "").toLowerCase().includes(q)
+      )
+    }
+    return items
+  }, [indicators, activecat, search])
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header />
@@ -94,7 +119,7 @@ export default function IndicatorsPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
 
           {/* Hero */}
-          <div className="mb-12 text-center">
+          <div className="mb-10 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FCD535]/10 border border-[#FCD535]/20 text-[#FCD535] text-xs font-semibold mb-4">
               <BarChart2 className="w-3.5 h-3.5" />
               SMC &amp; ICT Based
@@ -107,45 +132,89 @@ export default function IndicatorsPage() {
             </p>
           </div>
 
-          {/* Coming soon banner */}
-          <div className="mb-10 rounded-xl border border-border bg-secondary/20 px-5 py-4 flex items-start gap-3">
-            <div className="w-2 h-2 rounded-full bg-[#FCD535] shrink-0 mt-1.5" />
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">Content coming soon.</span>{" "}
-              Indicator files, TradingView links, and detailed explanations will be added here. The sections below show what will be available.
-            </p>
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search indicators..."
+                className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 transition-colors"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Category filter */}
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map(cat => {
+                const Icon = cat.icon
+                const active = activecat === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActivecat(cat.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                      active
+                        ? `${cat.border} ${cat.bg} ${cat.color} shadow-sm ring-1 ${cat.border.replace("border-", "ring-")}`
+                        : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {cat.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Category cards */}
-          <div className="space-y-6">
-            {INDICATOR_CATEGORIES.map(cat => (
-              <section
-                key={cat.id}
-                className={`rounded-2xl border ${cat.border} ${cat.bg} p-6`}
-              >
-                <div className="flex items-start gap-4 mb-5">
-                  <div className={`w-10 h-10 rounded-xl border ${cat.border} bg-background flex items-center justify-center shrink-0 ${cat.color}`}>
-                    {cat.icon}
-                  </div>
-                  <div>
-                    <h2 className={`text-lg font-bold ${cat.color}`}>{cat.label}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">{cat.description}</p>
+          {/* Grid / empty states */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-2xl border border-border bg-card overflow-hidden animate-pulse">
+                  <div className="h-28 bg-secondary/40" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-3 w-16 rounded bg-secondary/60" />
+                    <div className="h-4 w-2/3 rounded bg-secondary/60" />
+                    <div className="h-3 w-1/3 rounded bg-secondary/40" />
+                    <div className="h-9 w-full rounded-xl bg-secondary/40 mt-2" />
                   </div>
                 </div>
-                <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {cat.items.map(item => (
-                    <li
-                      key={item}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-background/60 border border-border/60 text-sm text-muted-foreground"
-                    >
-                      <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${cat.color}`} />
-                      <span className="text-pretty">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-20">
+              <BarChart2 className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-foreground font-semibold text-sm mb-1">
+                {indicators.length === 0 ? "No indicators published yet." : "No results found."}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {indicators.length === 0
+                  ? "The admin team will add indicators here soon."
+                  : "Try a different search term or category."}
+              </p>
+              {search && (
+                <button onClick={() => setSearch("")} className="mt-4 text-xs text-primary hover:underline">
+                  Clear search
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground mb-4">{filtered.length} indicator{filtered.length !== 1 ? "s" : ""}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filtered.map(ind => (
+                  <IndicatorCard key={ind.id} indicator={ind} />
+                ))}
+              </div>
+            </>
+          )}
 
         </div>
       </main>
