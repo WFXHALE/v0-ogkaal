@@ -85,7 +85,7 @@ interface USDTBuyRequest {
   amountUsdt: string
   inrEquivalent: string
   amountPaid: string
-  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
+  status: "pending" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -101,19 +101,20 @@ interface USDTSellRequest {
   usdtAmount: string
   txId: string
   screenshotUrl: string
-  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
+  status: "pending" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
 interface AdminNotification {
   id: string
-  type: "vip" | "mentorship" | "usdt" | "suspicious"
+  type: string          // DB text column — not restricted to a closed union
+  title?: string
   message: string
   read: boolean
+  status?: "read" | "unread"
   createdAt: string
-  // Links to the relevant record
   refId?: string
-  refSection?: Section
+  refSection?: string   // derived from type by the API normalizer
 }
 
 // ─── Sidebar nav config ───────────────────────────────────────────────────────
@@ -602,7 +603,7 @@ export default function AdminPanel() {
   const handleNotifClick = (notif: AdminNotification) => {
     markNotifRead(notif.id)
     if (notif.refSection) {
-      setActiveSection(notif.refSection)
+      setActiveSection(notif.refSection as Section)
       // If the ref points to a payment submission, open its detail modal
       if (notif.refSection === "payment-verification" || notif.refSection === "suspicious") {
         const sub = submissions.find(s => s.id === notif.refId)
@@ -2389,7 +2390,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Indicators Manager ───────────────────────────────────────────────────────
+  // ── Indicators Manager ──────────────────────────���────────────────────────────
   const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools", "Price Action"]
 
   const resetIndicatorForm = () => {
