@@ -11,6 +11,7 @@ import {
   Bitcoin, IndianRupee
 } from "lucide-react"
 import { useState, useEffect } from "react"
+import { TradingSessionsPanel } from "./trading-sessions-panel"
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -476,7 +477,7 @@ export function IntelligenceContent() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             {/* Market News */}
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -649,8 +650,15 @@ export function IntelligenceContent() {
                 </div>
               </section>
             )}
+            {/* Trading Sessions Panel — always visible, all tabs */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Trading Sessions</h2>
+              </div>
+              <TradingSessionsPanel />
+            </section>
           </div>
-
 
         </div>
       </main>
