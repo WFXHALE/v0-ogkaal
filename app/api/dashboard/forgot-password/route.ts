@@ -165,8 +165,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Incorrect code. Please check and try again." }, { status: 400 })
     }
 
-    // Hash the new password using the same SHA-256 approach as hashPassword() in dash-auth
-    const pwBuf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(newPassword))
+    // Hash using the EXACT same logic as hashPassword() in dash-auth.ts
+    // (password + salt string — must match or login will always fail)
+    const pwBuf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(newPassword + "og_dashboard_salt_v1"))
     const pwHash = Array.from(new Uint8Array(pwBuf)).map(b => b.toString(16).padStart(2, "0")).join("")
 
     const { error: updateErr } = await supabase
