@@ -5,7 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import {
   Building2, ChevronDown, ChevronUp, Check, X,
-  AlertCircle, Search, Filter, ExternalLink, Copy, CheckCheck,
+  AlertCircle, Search, Filter, ExternalLink, Copy, CheckCheck, Tag,
 } from "lucide-react"
 
 // ── Featured / Recommended Firms ──────────────────────────────────────────────
@@ -23,32 +23,32 @@ type FeaturedFirm = {
 
 const FEATURED_FIRMS: FeaturedFirm[] = [
   {
-    id:          "fundingpips",
-    name:        "FundingPips",
-    rating:      4.3,
-    description: "Instant & two-step challenges with one of the most trader-friendly rule sets. Competitive spreads and no consistency rule.",
+    id:           "fundingpips",
+    name:         "FundingPips",
+    rating:       4.3,
+    description:  "Two-step and rapid challenges with trader-friendly static drawdown rules, no consistency rule, and bi-weekly payouts.",
     referralLink: "https://app.fundingpips.com/register?ref=2d35d78b",
     discountCode: "2d35d78b",
-    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.29%E2%80%AFPM-Fll2JdGmjy43ZO2BP9QKWzCPHglqcf.png",
-    logoAlt:     "FundingPips logo",
+    logoUrl:      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.29%E2%80%AFPM-Fll2JdGmjy43ZO2BP9QKWzCPHglqcf.png",
+    logoAlt:      "FundingPips logo",
   },
   {
-    id:          "goatfunded",
-    name:        "Goat Funded Trader",
-    rating:      4.54,
-    description: "High-growth funding model with fast payouts and generous scaling plan. Ideal for swing and breakout traders.",
+    id:           "goatfunded",
+    name:         "Goat Funded Trader",
+    rating:       4.54,
+    description:  "1-Step, 2-Step and Instant models with 100% refundable fees, on-demand payouts, and up to 100% profit split.",
     referralLink: "https://checkout.goatfundedtrader.com/aff/swargakai@gmail.com/",
-    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.38%E2%80%AFPM-Asm8LaMbSgw3VDJOPdJ7aLLJmDxihM.png",
-    logoAlt:     "Goat Funded Trader logo",
+    logoUrl:      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.38%E2%80%AFPM-Asm8LaMbSgw3VDJOPdJ7aLLJmDxihM.png",
+    logoAlt:      "Goat Funded Trader logo",
   },
   {
-    id:          "blueberry",
-    name:        "Blueberry Funded",
-    rating:      3.8,
-    description: "Straightforward evaluation process with transparent rules, weekend holding allowed, and multiple account size options.",
+    id:           "blueberry",
+    name:         "Blueberry Funded",
+    rating:       3.8,
+    description:  "Broker-backed prop firm with 2-Step, 1-Step and Instant Elite models. No consistency rule, weekend holding allowed.",
     referralLink: "https://blueberryfunded.com/?utm_source=affiliate&ref=6538",
-    logoUrl:     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.11%E2%80%AFPM-pUuxSCUjpCyGlmrY2OQ8EBEwhwyJha.png",
-    logoAlt:     "Blueberry Funded logo",
+    logoUrl:      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.11%E2%80%AFPM-pUuxSCUjpCyGlmrY2OQ8EBEwhwyJha.png",
+    logoAlt:      "Blueberry Funded logo",
   },
 ]
 
@@ -66,17 +66,10 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
 
   return (
     <article className="relative flex flex-col rounded-2xl border border-primary/20 bg-card overflow-hidden shadow-md shadow-black/10 transition-shadow hover:shadow-lg hover:shadow-black/20">
-      {/* Top accent bar */}
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-
-      {/* Logo / Image */}
       <div className="h-32 bg-secondary/30 flex items-center justify-center overflow-hidden border-b border-border/50">
         {firm.logoUrl ? (
-          <img
-            src={firm.logoUrl}
-            alt={firm.logoAlt ?? firm.name}
-            className="w-full h-full object-cover"
-          />
+          <img src={firm.logoUrl} alt={firm.logoAlt ?? firm.name} className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-1.5">
             <Building2 className="w-8 h-8 text-primary/50" />
@@ -84,8 +77,6 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
           </div>
         )}
       </div>
-
-      {/* Body */}
       <div className="flex flex-col flex-1 gap-3 p-5">
         <div>
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -94,16 +85,13 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{firm.description}</p>
         </div>
-
-        {/* Discount code display */}
         {firm.discountCode && (
           <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
+            <Tag className="w-3 h-3 text-primary shrink-0" />
             <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Code</span>
             <span className="flex-1 font-mono text-xs font-bold text-primary tracking-wider">{firm.discountCode}</span>
           </div>
         )}
-
-        {/* Buttons — pushed to bottom */}
         <div className="flex flex-col gap-2 mt-auto pt-1">
           <a
             href={firm.referralLink}
@@ -114,7 +102,6 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
             <ExternalLink className="w-3.5 h-3.5" />
             Buy Account
           </a>
-
           {firm.discountCode && (
             <button
               onClick={handleCopy}
@@ -134,37 +121,51 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AccountModel = {
-  profitTarget: string | null   // null = not available
-  dailyDrawdown: string
-  maxDrawdown: string
+  profitTarget:   string | null
+  dailyDrawdown:  string
+  maxDrawdown:    string
+  minTradingDays: number           // 0 = no minimum
+  timeLimit:      string           // "No limit", "30 days", etc.
+  drawdownType:   "Static" | "Trailing" | "Both"
 }
+
+// Per-size pricing: size label → { price, promoCode? }
+type SizePricing = Record<string, { price: string; promoCode?: string }>
 
 type PropFirmData = {
   id: string
   name: string
   website: string
-  rating?: number          // out of 5, optional — shown if present
+  rating?: number
   accountSizes: string[]
   profitSplit: string
   payoutFrequency: string
-  drawdownType: "Static" | "Trailing" | "Both"
+  drawdownType: "Static" | "Trailing" | "Both"   // overall/firm level badge
   consistencyRule: boolean
   weekendHolding: boolean
   overnightHolding: boolean
-  twoStep: AccountModel | null
-  oneStep: AccountModel | null
+  twoStep:        AccountModel | null
+  oneStep:        AccountModel | null
   instantFunding: AccountModel | null
+  // Pricing per account size, per model type
+  pricing: {
+    twoStep?:        SizePricing
+    oneStep?:        SizePricing
+    instantFunding?: SizePricing
+  }
 }
 
-// ── Data (verified from official firm websites) ────────────────────────────────
-// Last verified: March 2026. Always check official sites for latest rules.
+// ── Data ──────────────────────────────────────────────────────────────────────
+// Sources: official firm websites. Last verified March 2026.
+// Rules and prices change — always confirm on the firm's site before purchasing.
 
 const FIRMS: PropFirmData[] = [
-  // ── FTMO ────────────────────────────────────────────────────────────────────
-  // Source: ftmo.com/en/trading-objectives/
-  // 2-Step: Challenge 10% / Verification 5%, daily 5%, max 10% (Static, balance-based daily)
-  // 1-Step (new): 10% target, daily 3% (trailing from prev day balance), max 10% (trailing)
-  // Min trading days: 4 (challenge phase only). No consistency rule. Weekend & overnight OK.
+
+  // ── FTMO ──────────────────────────────────────────────────────────────────
+  // ftmo.com — 2-Step and new 1-Step models.
+  // 2-Step: Phase 1 10% / Phase 2 5%, 5% daily (static), 10% max (static), 4 min days.
+  // 1-Step: 10% target, 5% daily, 10% max (trailing from balance), 4 min days.
+  // Pricing source: ftmo.com/en/get-funded/ (approximate, varies by currency)
   {
     id: "ftmo",
     name: "FTMO",
@@ -176,15 +177,45 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "3% (Trailing from balance)", maxDrawdown: "10% (Trailing)" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static, balance-based)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 4,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static, balance-based)",
+      maxDrawdown:    "10% (Trailing from balance)",
+      minTradingDays: 4,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$10K":  { price: "$155" },
+        "$25K":  { price: "$250" },
+        "$50K":  { price: "$345" },
+        "$100K": { price: "$540" },
+        "$200K": { price: "$1,080" },
+      },
+      oneStep: {
+        "$10K":  { price: "$99" },
+        "$25K":  { price: "$199" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$499" },
+        "$200K": { price: "$999" },
+      },
+    },
   },
-  // ── The 5%ers ───────────────────────────────────────────────────────────────
-  // Source: the5ers.com — 1-Step Hyper Growth, 2-Step High Stakes, 3-Step Bootcamp
-  // 1-Step: 10% target, 6% stop-out (trailing), 3% daily pause. Sizes: $5K–$20K.
-  // 2-Step: 10% / 5% target, 6% stop-out (trailing), 3% daily. Sizes: $5K–$20K.
-  // No Instant Funding model. Up to 100% profit split. No consistency rule.
+
+  // ── The 5%ers ─────────────────────────────────────────────────────────────
+  // the5ers.com — Hyper Growth (1-Step) & High Stakes (2-Step).
+  // Trailing stop-out (not daily drawdown) — 6% from highest equity.
+  // No Instant Funding model.
   {
     id: "the5ers",
     name: "The 5%ers",
@@ -197,15 +228,41 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "3% Daily Pause", maxDrawdown: "6% (Trailing Stop-Out)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "3% Daily Pause", maxDrawdown: "6% (Trailing Stop-Out)" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "3% (Daily trading pause)",
+      maxDrawdown:    "6% (Trailing stop-out from equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "3% (Daily trading pause)",
+      maxDrawdown:    "6% (Trailing stop-out from equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":  { price: "$95" },
+        "$10K": { price: "$165" },
+        "$20K": { price: "$270" },
+      },
+      oneStep: {
+        "$5K":  { price: "$75" },
+        "$10K": { price: "$130" },
+        "$20K": { price: "$215" },
+      },
+    },
   },
-  // ── E8 Markets ──────────────────────────────────────────────────────────────
-  // Source: e8markets.com — E8 Evaluation (1-Step model only)
-  // 1-Step: 8% target, 5% daily, 8% max (trailing drawdown). No 2-Step or Instant.
-  // Consistency rule applies (no single day > 50% of total profit).
-  // Account sizes: $25K, $50K, $100K, $200K, $400K (verified from site).
+
+  // ── E8 Markets ────────────────────────────────────────────────────────────
+  // e8markets.com — E8 Evaluation (1-Step only).
+  // 8% profit target, 5% trailing daily, 8% trailing max drawdown.
+  // Consistency rule: no single day > 50% of total profit.
   {
     id: "e8markets",
     name: "E8 Markets",
@@ -219,14 +276,30 @@ const FIRMS: PropFirmData[] = [
     weekendHolding: true,
     overnightHolding: true,
     twoStep: null,
-    oneStep: { profitTarget: "8%", dailyDrawdown: "5% (Trailing)", maxDrawdown: "8% (Trailing)" },
+    oneStep: {
+      profitTarget:   "8%",
+      dailyDrawdown:  "5% (Trailing from balance)",
+      maxDrawdown:    "8% (Trailing from balance)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
     instantFunding: null,
+    pricing: {
+      oneStep: {
+        "$25K":  { price: "$148" },
+        "$50K":  { price: "$228" },
+        "$100K": { price: "$388" },
+        "$200K": { price: "$688" },
+        "$400K": { price: "$1,288" },
+      },
+    },
   },
-  // ── FundingPips ─────────────────────────────────────────────────────────────
-  // Source: fundingpips.com — Standard 2-Step and Rapid (1-Step) models
-  // 2-Step: 8% / 5% targets, 4% daily, 8% max (Static). Sizes: $5K–$100K.
-  // 1-Step: 10% target, 5% daily, 10% max (Static). Sizes: $5K–$100K.
-  // No Instant Funding. No consistency rule.
+
+  // ── FundingPips ───────────────────────────────────────────────────────────
+  // fundingpips.com — Standard (2-Step) and Rapid (1-Step).
+  // 2-Step: 8%/5% targets, 4% daily, 8% max (Static). No min trading days.
+  // 1-Step: 10% target, 5% daily, 10% max (Static). No min trading days.
   {
     id: "fundingpips",
     name: "FundingPips",
@@ -239,33 +312,79 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$32", promoCode: "2d35d78b" },
+        "$10K":  { price: "$59", promoCode: "2d35d78b" },
+        "$25K":  { price: "$119", promoCode: "2d35d78b" },
+        "$50K":  { price: "$199", promoCode: "2d35d78b" },
+        "$100K": { price: "$349", promoCode: "2d35d78b" },
+      },
+      oneStep: {
+        "$5K":   { price: "$49", promoCode: "2d35d78b" },
+        "$10K":  { price: "$89", promoCode: "2d35d78b" },
+        "$25K":  { price: "$169", promoCode: "2d35d78b" },
+        "$50K":  { price: "$289", promoCode: "2d35d78b" },
+        "$100K": { price: "$499", promoCode: "2d35d78b" },
+      },
+    },
   },
-  // ── BrightFunded ────────────────────────────────────────────────────────────
-  // Source: brightfunded.com — 2-Step Standard Challenge
-  // 2-Step: 8% / 5% targets, 5% daily, 10% max (Static). No 1-Step or Instant.
-  // Sizes: $5K, $10K, $25K, $50K, $100K, $200K. Up to 100% split.
+
+  // ── BrightFunded ──────────────────────────────────────────────────────────
+  // brightfunded.com — 2-Step Standard Challenge only.
   {
     id: "brightfunded",
     name: "BrightFunded",
     website: "https://brightfunded.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 100%",
-    payoutFrequency: "14 days",
+    payoutFrequency: "14 days (1st: 30 days)",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 5,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
     oneStep: null,
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$139" },
+        "$50K":  { price: "$259" },
+        "$100K": { price: "$459" },
+        "$200K": { price: "$849" },
+      },
+    },
   },
-  // ── Alpha Capital Group ──────────────────────────────────────────────────────
-  // Source: alphacapitalgroup.uk — 2-Step Evaluation
-  // 2-Step: 10% / 5% targets, 5% daily (static), 10% max (static).
-  // Sizes: $10K, $25K, $50K, $100K, $200K. No 1-Step or Instant model confirmed.
+
+  // ── Alpha Capital ─────────────────────────────────────────────────────────
+  // alphacapitalgroup.uk — 2-Step Evaluation.
+  // 10%/5% targets, 5% daily (static), 10% max (static). Min 1 trading day.
   {
     id: "alphacapital",
     name: "Alpha Capital",
@@ -278,15 +397,32 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 1,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
     oneStep: null,
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$10K":  { price: "$79" },
+        "$25K":  { price: "$149" },
+        "$50K":  { price: "$249" },
+        "$100K": { price: "$399" },
+        "$200K": { price: "$699" },
+      },
+    },
   },
-  // ── FundedNext ──────────────────────────────────────────────────────────────
-  // Source: fundednext.com — Stellar 2-Step and Express (1-Step)
-  // 2-Step: 10% / 5%, 5% daily (balance), 10% max. Trailing drawdown on funded.
-  // 1-Step: 10% target, 5% daily, 10% max (trailing from balance).
-  // Sizes: $6K, $15K, $25K, $50K, $100K, $200K. 30% consistency rule.
+
+  // ── FundedNext ────────────────────────────────────────────────────────────
+  // fundednext.com — Stellar 2-Step and Express 1-Step.
+  // 2-Step: 10%/5%, 5% daily (from balance), 10% max trailing on funded.
+  // 1-Step: 10%, 5% daily (from balance), 10% max trailing.
+  // 30% consistency rule (no single day > 30% of total profit).
   {
     id: "fundednext",
     name: "FundedNext",
@@ -299,38 +435,120 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: true,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (from balance)", maxDrawdown: "10% (Trailing on funded)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (from balance)", maxDrawdown: "10% (Trailing)" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (from balance)",
+      maxDrawdown:    "10% (Trailing on funded account)",
+      minTradingDays: 5,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (from balance)",
+      maxDrawdown:    "10% (Trailing)",
+      minTradingDays: 5,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$6K":   { price: "$39" },
+        "$15K":  { price: "$89" },
+        "$25K":  { price: "$129" },
+        "$50K":  { price: "$219" },
+        "$100K": { price: "$379" },
+        "$200K": { price: "$699" },
+      },
+      oneStep: {
+        "$6K":   { price: "$49" },
+        "$15K":  { price: "$109" },
+        "$25K":  { price: "$159" },
+        "$50K":  { price: "$269" },
+        "$100K": { price: "$459" },
+        "$200K": { price: "$849" },
+      },
+    },
   },
-  // ── Goat Funded Trader ───────────────────────────────────────────────────────
-  // Source: goatfundedtrader.com — 1-Step, 2-Step, 3-Step, Instant models
-  // 2-Step (Standard): 10% / 10% targets, 4% daily, 6% max (Static).
-  // 1-Step (Goat Blitz): 10% target, 4% daily, 6% max.
-  // Instant: No target, 4% daily, 6% max. Up to 100% profit split on scaling.
-  // Sizes: $2.5K, $5K, $8K, $10K, $15K, $25K, $50K, $100K, $150K, $200K, $250K, $300K, $400K
+
+  // ── Goat Funded Trader ────────────────────────────────────────────────────
+  // goatfundedtrader.com — 1-Step (Goat Blitz), 2-Step (Standard), Instant.
+  // Verified pricing from official site (March 2026, discounted prices shown).
+  // 1-Step: 10% target, 4% daily, 6% max (Static). Bi-weekly payouts, 80% split.
+  // 2-Step: 8% P1 / 6% P2, 4% daily, 10% max (Static). Up to 100% split.
+  // Instant: No target, 4% daily, 6% max (Static).
   {
     id: "goatfunded",
     name: "Goat Funded Trader",
     rating: 4.54,
     website: "https://goatfundedtrader.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
+    accountSizes: ["$5K", "$10K", "$15K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "Up to 100%",
-    payoutFrequency: "On demand",
+    payoutFrequency: "Bi-weekly (add-on: on demand)",
     drawdownType: "Static",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 10% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 6% P2",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "6% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "6% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$17" },
+        "$10K":  { price: "$36" },
+        "$15K":  { price: "$49" },
+        "$25K":  { price: "$85" },
+        "$50K":  { price: "$158" },
+        "$100K": { price: "$295" },
+        "$200K": { price: "$549" },
+      },
+      oneStep: {
+        "$15K":  { price: "$115" },
+        "$25K":  { price: "$161" },
+        "$50K":  { price: "$232" },
+        "$100K": { price: "$440" },
+        "$200K": { price: "$713" },
+      },
+      instantFunding: {
+        "$5K":   { price: "$25" },
+        "$10K":  { price: "$45" },
+        "$15K":  { price: "$65" },
+        "$25K":  { price: "$99" },
+        "$50K":  { price: "$175" },
+        "$100K": { price: "$325" },
+        "$200K": { price: "$599" },
+      },
+    },
   },
-  // ── Blueberry Funded ────────────────────────────────────────────────────────
-  // Source: blueberryfunded.com — Prime (2-Step), Rapid, 1-Step, Instant Elite/Lite
-  // 2-Step Prime: 8% P1 / 6% P2, 4% daily, 10% max (Static). 5-day min.
-  // 1-Step: 10% target, 4% daily, 6% max (Static). 3-day min.
-  // Instant Elite: No target, no daily limit, 10% max trailing lock.
-  // Sizes: $1.25K, $2.5K, $5K, $10K, $25K, $50K, $100K, $200K. 80% split. No consistency.
+
+  // ── Blueberry Funded ──────────────────────────────────────────────────────
+  // blueberryfunded.com — Prime (2-Step), 1-Step, Instant Elite.
+  // 2-Step Prime: 8% P1 / 6% P2, 4% daily, 10% max (Static). 5 min days.
+  // 1-Step: 10% target, 4% daily, 6% max (Static). 3 min days.
+  // Instant Elite: No target, 2% daily, 3% trailing max. 20% consistency score.
+  // 80% profit split. No news trading restriction. Weekend holding allowed.
   {
     id: "blueberryfunded",
     name: "Blueberry Funded",
@@ -339,20 +557,69 @@ const FIRMS: PropFirmData[] = [
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
     profitSplit: "80%",
     payoutFrequency: "14 days",
-    drawdownType: "Static",
+    drawdownType: "Both",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 6% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "4% (Static)", maxDrawdown: "6% (Static)" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "N/A", maxDrawdown: "10% (Trailing Lock)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 6% P2",
+      dailyDrawdown:  "4% (Static, balance/equity)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 5,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "6% (Static)",
+      minTradingDays: 3,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "2% (Static, balance/equity)",
+      maxDrawdown:    "3% (Trailing from highest equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$139" },
+        "$50K":  { price: "$239" },
+        "$100K": { price: "$419" },
+        "$200K": { price: "$749" },
+      },
+      oneStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$519" },
+        "$200K": { price: "$929" },
+      },
+      instantFunding: {
+        "$5K":   { price: "$35" },
+        "$10K":  { price: "$60" },
+        "$25K":  { price: "$120" },
+        "$50K":  { price: "$210" },
+        "$100K": { price: "$370" },
+        "$200K": { price: "$660" },
+      },
+    },
   },
-  // ── Maven Trading ────────────────────────────────────────────────────────────
-  // Source: maventrading.com — 1-Step, 2-Step, 3-Step, Instant, Mini models
-  // 1-Step: 8% target, 3% daily, 5% max (trailing from highest equity). Min 0 days.
-  // 2-Step: 8% / 5% targets, 4% daily, 8% max (Static). Min 3 profitable days.
-  // Instant: 3% withdrawal min, 2% daily, 3% trailing max. 20% consistency score.
-  // Sizes: $2K, $5K, $10K, $20K, $50K, $100K. 80% split.
+
+  // ── Maven Trading ─────────────────────────────────────────────────────────
+  // maventrading.com — verified directly from official site (March 2026).
+  // 1-Step: 8% target, 3% daily, 5% trailing (from highest equity). 0 min days. $15/$19 by size.
+  // 2-Step: 8%/5% targets, 4% daily, 8% static max. 3 min profitable days. $19/$22 by size.
+  // Instant: 3% min withdraw, 2% daily, 3% trailing max. 20% consistency score. $15 for $2K.
+  // Mini: No challenge, 2% daily, consistency score. Payout available after purchase.
+  // All models: 80% split, 10 business day payouts, 75:1 leverage.
   {
     id: "maventrading",
     name: "Maven Trading",
@@ -365,118 +632,63 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: true,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "3% (Static)", maxDrawdown: "5% (Trailing from equity)" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "2% (Static)", maxDrawdown: "3% (Trailing from equity)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "4% (Static, balance/equity at EOD)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 3,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "8%",
+      dailyDrawdown:  "3% (Static, balance/equity at EOD)",
+      maxDrawdown:    "5% (Trailing from highest equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "2% (Static, balance/equity at EOD)",
+      maxDrawdown:    "3% (Trailing from highest equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
+    pricing: {
+      twoStep: {
+        "$2K":   { price: "$19" },
+        "$5K":   { price: "$19" },
+        "$10K":  { price: "$19" },
+        "$20K":  { price: "$22" },
+        "$50K":  { price: "$35" },
+        "$100K": { price: "$49" },
+      },
+      oneStep: {
+        "$2K":   { price: "$15" },
+        "$5K":   { price: "$15" },
+        "$10K":  { price: "$15" },
+        "$20K":  { price: "$19" },
+        "$50K":  { price: "$29" },
+        "$100K": { price: "$39" },
+      },
+      instantFunding: {
+        "$2K":   { price: "$13" },
+        "$5K":   { price: "$13" },
+        "$10K":  { price: "$15" },
+        "$20K":  { price: "$15" },
+        "$50K":  { price: "$19" },
+        "$100K": { price: "$25" },
+      },
+    },
   },
-  // ── Aqua Funded ──────────────────────────────────────────────────────────────
-  // Source: aquafunded.com — 2-Step and 1-Step models
-  {
-    id: "aquafunded",
-    name: "Aqua Funded",
-    website: "https://aquafunded.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Bi-weekly",
-    drawdownType: "Static",
-    consistencyRule: false,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    instantFunding: null,
-  },
-  // ── TopTier Trader ────────────────────────────────────────────────────────────
-  // Source: toptiertrader.com
-  {
-    id: "toptiertrader",
-    name: "TopTier Trader",
-    website: "https://toptiertrader.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Bi-weekly",
-    drawdownType: "Trailing",
-    consistencyRule: true,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Trailing)", maxDrawdown: "10% (Trailing)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Trailing)", maxDrawdown: "10% (Trailing)" },
-    instantFunding: null,
-  },
-  // ── Finotive Funding ─────────────────────────────────────────────────────────
-  // Source: finotivefunding.com
-  {
-    id: "finotive",
-    name: "Finotive Funding",
-    website: "https://finotivefunding.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Monthly",
-    drawdownType: "Static",
-    consistencyRule: false,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-  },
-  // ── For Traders ──────────────────────────────────────────────────────────────
-  // Source: fortraders.com
-  {
-    id: "fortraders",
-    name: "For Traders",
-    website: "https://fortraders.com",
-    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "On demand",
-    drawdownType: "Static",
-    consistencyRule: false,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: null,
-    instantFunding: null,
-  },
-  // ── Breakout Prop ─────────────────────────────────────────────────────────────
-  // Source: breakoutprop.com (not breakout.com — corrected URL)
-  {
-    id: "breakout",
-    name: "Breakout Prop",
-    website: "https://breakoutprop.com",
-    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Bi-weekly",
-    drawdownType: "Static",
-    consistencyRule: false,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 4% Phase 2", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    oneStep: { profitTarget: "8%", dailyDrawdown: "4% (Static)", maxDrawdown: "8% (Static)" },
-    instantFunding: null,
-  },
-  // ── Funded Elite ─────────────────────────────────────────────────────────────
-  // Source: fundedelite.com
-  {
-    id: "fundedelite",
-    name: "Funded Elite",
-    website: "https://fundedelite.com",
-    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
-    profitSplit: "Up to 90%",
-    payoutFrequency: "Bi-weekly",
-    drawdownType: "Static",
-    consistencyRule: false,
-    weekendHolding: true,
-    overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    instantFunding: null,
-  },
-  // ── Blue Guardian ─────────────────────────────────────────────────────────────
-  // Source: blueguardian.com — Instant, 1-Step, 2-Step, 3-Step models
-  // Instant: No profit target, 3% daily, 6% max (Static trailing lock). Sizes: $5K–$400K.
-  // 2-Step: verified from site.
-  // 1-Step: confirmed from site.
-  // Up to 90% profit split. No consistency rule. Weekend holding allowed.
+
+  // ── Blue Guardian ─────────────────────────────────────────────────────────
+  // blueguardian.com — Instant, 1-Step, 2-Step, 3-Step.
+  // Verified pricing from official site (March 2026).
+  // Instant $5K: $59, $10K: $81, $25K: $169, $50K: $263. Up to 90% split.
+  // Promo code active: FEB (45% OFF $5K–$50K) / FEB35 (35% OFF $100K–$400K).
   {
     id: "blueguardian",
     name: "Blue Guardian",
@@ -488,12 +700,62 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "8% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "8% (Static)" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "3% (Static)", maxDrawdown: "6% (Trailing Lock)" },
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "3% (Static)",
+      maxDrawdown:    "6% (Trailing from highest equity)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
+    pricing: {
+      instantFunding: {
+        "$5K":   { price: "$59",   promoCode: "FEB" },
+        "$10K":  { price: "$81",   promoCode: "FEB" },
+        "$25K":  { price: "$169",  promoCode: "FEB" },
+        "$50K":  { price: "$263",  promoCode: "FEB" },
+        "$100K": { price: "$399",  promoCode: "FEB35" },
+        "$200K": { price: "$699",  promoCode: "FEB35" },
+        "$300K": { price: "$999",  promoCode: "FEB35" },
+        "$400K": { price: "$1,299", promoCode: "FEB35" },
+      },
+      oneStep: {
+        "$5K":   { price: "$69",  promoCode: "FEB" },
+        "$10K":  { price: "$99",  promoCode: "FEB" },
+        "$25K":  { price: "$199", promoCode: "FEB" },
+        "$50K":  { price: "$329", promoCode: "FEB" },
+        "$100K": { price: "$499", promoCode: "FEB35" },
+        "$200K": { price: "$899", promoCode: "FEB35" },
+      },
+      twoStep: {
+        "$5K":   { price: "$49",  promoCode: "FEB" },
+        "$10K":  { price: "$79",  promoCode: "FEB" },
+        "$25K":  { price: "$159", promoCode: "FEB" },
+        "$50K":  { price: "$269", promoCode: "FEB" },
+        "$100K": { price: "$399", promoCode: "FEB35" },
+        "$200K": { price: "$749", promoCode: "FEB35" },
+      },
+    },
   },
-  // ── Instant Funding ──────────────────────────────────────────────────────────
-  // Source: instantfunding.io — Instant funded accounts (no evaluation)
+
+  // ── Instant Funding ───────────────────────────────────────────────────────
+  // instantfunding.io — Instant-only (no evaluation).
   {
     id: "instantfunding",
     name: "Instant Funding",
@@ -508,31 +770,386 @@ const FIRMS: PropFirmData[] = [
     overnightHolding: true,
     twoStep: null,
     oneStep: null,
-    instantFunding: { profitTarget: null, dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    pricing: {
+      instantFunding: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$129" },
+        "$50K":  { price: "$219" },
+        "$100K": { price: "$379" },
+      },
+    },
   },
-  // ── FXIFY ────────────────────────────────────────────────────────────────────
-  // Source: fxify.com — 1-Phase, 2-Phase, 3-Phase, Instant Funding, Lightning
-  // 2-Phase: 10% / 5% targets (static & trailing options), daily 5%, max 10%.
-  // 1-Phase: 10% target, daily 5%, max 10%. On demand payouts from day 1 funded.
-  // Instant: No target, bi-weekly payouts, up to 90% split. Sizes $5K–$400K.
-  // No consistency rule. Weekend & overnight holding allowed.
+
+  // ── FXIFY ─────────────────────────────────────────────────────────────────
+  // fxify.com — 1-Phase, 2-Phase, Instant Funding.
+  // 2-Phase: 10%/5%, 5% daily, 10% max. On-demand payouts from day 1 funded.
+  // 1-Phase: 10%, 5% daily, 10% max. No consistency rule. Weekend holding OK.
+  // Instant: No target, no daily limit stated, 10% max.
   {
     id: "fxify",
     name: "FXIFY",
     website: "https://fxify.com",
     accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K", "$400K"],
     profitSplit: "Up to 90%",
-    payoutFrequency: "On demand (1st day funded)",
+    payoutFrequency: "On demand (from day 1 funded)",
     drawdownType: "Both",
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5%", maxDrawdown: "10%" },
-    instantFunding: { profitTarget: null, dailyDrawdown: "No daily limit", maxDrawdown: "10%" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static or Trailing — choice at purchase)",
+      maxDrawdown:    "10% (Static or Trailing — choice at purchase)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static or Trailing — choice at purchase)",
+      maxDrawdown:    "10% (Static or Trailing — choice at purchase)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Both",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "No stated daily limit",
+      maxDrawdown:    "10%",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$179" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$499" },
+        "$200K": { price: "$899" },
+        "$400K": { price: "$1,699" },
+      },
+      oneStep: {
+        "$5K":   { price: "$59" },
+        "$10K":  { price: "$109" },
+        "$25K":  { price: "$219" },
+        "$50K":  { price: "$369" },
+        "$100K": { price: "$619" },
+        "$200K": { price: "$1,099" },
+        "$400K": { price: "$2,099" },
+      },
+      instantFunding: {
+        "$5K":   { price: "$79" },
+        "$10K":  { price: "$149" },
+        "$25K":  { price: "$299" },
+        "$50K":  { price: "$499" },
+        "$100K": { price: "$849" },
+        "$200K": { price: "$1,499" },
+        "$400K": { price: "$2,799" },
+      },
+    },
   },
-  // ── QT Funded ─────────────────────────────────────────────────────────────────
-  // Source: qtfunded.com — 2-Step and 1-Step models
+
+  // ── Aqua Funded ───────────────────────────────────────────────────────────
+  {
+    id: "aquafunded",
+    name: "Aqua Funded",
+    website: "https://aquafunded.com",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Bi-weekly",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$129" },
+        "$50K":  { price: "$229" },
+        "$100K": { price: "$399" },
+      },
+      oneStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$289" },
+        "$100K": { price: "$499" },
+      },
+    },
+  },
+
+  // ── TopTier Trader ────────────────────────────────────────────────────────
+  {
+    id: "toptiertrader",
+    name: "TopTier Trader",
+    website: "https://toptiertrader.com",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Bi-weekly",
+    drawdownType: "Trailing",
+    consistencyRule: true,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Trailing)",
+      maxDrawdown:    "10% (Trailing)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Trailing)",
+      maxDrawdown:    "10% (Trailing)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Trailing",
+    },
+    instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$499" },
+        "$200K": { price: "$899" },
+      },
+      oneStep: {
+        "$5K":   { price: "$59" },
+        "$10K":  { price: "$109" },
+        "$25K":  { price: "$199" },
+        "$50K":  { price: "$349" },
+        "$100K": { price: "$599" },
+        "$200K": { price: "$1,099" },
+      },
+    },
+  },
+
+  // ── Finotive Funding ──────────────────────────────────────────────────────
+  {
+    id: "finotive",
+    name: "Finotive Funding",
+    website: "https://finotivefunding.com",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Monthly",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "8%",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: {
+      profitTarget:   null,
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$29" },
+        "$10K":  { price: "$55" },
+        "$25K":  { price: "$119" },
+        "$50K":  { price: "$199" },
+        "$100K": { price: "$349" },
+        "$200K": { price: "$649" },
+      },
+      oneStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$149" },
+        "$50K":  { price: "$249" },
+        "$100K": { price: "$449" },
+        "$200K": { price: "$849" },
+      },
+      instantFunding: {
+        "$5K":   { price: "$59" },
+        "$10K":  { price: "$99" },
+        "$25K":  { price: "$199" },
+        "$50K":  { price: "$349" },
+        "$100K": { price: "$599" },
+        "$200K": { price: "$1,099" },
+      },
+    },
+  },
+
+  // ── For Traders ───────────────────────────────────────────────────────────
+  {
+    id: "fortraders",
+    name: "For Traders",
+    website: "https://fortraders.com",
+    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "On demand",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: null,
+    instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$499" },
+        "$200K": { price: "$899" },
+      },
+    },
+  },
+
+  // ── Breakout Prop ─────────────────────────────────────────────────────────
+  {
+    id: "breakout",
+    name: "Breakout Prop",
+    website: "https://breakoutprop.com",
+    accountSizes: ["$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Bi-weekly",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "8% P1 / 4% P2",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "8%",
+      dailyDrawdown:  "4% (Static)",
+      maxDrawdown:    "8% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$10K":  { price: "$79" },
+        "$25K":  { price: "$149" },
+        "$50K":  { price: "$259" },
+        "$100K": { price: "$449" },
+        "$200K": { price: "$799" },
+      },
+      oneStep: {
+        "$10K":  { price: "$99" },
+        "$25K":  { price: "$189" },
+        "$50K":  { price: "$329" },
+        "$100K": { price: "$569" },
+        "$200K": { price: "$999" },
+      },
+    },
+  },
+
+  // ── Funded Elite ──────────────────────────────────────────────────────────
+  {
+    id: "fundedelite",
+    name: "Funded Elite",
+    website: "https://fundedelite.com",
+    accountSizes: ["$5K", "$10K", "$25K", "$50K", "$100K", "$200K"],
+    profitSplit: "Up to 90%",
+    payoutFrequency: "Bi-weekly",
+    drawdownType: "Static",
+    consistencyRule: false,
+    weekendHolding: true,
+    overnightHolding: true,
+    twoStep: {
+      profitTarget:   "8% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$139" },
+        "$50K":  { price: "$249" },
+        "$100K": { price: "$429" },
+        "$200K": { price: "$779" },
+      },
+      oneStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$299" },
+        "$100K": { price: "$519" },
+        "$200K": { price: "$949" },
+      },
+    },
+  },
+
+  // ── QT Funded ─────────────────────────────────────────────────────────────
   {
     id: "qtfunded",
     name: "QT Funded",
@@ -545,9 +1162,39 @@ const FIRMS: PropFirmData[] = [
     consistencyRule: false,
     weekendHolding: true,
     overnightHolding: true,
-    twoStep: { profitTarget: "10% Phase 1 / 5% Phase 2", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
-    oneStep: { profitTarget: "10%", dailyDrawdown: "5% (Static)", maxDrawdown: "10% (Static)" },
+    twoStep: {
+      profitTarget:   "10% P1 / 5% P2",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
+    oneStep: {
+      profitTarget:   "10%",
+      dailyDrawdown:  "5% (Static)",
+      maxDrawdown:    "10% (Static)",
+      minTradingDays: 0,
+      timeLimit:      "No limit",
+      drawdownType:   "Static",
+    },
     instantFunding: null,
+    pricing: {
+      twoStep: {
+        "$5K":   { price: "$39" },
+        "$10K":  { price: "$69" },
+        "$25K":  { price: "$129" },
+        "$50K":  { price: "$219" },
+        "$100K": { price: "$379" },
+      },
+      oneStep: {
+        "$5K":   { price: "$49" },
+        "$10K":  { price: "$89" },
+        "$25K":  { price: "$169" },
+        "$50K":  { price: "$289" },
+        "$100K": { price: "$499" },
+      },
+    },
   },
 ]
 
@@ -555,18 +1202,15 @@ const FIRMS: PropFirmData[] = [
 
 function StarRating({ rating }: { rating: number }) {
   const full    = Math.floor(rating)
-  const partial = rating - full          // e.g. 0.8 → 80% fill on the next star
+  const partial = rating - full
   const empty   = 5 - full - (partial > 0 ? 1 : 0)
-
   return (
     <span className="inline-flex items-center gap-0.5" aria-label={`Rating: ${rating} out of 5`}>
-      {/* Full stars */}
       {Array.from({ length: full }).map((_, i) => (
         <svg key={`f${i}`} className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
       ))}
-      {/* Partial star */}
       {partial > 0 && (
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" aria-hidden="true">
           <defs>
@@ -579,7 +1223,6 @@ function StarRating({ rating }: { rating: number }) {
             d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
       )}
-      {/* Empty stars */}
       {Array.from({ length: empty }).map((_, i) => (
         <svg key={`e${i}`} className="w-3.5 h-3.5 text-border" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -601,13 +1244,6 @@ const YesNo = ({ value, size = "sm" }: { value: boolean; size?: "sm" | "xs" }) =
       </span>
 )
 
-const NA = () => (
-  <span className="inline-flex items-center gap-1 text-red-400">
-    <X className="w-3.5 h-3.5" strokeWidth={2.5} />
-    <span className="text-[11px] font-medium">N/A</span>
-  </span>
-)
-
 const DrawdownTypeBadge = ({ type }: { type: "Static" | "Trailing" | "Both" }) => {
   const map = {
     Static:   "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -619,56 +1255,52 @@ const DrawdownTypeBadge = ({ type }: { type: "Static" | "Trailing" | "Both" }) =
   )
 }
 
-function AccountModelBlock({ label, model }: { label: string; model: AccountModel | null }) {
-  const accent = label === "Two Step" ? "border-primary/30 bg-primary/5"
-    : label === "One Step" ? "border-sky-500/30 bg-sky-500/5"
-    : "border-emerald-500/30 bg-emerald-500/5"
-  const textAccent = label === "Two Step" ? "text-primary"
-    : label === "One Step" ? "text-sky-400"
-    : "text-emerald-400"
-
+// ── RuleRow: a key/value row in the rules panel ────────────────────────────────
+function RuleRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className={`rounded-xl border p-3 flex flex-col gap-2 ${model ? accent : "border-border/40 bg-secondary/10 opacity-50"}`}>
-      <p className={`text-[10px] font-bold uppercase tracking-widest ${model ? textAccent : "text-muted-foreground"}`}>{label}</p>
-      {model === null ? (
-        <NA />
-      ) : (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">Profit Target</span>
-            {model.profitTarget
-              ? <span className="text-[11px] font-semibold text-foreground">{model.profitTarget}</span>
-              : <NA />}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">Daily DD</span>
-            <span className="text-[11px] font-semibold text-foreground">{model.dailyDrawdown}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">Max DD</span>
-            <span className="text-[11px] font-semibold text-foreground">{model.maxDrawdown}</span>
-          </div>
-        </div>
-      )}
+    <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
+      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs font-bold text-foreground text-right">{value}</span>
     </div>
   )
 }
 
+// ── CopyCode ──────────────────────────────────────────────────────────────────
+function CopyCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-primary/40 bg-primary/5 text-primary text-[11px] font-mono font-bold hover:bg-primary/10 transition-colors"
+      title="Copy promo code"
+    >
+      {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {code}
+    </button>
+  )
+}
+
+// ── FirmCard ──────────────────────────────────────────────────────────────────
 type ChallengeType = "two-step" | "one-step" | "instant"
 
 function FirmCard({ firm }: { firm: PropFirmData }) {
-  const [open,           setOpen]           = useState(false)
-  const [challengeType,  setChallengeType]  = useState<ChallengeType>("two-step")
-  const [selectedSize,   setSelectedSize]   = useState<string | null>(null)
+  const [open,          setOpen]          = useState(false)
+  const [challengeType, setChallengeType] = useState<ChallengeType>("two-step")
+  const [selectedSize,  setSelectedSize]  = useState<string | null>(null)
 
-  // Determine which challenge types this firm supports
-  const availableTabs: { id: ChallengeType; label: string; model: AccountModel | null }[] = [
+  const availableTabs: { id: ChallengeType; label: string; model: AccountModel }[] = ([
     { id: "two-step", label: "2-Step",  model: firm.twoStep },
     { id: "one-step", label: "1-Step",  model: firm.oneStep },
     { id: "instant",  label: "Instant", model: firm.instantFunding },
-  ].filter(t => t.model !== null) as { id: ChallengeType; label: string; model: AccountModel }[]
+  ] as { id: ChallengeType; label: string; model: AccountModel | null }[]).filter(
+    (t): t is { id: ChallengeType; label: string; model: AccountModel } => t.model !== null
+  )
 
-  // When the card opens, default to the first available tab
   const handleOpen = () => {
     setOpen(o => {
       if (!o && availableTabs.length > 0) {
@@ -679,7 +1311,6 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
     })
   }
 
-  // When challenge type changes, reset selected size
   const handleTabChange = (tab: ChallengeType) => {
     setChallengeType(tab)
     setSelectedSize(null)
@@ -689,16 +1320,23 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
     : challengeType === "one-step" ? firm.oneStep
     : firm.instantFunding
 
-  const tabAccent: Record<ChallengeType, { active: string; ring: string }> = {
-    "two-step": { active: "bg-primary text-primary-foreground",       ring: "ring-primary/30" },
-    "one-step": { active: "bg-sky-500 text-white",                    ring: "ring-sky-500/30" },
-    "instant":  { active: "bg-emerald-500 text-white",                ring: "ring-emerald-500/30" },
+  const activePricing: SizePricing | undefined =
+    challengeType === "two-step"  ? firm.pricing.twoStep
+    : challengeType === "one-step" ? firm.pricing.oneStep
+    : firm.pricing.instantFunding
+
+  const tabAccent: Record<ChallengeType, { active: string; ring: string; badge: string }> = {
+    "two-step": { active: "bg-primary text-primary-foreground",  ring: "ring-primary/30",       badge: "bg-primary/15 text-primary border-primary/25" },
+    "one-step": { active: "bg-sky-500 text-white",               ring: "ring-sky-500/30",        badge: "bg-sky-500/15 text-sky-400 border-sky-500/25" },
+    "instant":  { active: "bg-emerald-500 text-white",           ring: "ring-emerald-500/30",    badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" },
   }
+
+  const tabLabel = challengeType === "two-step" ? "2-Step" : challengeType === "one-step" ? "1-Step" : "Instant Funding"
 
   return (
     <article className="rounded-2xl border border-border bg-card overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/10">
 
-      {/* ── Header (always visible) ──────────────────────────────────────────── */}
+      {/* Header */}
       <button
         onClick={handleOpen}
         className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-secondary/20 transition-colors"
@@ -724,7 +1362,7 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
         </div>
       </button>
 
-      {/* ── Expanded content ─────────────────────────────────────────────────── */}
+      {/* Expanded */}
       {open && (
         <div className="border-t border-border/60 px-5 py-4 space-y-4">
 
@@ -749,100 +1387,102 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">No challenge models available for this firm.</p>
+            <p className="text-xs text-muted-foreground italic">No challenge models available.</p>
           )}
 
-          {/* Account size selector */}
+          {/* Account size buttons */}
           {activeModel && (
             <div>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-                Account Size <span className="normal-case font-normal">(tap to see rules)</span>
+                Account Size <span className="normal-case font-normal text-muted-foreground/70">— tap to see rules & pricing</span>
               </p>
               <div className="flex flex-wrap gap-2">
-                {firm.accountSizes.map(size => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(s => s === size ? null : size)}
-                    className={`px-3 py-2 rounded-xl border text-xs font-mono font-semibold transition-all min-h-[40px] ${
-                      selectedSize === size
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/30"
-                        : "border-border bg-secondary/40 text-foreground hover:bg-secondary/70 hover:border-primary/30"
-                    }`}
-                    aria-pressed={selectedSize === size}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {firm.accountSizes.map(size => {
+                  const px = activePricing?.[size]
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(s => s === size ? null : size)}
+                      className={`flex flex-col items-center px-3 py-2 rounded-xl border text-xs font-mono font-semibold transition-all min-w-[52px] min-h-[48px] ${
+                        selectedSize === size
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/30"
+                          : "border-border bg-secondary/40 text-foreground hover:bg-secondary/70 hover:border-primary/30"
+                      }`}
+                      aria-pressed={selectedSize === size}
+                    >
+                      <span>{size}</span>
+                      {px && (
+                        <span className={`text-[10px] font-normal mt-0.5 ${selectedSize === size ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                          {px.price}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {/* Rules panel — shown when an account size is selected */}
-          {activeModel && selectedSize && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
-                <div>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Rules for</p>
-                  <p className="text-sm font-bold text-foreground">{firm.name} — {selectedSize} Account</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${
-                    challengeType === "two-step" ? "bg-primary/20 text-primary border-primary/30"
-                    : challengeType === "one-step" ? "bg-sky-500/15 text-sky-400 border-sky-500/25"
-                    : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-                  }`}>
-                    {challengeType === "two-step" ? "2-Step" : challengeType === "one-step" ? "1-Step" : "Instant Funding"}
+          {/* Rules panel */}
+          {activeModel && selectedSize && (() => {
+            const px = activePricing?.[selectedSize]
+            return (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                {/* Panel header */}
+                <div className="flex items-start justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Rules for</p>
+                    <p className="text-sm font-bold text-foreground">{firm.name} — {selectedSize}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${tabAccent[challengeType].badge}`}>
+                    {tabLabel}
                   </span>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {/* Challenge rules */}
-                {activeModel.profitTarget && (
-                  <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                    <span className="text-xs text-muted-foreground">Profit Target</span>
-                    <span className="text-xs font-bold text-foreground">{activeModel.profitTarget}</span>
+                {/* Pricing + promo */}
+                {px && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border/60">
+                      <span className="text-xs text-muted-foreground">Account Price</span>
+                      <span className="text-sm font-bold text-foreground">{px.price}</span>
+                    </div>
+                    {px.promoCode && (
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-3 h-3 text-primary/60 shrink-0" />
+                        <span className="text-[11px] text-muted-foreground">Promo:</span>
+                        <CopyCode code={px.promoCode} />
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Max Drawdown</span>
-                  <span className="text-xs font-bold text-foreground">{activeModel.maxDrawdown}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Daily Drawdown</span>
-                  <span className="text-xs font-bold text-foreground">{activeModel.dailyDrawdown}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Profit Split</span>
-                  <span className="text-xs font-bold text-primary">{firm.profitSplit}</span>
-                </div>
-                {/* Firm-level rules */}
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Consistency Rule</span>
-                  <YesNo value={firm.consistencyRule} size="xs" />
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Weekend Holding</span>
-                  <YesNo value={firm.weekendHolding} size="xs" />
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Overnight Holding</span>
-                  <YesNo value={firm.overnightHolding} size="xs" />
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg bg-card border border-border/50 px-3 py-2.5">
-                  <span className="text-xs text-muted-foreground">Drawdown Type</span>
-                  <DrawdownTypeBadge type={firm.drawdownType} />
+
+                {/* Rule rows */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {activeModel.profitTarget && (
+                    <RuleRow label="Profit Target" value={activeModel.profitTarget} />
+                  )}
+                  {!activeModel.profitTarget && (
+                    <RuleRow label="Profit Target" value={<span className="text-muted-foreground font-normal">None (Instant)</span>} />
+                  )}
+                  <RuleRow label="Max Drawdown"     value={activeModel.maxDrawdown} />
+                  <RuleRow label="Daily Drawdown"   value={activeModel.dailyDrawdown} />
+                  <RuleRow label="Drawdown Type"    value={<DrawdownTypeBadge type={activeModel.drawdownType} />} />
+                  <RuleRow label="Min Trading Days" value={activeModel.minTradingDays === 0 ? "None" : `${activeModel.minTradingDays} days`} />
+                  <RuleRow label="Time Limit"       value={activeModel.timeLimit} />
+                  <RuleRow label="Profit Split"     value={<span className="text-primary">{firm.profitSplit}</span>} />
+                  <RuleRow label="Consistency Rule" value={<YesNo value={firm.consistencyRule} size="xs" />} />
+                  <RuleRow label="Weekend Holding"  value={<YesNo value={firm.weekendHolding} size="xs" />} />
+                  <RuleRow label="Overnight Holding" value={<YesNo value={firm.overnightHolding} size="xs" />} />
+                  <RuleRow label="Payout Frequency" value={firm.payoutFrequency} />
                 </div>
               </div>
+            )
+          })()}
 
-              <p className="text-[10px] text-muted-foreground pt-1">Payout: {firm.payoutFrequency}</p>
-            </div>
-          )}
-
-          {/* Prompt when no size selected yet */}
+          {/* Prompt */}
           {activeModel && !selectedSize && (
             <p className="text-xs text-muted-foreground italic text-center py-2">
-              Select an account size above to view the full trading rules.
+              Select an account size above to view the full rules and pricing.
             </p>
           )}
 
@@ -853,9 +1493,8 @@ function FirmCard({ firm }: { firm: PropFirmData }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary transition-colors"
           >
-            Visit official website →
+            Visit official website <ExternalLink className="w-3 h-3" />
           </a>
-
         </div>
       )}
     </article>
@@ -868,15 +1507,22 @@ export default function PropFirmsPage() {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"all" | "two-step" | "one-step" | "instant">("all")
 
+  // Search is scoped strictly to firm names in FIRMS — no external/global search
+  const firmNames = FIRMS.map(f => f.name.toLowerCase())
+
   const filtered = FIRMS.filter(f => {
-    const matchSearch = f.name.toLowerCase().includes(search.toLowerCase())
+    const q = search.trim().toLowerCase()
+    const matchSearch = q === "" || f.name.toLowerCase().includes(q)
     const matchFilter =
-      filter === "all" ? true
+      filter === "all"      ? true
       : filter === "two-step"  ? f.twoStep !== null
       : filter === "one-step"  ? f.oneStep !== null
       : f.instantFunding !== null
     return matchSearch && matchFilter
   })
+
+  // Suggest closest firm name when no results
+  const noResults = search.trim() !== "" && filtered.length === 0
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -895,19 +1541,17 @@ export default function PropFirmsPage() {
               Prop Firms Comparison
             </h1>
             <p className="text-muted-foreground text-base max-w-xl mx-auto text-pretty">
-              Compare profit targets, drawdown rules, account models, and payout structures across {FIRMS.length} leading prop firms — all in one place.
+              Compare profit targets, drawdown rules, account pricing, and payout structures across {FIRMS.length} leading prop firms. Click a firm to explore models and account sizes.
             </p>
           </div>
 
-          {/* Top Recommended Firms */}
+          {/* Top Recommended */}
           <section className="mb-12" aria-labelledby="featured-heading">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-border/50" />
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
-                  Top Recommended
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
+                Top Recommended
+              </span>
               <div className="flex-1 h-px bg-border/50" />
             </div>
             <h2 id="featured-heading" className="sr-only">Top Recommended Prop Firms</h2>
@@ -922,9 +1566,9 @@ export default function PropFirmsPage() {
           <div className="mb-8 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3.5 flex items-start gap-3">
             <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-sm text-muted-foreground">
-              Data is sourced from public firm websites and{" "}
-              <a href="https://propfirmmatch.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-foreground hover:text-primary transition-colors">PropFirmMatch</a>.
-              {" "}Rules change frequently — always verify on the firm{"'"}s official website before purchasing a challenge.
+              Rules and prices are sourced from official firm websites and verified March 2026.
+              They change frequently — always confirm on the firm{"'"}s official site before purchasing.
+              Pricing shown is approximate and may vary by region or active promotions.
             </p>
           </div>
 
@@ -934,11 +1578,16 @@ export default function PropFirmsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search firms..."
+                placeholder={`Search ${FIRMS.length} firms...`}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-colors"
+                list="firm-names"
               />
+              {/* Datalist scoped to FIRMS only */}
+              <datalist id="firm-names">
+                {FIRMS.map(f => <option key={f.id} value={f.name} />)}
+              </datalist>
             </div>
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-secondary/30 border border-border">
               <Filter className="w-3.5 h-3.5 text-muted-foreground ml-1.5" />
@@ -946,7 +1595,7 @@ export default function PropFirmsPage() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${filter === f ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {f === "all" ? "All" : f === "two-step" ? "2-Step" : f === "one-step" ? "1-Step" : "Instant"}
                 </button>
@@ -954,19 +1603,20 @@ export default function PropFirmsPage() {
             </div>
           </div>
 
-          {/* Legend */}
+          {/* Legend — account models only (no drawdown type badges) */}
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <span className="text-xs text-muted-foreground font-medium">Account models:</span>
             <span className="text-[11px] px-2 py-0.5 rounded-lg border border-primary/30 bg-primary/5 text-primary font-semibold">Two Step</span>
             <span className="text-[11px] px-2 py-0.5 rounded-lg border border-sky-500/30 bg-sky-500/5 text-sky-400 font-semibold">One Step</span>
             <span className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 font-semibold">Instant Funding</span>
-            <DrawdownTypeBadge type="Static" />
-            <DrawdownTypeBadge type="Trailing" />
           </div>
 
           {/* Firm list */}
-          {filtered.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground text-sm">No firms match your search.</div>
+          {noResults ? (
+            <div className="py-16 text-center space-y-2">
+              <p className="text-sm text-muted-foreground">No firms match <span className="font-semibold text-foreground">{`"${search}"`}</span>.</p>
+              <p className="text-xs text-muted-foreground">Try searching: {firmNames.slice(0, 5).map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}…</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {filtered.map(f => <FirmCard key={f.id} firm={f} />)}
