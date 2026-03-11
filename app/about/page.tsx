@@ -15,13 +15,6 @@ export const metadata: Metadata = {
   },
 }
 
-const stats = [
-  { value: "5+",   label: "Years Trading" },
-  { value: "2K+",  label: "Students Mentored" },
-  { value: "78%",  label: "Average Win Rate" },
-  { value: "₹0",   label: "Hidden Fees" },
-]
-
 const values = [
   { icon: TrendingUp, title: "Consistency Over Luck",   body: "We focus on rule-based, high-probability setups using Smart Money Concepts — not gambling or random signals." },
   { icon: Shield,     title: "Transparency First",      body: "Every trade posted includes entry, stop loss, and take profit. No vague calls, no manipulation." },
@@ -104,18 +97,6 @@ export default function AboutPage() {
           </p>
         </section>
 
-        {/* Stats */}
-        <section className="px-4 py-10 max-w-4xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {stats.map(s => (
-              <div key={s.label} className="rounded-2xl border border-border bg-card p-5 text-center">
-                <p className="text-3xl font-bold text-[#FCD535]">{s.value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Story */}
         <section className="px-4 py-12 max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-foreground mb-5">The Story</h2>
@@ -124,7 +105,7 @@ export default function AboutPage() {
               OG KAAL TRADER started trading in 2019 after losing money through retail indicators and false signals. After years of studying Smart Money Concepts and ICT methodology, a consistent edge was developed — one based on understanding where banks and institutions place their orders.
             </p>
             <p>
-              In 2022, the FX KAAL community was launched to share this knowledge with aspiring traders. Since then, over 2,000 students have gone through the mentorship program, many achieving consistent profitability and passing funded account challenges with firms like FTMO and MyForexFunds.
+              In 2022, the FX KAAL community was launched to share this knowledge with aspiring traders. Students have gone through the mentorship program and gone on to achieve consistent profitability and pass funded account challenges with firms like FTMO and Goat Funded Trader.
             </p>
             <p>
               The platform operates with zero tolerance for false promises. Every signal, every lesson, every result is documented and verifiable.
