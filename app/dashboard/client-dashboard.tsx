@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import {
   User, Crown, Clock, CheckCircle, XCircle, AlertCircle,
@@ -11,7 +11,7 @@ import {
   Star, Users, Activity, TrendingUp,
 } from "lucide-react"
 import {
-  getSession, logout, touchActivity, isSessionTimedOut,
+  getSession, logout,
   login, loginWithBackupCode, registerDashboardUser, sendPasswordReset,
   storeBackupCode, getStoredBackupCode, fetchBackupCode,
 } from "@/lib/dash-auth"
@@ -516,7 +516,7 @@ function MembershipBlock({
 
 export default function ClientDashboard() {
   const [session, setSessionState]          = useState<DashboardSession | null>(null)
-  const [timedOut, setTimedOut]             = useState(false)
+
   const [booting, setBooting]               = useState(true)
   const [loading, setLoading]               = useState(false)
   const [copied, setCopied]                 = useState(false)
@@ -534,34 +534,11 @@ export default function ClientDashboard() {
   const [signals, setSignals]               = useState<VipSignal[]>([])
   const [perfStats, setPerfStats]           = useState<PerformanceStat[]>([])
 
-  const activityTimer = useRef<NodeJS.Timeout | null>(null)
-
-  const scheduleCheck = useCallback(() => {
-    if (activityTimer.current) clearTimeout(activityTimer.current)
-    activityTimer.current = setTimeout(() => {
-      if (isSessionTimedOut()) { logout(); setTimedOut(true); setSessionState(null) }
-      else scheduleCheck()
-    }, 30_000)
-  }, [])
-
-  useEffect(() => {
-    const handler = () => touchActivity()
-    window.addEventListener("mousemove", handler)
-    window.addEventListener("keydown", handler)
-    window.addEventListener("click", handler)
-    return () => {
-      window.removeEventListener("mousemove", handler)
-      window.removeEventListener("keydown", handler)
-      window.removeEventListener("click", handler)
-    }
-  }, [])
-
   // Check existing session on mount and load stored backup code
   useEffect(() => {
     const s = getSession()
-    if (s && !isSessionTimedOut()) {
+    if (s) {
       setSessionState(s)
-      scheduleCheck()
       // Always fetch backup code fresh from DB so it is always available
       fetchBackupCode(s.id).then(code => {
         if (code) { setStoredBackup(code); storeBackupCode(code) }
@@ -569,7 +546,7 @@ export default function ClientDashboard() {
       })
     }
     setBooting(false)
-  }, [scheduleCheck])
+  }, [])
 
   const loadData = useCallback(async (s: DashboardSession) => {
     setLoading(true)
@@ -612,7 +589,7 @@ export default function ClientDashboard() {
   useEffect(() => { if (session) loadData(session) }, [session, loadData])
 
   const handleAuth = (s: DashboardSession) => {
-    setSessionState(s); setTimedOut(false); scheduleCheck()
+    setSessionState(s)
     // Always fetch fresh from DB — auto-generates if the user has no code yet
     fetchBackupCode(s.id).then(code => {
       if (code) { setStoredBackup(code); storeBackupCode(code) }
@@ -621,7 +598,6 @@ export default function ClientDashboard() {
 
   const handleLogout = () => {
     logout(); setSessionState(null)
-    if (activityTimer.current) clearTimeout(activityTimer.current)
   }
 
   const mapMem = (row: Record<string, unknown> | null) => row ? {
@@ -651,8 +627,6 @@ export default function ClientDashboard() {
       <RefreshCw className="w-6 h-6 text-muted-foreground animate-spin" />
     </div>
   )
-
-  if (timedOut) return <TimeoutOverlay onDismiss={() => setTimedOut(false)} />
 
   if (!session) return (
     <>
