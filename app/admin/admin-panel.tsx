@@ -1216,6 +1216,197 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Shared Transaction History panel ─────────────────────────────────────────
+  const TransactionHistory = ({
+    orders,
+    type,
+  }: {
+    orders: (USDTBuyRequest | USDTSellRequest)[]
+    type: "buy" | "sell"
+  }) => {
+    const [historyTab,   setHistoryTab]   = useState<"pending" | "completed" | "cancelled">("pending")
+    const [historySearch, setHistorySearch] = useState("")
+    const [historyDate,  setHistoryDate]  = useState("")
+
+    const tabOrders = orders.filter(r => {
+      if (historyTab === "pending")   return r.status === "pending" || r.status === "accepted" || r.status === "processing"
+      if (historyTab === "completed") return r.status === "completed" || r.status === "approved"
+      if (historyTab === "cancelled") return r.status === "cancelled" || r.status === "rejected"
+      return true
+    }).filter(r => {
+      const q = historySearch.toLowerCase()
+      if (!q) return true
+      return (
+        r.userId.toLowerCase().includes(q) ||
+        r.name.toLowerCase().includes(q)   ||
+        r.email.toLowerCase().includes(q)  ||
+        r.id.toLowerCase().includes(q)
+      )
+    }).filter(r => {
+      if (!historyDate) return true
+      return r.createdAt.startsWith(historyDate)
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const tabCounts = {
+      pending:   orders.filter(r => ["pending","accepted","processing"].includes(r.status)).length,
+      completed: orders.filter(r => ["completed","approved"].includes(r.status)).length,
+      cancelled: orders.filter(r => ["cancelled","rejected"].includes(r.status)).length,
+    }
+
+    const statusColor: Record<string, string> = {
+      pending:    "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      accepted:   "bg-blue-500/10 text-blue-400 border-blue-500/30",
+      processing: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+      completed:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+      approved:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+      cancelled:  "bg-red-500/10 text-red-400 border-red-500/30",
+      rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+    }
+
+    const apiPath = type === "buy" ? "/api/admin/usdt-buy" : "/api/admin/usdt-sell"
+
+    const handleStatusAction = async (id: string, newStatus: string) => {
+      await fetch(apiPath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus }),
+      })
+      if (type === "buy") {
+        setUsdtBuy(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as USDTBuyRequest["status"] } : r))
+      } else {
+        setUsdtSell(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as USDTSellRequest["status"] } : r))
+      }
+    }
+
+    return (
+      <div className="rounded-xl bg-card border border-border flex flex-col h-full">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">Transaction History</h3>
+            <span className="text-xs bg-secondary text-muted-foreground px-2 py-0.5 rounded-full border border-border">{orders.length} total</span>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 p-1 rounded-lg bg-secondary/50 border border-border">
+            {(["pending","completed","cancelled"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setHistoryTab(tab)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <span className="capitalize">{tab}</span>
+                <span className={`text-xs px-1.5 py-0 rounded-full font-bold ${
+                  tab === "pending"   ? "bg-amber-500/20 text-amber-400"   :
+                  tab === "completed" ? "bg-emerald-500/20 text-emerald-400" :
+                  "bg-red-500/20 text-red-400"
+                }`}>{tabCounts[tab]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Search + Date */}
+          <div className="flex gap-2 mt-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                value={historySearch}
+                onChange={e => setHistorySearch(e.target.value)}
+                placeholder="Search by user, email, ID..."
+                className="w-full pl-8 pr-3 py-2 rounded-lg bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <input
+              type="date"
+              value={historyDate}
+              onChange={e => setHistoryDate(e.target.value)}
+              className="px-2 py-2 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-primary/50 w-36"
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          {tabOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Clock className="w-8 h-8 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">No {historyTab} transactions</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  {["User","Amount","Method","Status","Date","Actions"].map(h => (
+                    <th key={h} className="text-left py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tabOrders.map(r => {
+                  const amount = type === "buy"
+                    ? (r as USDTBuyRequest).amountUsdt
+                    : (r as USDTSellRequest).usdtAmount
+                  const method = type === "buy" ? "UPI/Bank" : "USDT→INR"
+                  const d = new Date(r.createdAt)
+                  const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
+                  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })
+
+                  return (
+                    <tr key={r.id} className="border-b border-border/40 hover:bg-secondary/20 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="font-medium text-foreground truncate max-w-[80px]">{r.name}</div>
+                        <div className="text-muted-foreground font-mono truncate max-w-[80px]">{r.userId || "—"}</div>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">{amount} USDT</td>
+                      <td className="py-2.5 px-3 text-muted-foreground">{method}</td>
+                      <td className="py-2.5 px-3">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded border font-medium capitalize ${statusColor[r.status] ?? "bg-secondary text-foreground border-border"}`}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
+                        <div>{date}</div>
+                        <div>{time}</div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {historyTab === "pending" && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleStatusAction(r.id, "completed")}
+                              className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                              title="Complete"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleStatusAction(r.id, "accepted")}
+                              className="p-1 rounded text-blue-400 hover:bg-blue-500/10 transition-colors"
+                              title="Approve"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleStatusAction(r.id, "cancelled")}
+                              className="p-1 rounded text-red-400 hover:bg-red-500/10 transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const renderUSDTBuy = () => {
     const pending   = usdtBuy.filter(r => r.status === "pending")
     const accepted  = usdtBuy.filter(r => r.status === "accepted")
@@ -1223,6 +1414,7 @@ export default function AdminPanel() {
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <ArrowDownLeft className="w-6 h-6 text-green-400" />
@@ -1238,11 +1430,22 @@ export default function AdminPanel() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
-        <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order. Notifications are sent automatically.</p>
-        <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
-        <USDTSection label="Accepted Orders"   orders={accepted}  type="buy" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
-        <USDTSection label="Completed Orders"  orders={completed} type="buy" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
-        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="buy" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+        <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order.</p>
+
+        {/* Two-column layout: orders left, history right */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
+          {/* Left — order cards */}
+          <div className="space-y-6 min-w-0">
+            <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+            <USDTSection label="Accepted Orders"   orders={accepted}  type="buy" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+            <USDTSection label="Completed Orders"  orders={completed} type="buy" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+            {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="buy" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+          </div>
+          {/* Right — history panel */}
+          <div className="xl:sticky xl:top-4">
+            <TransactionHistory orders={usdtBuy} type="buy" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -1254,6 +1457,7 @@ export default function AdminPanel() {
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <ArrowUpRight className="w-6 h-6 text-amber-400" />
@@ -1269,11 +1473,22 @@ export default function AdminPanel() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
-        <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI. Notifications are sent automatically.</p>
-        <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
-        <USDTSection label="Accepted Orders"   orders={accepted}  type="sell" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
-        <USDTSection label="Completed Orders"  orders={completed} type="sell" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
-        {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="sell" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+        <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI.</p>
+
+        {/* Two-column layout: orders left, history right */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
+          {/* Left — order cards */}
+          <div className="space-y-6 min-w-0">
+            <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+            <USDTSection label="Accepted Orders"   orders={accepted}  type="sell" accent="bg-blue-500/10 text-blue-400 border-blue-500/20" />
+            <USDTSection label="Completed Orders"  orders={completed} type="sell" accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+            {cancelled.length > 0 && <USDTSection label="Cancelled / Rejected" orders={cancelled} type="sell" accent="bg-red-500/10 text-red-400 border-red-500/20" />}
+          </div>
+          {/* Right — history panel */}
+          <div className="xl:sticky xl:top-4">
+            <TransactionHistory orders={usdtSell} type="sell" />
+          </div>
+        </div>
       </div>
     )
   }
