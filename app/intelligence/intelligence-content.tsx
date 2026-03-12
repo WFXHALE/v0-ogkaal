@@ -540,7 +540,8 @@ export function IntelligenceContent() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20 pb-12">
+      <TradingSessionsPanel />
+      <main className="pt-4 sm:pt-6 pb-12">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
@@ -721,11 +722,8 @@ export function IntelligenceContent() {
             </div>
           </section>
 
-          {/* Two-column layout: main content + right sidebar */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8 items-start">
-
-            {/* ── LEFT: News, Calendar, Tech Overview, Correlations ──────── */}
-            <div className="space-y-8 min-w-0">
+          {/* Single-column layout — Trading Sessions is the sticky bar above */}
+          <div className="space-y-8 min-w-0">
 
               {/* Market News */}
               <section>
@@ -916,12 +914,6 @@ export function IntelligenceContent() {
                 <MarketCorrelations />
               </section>
             </div>
-
-            {/* ── RIGHT SIDEBAR: Trading Sessions ────────────────────────── */}
-            <div className="space-y-6 lg:sticky lg:top-24">
-              <TradingSessionsPanel />
-            </div>
-          </div>
 
         </div>
       </main>
