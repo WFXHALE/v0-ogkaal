@@ -245,25 +245,32 @@ export async function loginWithSecretKey(
   // Verify the key server-side — ADMIN_SECRET_KEY has no NEXT_PUBLIC_ prefix
   // so it must never be read in the client bundle.
   let serverVerified = false
+  let serverError = ""
   try {
     const res = await fetch("/api/admin/verify-key", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ key: key.trim() }),
     })
+    console.log("[v0] verify-key response status:", res.status)
     if (res.status === 500) {
       let errMsg = "Server configuration error."
-      try { const d = await res.json(); errMsg = d.error ?? errMsg } catch { /* ignore */ }
+      try { const d = await res.json(); errMsg = d.error ?? errMsg; console.log("[v0] verify-key 500 body:", d) } catch { /* ignore */ }
       return { success: false, error: errMsg }
     }
+    if (!res.ok) {
+      try { const d = await res.json(); serverError = d.error ?? "Invalid key" } catch { serverError = "Invalid key" }
+    }
     serverVerified = res.ok
-  } catch {
+  } catch (err) {
+    console.log("[v0] verify-key fetch error:", err)
     return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
+  console.log("[v0] serverVerified:", serverVerified, "serverError:", serverError)
+
   if (!serverVerified) {
     const r = recordFailedAttempt()
-    // fire-and-forget — never block the return on IP lookup
     addSecurityLog("login_failed", "admin", "Invalid secret key").catch(() => {})
     if (r.locked) {
       return { success: false, error: "Invalid Key – Access Denied. Account blocked for 24 hours." }
@@ -278,6 +285,7 @@ export async function loginWithSecretKey(
   // Key correct — MUST await createSession so localStorage is written before
   // router.push("/admin") fires and isSessionValid() is checked.
   await createSession("sheikhahmed2724@gmail.com")
+  console.log("[v0] session created, isSessionValid:", isSessionValid())
   resetLoginAttempts()
   addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key").catch(() => {})
   return { success: true }
