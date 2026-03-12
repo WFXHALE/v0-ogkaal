@@ -18,10 +18,9 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  getAuth,
   type UserCredential,
 } from "firebase/auth"
-import { app } from "@/lib/firebase"
+import { auth } from "@/lib/firebase"
 import { createClient } from "@/lib/supabase/client"
 import { avatarUrl, setSession } from "@/lib/community-utils"
 import type { CommunityUser, TraderLevel } from "@/lib/community-utils"
@@ -41,6 +40,7 @@ function friendlyFirebaseError(code: string): string {
     "auth/network-request-failed":  "Network error. Please check your connection.",
     "auth/popup-closed-by-user":    "Sign-in cancelled.",
     "auth/cancelled-popup-request": "Sign-in cancelled.",
+    "auth/unauthorized-domain":     "Login temporarily unavailable. Please contact support if this persists.",
     "auth/api-key-not-valid":       "Login temporarily unavailable, please try again.",
     "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
                                     "Login temporarily unavailable, please try again.",
@@ -148,8 +148,8 @@ export async function firebaseSignUp(opts: {
   phone: string
   level: TraderLevel
 }): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Authentication is not available. Please try again later." }
   try {
-    const auth = getAuth(app)
     let cred: UserCredential
     try {
       cred = await createUserWithEmailAndPassword(auth, opts.email, opts.password)
@@ -177,8 +177,8 @@ export async function firebaseSignIn(opts: {
   email: string
   password: string
 }): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Authentication is not available. Please try again later." }
   try {
-    const auth = getAuth(app)
     let cred: UserCredential
     try {
       cred = await signInWithEmailAndPassword(auth, opts.email, opts.password)
@@ -229,11 +229,12 @@ export async function firebaseSignIn(opts: {
  * Sign in / sign up with Google popup.
  */
 export async function firebaseSignInWithGoogle(): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Google sign-in is not available on this domain. Please use email/password instead." }
   try {
-    const auth     = getAuth(app)
     const provider = new GoogleAuthProvider()
     provider.addScope("email")
     provider.addScope("profile")
+    provider.setCustomParameters({ prompt: "select_account" })
 
     let cred: UserCredential
     try {

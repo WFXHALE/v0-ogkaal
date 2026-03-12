@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { useSiteConfig } from "@/lib/use-site-config"
@@ -25,7 +25,7 @@ import {
   Bitcoin,
 } from "lucide-react"
 
-const XM_AFFILIATE_LINK = "https://clicks.pipaffiliates.com/c?c=820817&l=en&p=0"
+const XM_AFFILIATE_LINK = "https://clicks.pipaffiliates.com/c?c=1090940&l=en&p=1"
 
 // Admin-replaceable video URL
 const INSTRUCTION_VIDEO_URL = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vdo-l2LpwT1vHX45Ajs8hW1JIaEt2M5Ut5.MP4"
@@ -105,10 +105,22 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     telegramId: "",
     instagramId: "",
     phoneNumber: "",
+    email: "",
   })
 
   const depositFileRef = useRef<HTMLInputElement>(null)
   const paymentFileRef = useRef<HTMLInputElement>(null)
+
+  // On mount: if user is returning after opening XM in a new tab, resume at xm-form
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = sessionStorage.getItem("xmNewUserStep")
+    if (saved === "xm_returned") {
+      sessionStorage.removeItem("xmNewUserStep")
+      setCardType("new")
+      setStep("xm-form")
+    }
+  }, [])
 
   const handleCopyCrypto = (address: string) => {
     navigator.clipboard.writeText(address)
@@ -122,6 +134,8 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
   }
 
   const handleNewUserClick = () => {
+    // Save state so the xm-form is shown when the user returns from the XM tab
+    sessionStorage.setItem("xmNewUserStep", "xm_returned")
     window.open(XM_AFFILIATE_LINK, "_blank")
     setCardType("new")
     setStep("xm-form")
@@ -141,16 +155,15 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
   }
 
   const handlePaymentSubmit = () => {
-    // Crypto only needs screenshot; UPI and IMPS need screenshot + UTR
-    if (paymentMethod === "crypto") {
-      if (paymentData.screenshot) setStep("contact")
-    } else {
-      if (paymentMethod && paymentData.screenshot && paymentData.utr) setStep("contact")
-    }
+    if (!paymentMethod || !paymentData.screenshot) return
+    if (paymentMethod === "upi" && !paymentData.utr) return   // UPI requires UTR
+    if (paymentMethod === "crypto" && !cryptoOption) return   // crypto requires a network selected
+    // erupee only needs screenshot — proceed directly
+    setStep("contact")
   }
 
   const handleContactSubmit = async () => {
-    if (contactData.telegramId && contactData.phoneNumber) {
+    if (contactData.telegramId && contactData.instagramId && contactData.phoneNumber && contactData.email) {
       await saveSubmission({
         type: "vip_membership",
         name:
@@ -167,6 +180,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
           paymentMethod,
           utr: paymentData.utr,
           instagramId: contactData.instagramId,
+          email: contactData.email,
         },
       })
       setStep("success")
@@ -174,6 +188,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
   }
 
   const resetFlow = () => {
+    sessionStorage.removeItem("xmNewUserStep")
     setStep("card-selection")
     setCardType(null)
     setXmFormData({ traderId: "", depositScreenshot: null })
@@ -182,8 +197,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     setCryptoOption(null)
     setCopiedCrypto(false)
     setPaymentData({ screenshot: null, utr: "" })
-    setContactData({ telegramId: "", instagramId: "", phoneNumber: "" })
-
+    setContactData({ telegramId: "", instagramId: "", phoneNumber: "", email: "" })
   }
 
   const handleClose = () => {
@@ -318,37 +332,61 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
           {/* ── XM FORM (Existing & New Users) ── */}
           {step === "xm-form" && cardType !== "funded" && (
             <div>
-              {/* Video Section */}
+              {/* Fallback link for new users who accidentally closed the XM tab */}
+              {cardType === "new" && (
+                <div className="mb-5 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Already created your XM account?</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Enter your Trader ID and deposit screenshot below to continue.</p>
+                  </div>
+                  <a
+                    href={XM_AFFILIATE_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => sessionStorage.setItem("xmNewUserStep", "xm_returned")}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/40 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open XM Account
+                  </a>
+                </div>
+              )}
+
+              {/* Video — only shown for existing users */}
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-foreground mb-1 text-center">
                   Submit Your Details
                 </h2>
 
-                <div className="mt-5 rounded-xl overflow-hidden border border-border bg-black">
-                  <div className="p-3 bg-secondary/60 border-b border-border flex items-center gap-2">
-                    <Play className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">
-                      Watch This First — Connect Your XM Account
-                    </span>
-                  </div>
-                  <video
-                    controls
-                    className="w-full"
-                    src={INSTRUCTION_VIDEO_URL}
-                    preload="metadata"
-                  />
-                </div>
+                {cardType === "existing" && (
+                  <>
+                    <div className="mt-5 rounded-xl overflow-hidden border border-border bg-black">
+                      <div className="p-3 bg-secondary/60 border-b border-border flex items-center gap-2">
+                        <Play className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-semibold text-foreground">
+                          Watch This First — Connect Your XM Account
+                        </span>
+                      </div>
+                      <video
+                        controls
+                        className="w-full"
+                        src={INSTRUCTION_VIDEO_URL}
+                        preload="metadata"
+                      />
+                    </div>
 
-                <div className="mt-4 space-y-1">
-                  <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                    Before submitting your details, please watch this short video to learn how to
-                    connect your XM account under our partner code.
-                  </p>
-                  <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                    After watching the video, follow the steps and then submit your Trader ID and
-                    deposit proof.
-                  </p>
-                </div>
+                    <div className="mt-4 space-y-1">
+                      <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                        Before submitting your details, please watch this short video to learn how to
+                        connect your XM account under our partner code.
+                      </p>
+                      <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                        After watching the video, follow the steps and then submit your Trader ID and
+                        deposit proof.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Form */}
@@ -707,8 +745,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                     <Instagram className="w-4 h-4 text-primary" />
-                    Instagram ID
-                    <span className="text-xs text-muted-foreground ml-1">(optional)</span>
+                    Instagram ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -737,6 +774,22 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   />
                 </div>
 
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+                    <AtSign className="w-4 h-4 text-primary" />
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={contactData.email}
+                    onChange={(e) =>
+                      setContactData({ ...contactData, email: e.target.value })
+                    }
+                    placeholder="Enter your email address"
+                    className="w-full px-4 py-3 rounded-lg bg-secondary border border-border focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <Button
                     onClick={() => setStep("payment")}
@@ -748,7 +801,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   </Button>
                   <Button
                     onClick={handleContactSubmit}
-                    disabled={!contactData.telegramId || !contactData.phoneNumber}
+                    disabled={!contactData.telegramId || !contactData.instagramId || !contactData.phoneNumber || !contactData.email}
                     className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold disabled:opacity-50"
                   >
                     Submit
