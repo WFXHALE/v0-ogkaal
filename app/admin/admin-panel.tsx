@@ -2627,9 +2627,6 @@ export default function AdminPanel() {
               {activeSection.replace(/-/g, " ")}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-          </div>
         </header>
 
         <main className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto overflow-x-hidden">
