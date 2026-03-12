@@ -119,6 +119,6 @@ export async function signInWithGoogle(): Promise<
 
 export async function signOutGoogle(): Promise<void> {
   try {
-    await signOut(getAuth(app))
+    await signOut(auth)
   } catch {}
 }
