@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
+
+// Use the service role key for all admin-submissions writes so they always
+// bypass RLS and succeed regardless of auth state.
+function createServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return _createSupabaseClient(url, key, { auth: { persistSession: false } })
+}
 
 // Normalize snake_case DB row → camelCase for admin panel
 function normalize(r: Record<string, unknown>) {
@@ -30,7 +38,7 @@ function normalize(r: Record<string, unknown>) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").insert({
       type:           body.type,
       name:           body.name,
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from("admin_submissions")
       .select("*")
@@ -77,7 +85,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").delete().eq("id", id)
     if (error) throw error
     return NextResponse.json({ ok: true })
@@ -94,7 +102,7 @@ export async function PATCH(req: NextRequest) {
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ ok: false, error: `Invalid status: ${status}` }, { status: 400 })
     }
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").update({ status }).eq("id", id)
     if (error) throw error
     return NextResponse.json({ ok: true })

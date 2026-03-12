@@ -248,6 +248,7 @@ export async function createPost(data: Omit<Post, "id" | "likes" | "comments" | 
     hashtags:      post.hashtags,
     created_at:    post.createdAt,
   })
+  if (error) console.error("[community-store] createPost insert error:", error)
   return post
 }
 
