@@ -1621,6 +1621,14 @@ export default function UsdtP2PPage() {
             <div className="flex items-center justify-center py-16">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : historyRecords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border gap-4">
+              <Clock className="w-12 h-12 text-muted-foreground/30" />
+              <div className="text-center">
+                <p className="text-lg font-semibold text-foreground mb-1">No Trade History Yet</p>
+                <p className="text-sm text-muted-foreground max-w-xs">Your completed and pending USDT transactions will appear here once you make a trade.</p>
+              </div>
+            </div>
           ) : (() => {
             const filtered = historyRecords.filter(r => {
               if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)

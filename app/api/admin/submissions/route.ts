@@ -63,13 +63,14 @@ export async function POST(req: NextRequest) {
       user_id:        body.user_id        ?? body.userId ?? null,
     })
     if (error) {
-      const msg = error.message ?? error.details ?? JSON.stringify(error)
-      console.error("[submissions POST] Supabase error:", msg)
+      const msg = error.message || error.details || error.hint || `code ${error.code}` || "Unknown Supabase error"
+      console.error("[submissions POST] Supabase error:", error.code, error.message, error.details)
       return NextResponse.json({ ok: false, error: msg }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : JSON.stringify(err)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("[submissions POST] caught:", msg)
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }

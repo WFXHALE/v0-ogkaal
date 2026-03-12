@@ -241,34 +241,23 @@ export async function loginWithSecretKey(
     return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
   }
 
-  // Verify the key server-side so ADMIN_SECRET_KEY (no NEXT_PUBLIC_ prefix) is
-  // never exposed in the client bundle.
+  // Verify the key server-side — ADMIN_SECRET_KEY has no NEXT_PUBLIC_ prefix
+  // so it must never be read in the client bundle.
   let serverVerified = false
   try {
-    const controller = new AbortController()
-    const timeoutId  = setTimeout(() => controller.abort(), 10_000) // 10s hard timeout
-    let res: Response
-    try {
-      res = await fetch("/api/admin/verify-key", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ key: key.trim() }),
-        signal:  controller.signal,
-      })
-    } finally {
-      clearTimeout(timeoutId)
-    }
+    const res = await fetch("/api/admin/verify-key", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ key: key.trim() }),
+    })
     if (res.status === 500) {
-      const data = await res.json()
-      if (!process.env.ADMIN_SECRET_KEY) {
-        console.error("ADMIN_SECRET_KEY environment variable missing.")
-      }
-      return { success: false, error: data.error ?? "Server configuration error." }
+      let errMsg = "Server configuration error."
+      try { const d = await res.json(); errMsg = d.error ?? errMsg } catch { /* ignore */ }
+      return { success: false, error: errMsg }
     }
     serverVerified = res.ok
-  } catch (err: unknown) {
-    const isTimeout = err instanceof Error && err.name === "AbortError"
-    return { success: false, error: isTimeout ? "Verification timed out. Please try again." : "Network error — could not reach the server. Please try again." }
+  } catch {
+    return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
   if (!serverVerified) {
