@@ -47,6 +47,7 @@ const FEATURED_FIRMS: FeaturedFirm[] = [
     rating:       3.8,
     description:  "Broker-backed prop firm with 2-Step, 1-Step and Instant Elite models. No consistency rule, weekend holding allowed.",
     referralLink: "https://blueberryfunded.com/?utm_source=affiliate&ref=6538",
+    discountCode: "OGKAAL",
     logoUrl:      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.11%E2%80%AFPM-pUuxSCUjpCyGlmrY2OQ8EBEwhwyJha.png",
     logoAlt:      "Blueberry Funded logo",
   },
