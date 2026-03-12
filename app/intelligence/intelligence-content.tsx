@@ -426,11 +426,11 @@ export function IntelligenceContent() {
     { refreshInterval: 3000 }
   )
 
-  // Fetch forex data — 15s refresh
+  // Fetch forex data — 30s refresh (Yahoo Finance rate-limit friendly)
   const { data: forexData, mutate: mutateForex, isValidating: forexLoading } = useSWR(
     activeTab === "forex" ? "/api/intelligence/forex" : null,
     fetcher,
-    { refreshInterval: 15000 }
+    { refreshInterval: 30000, revalidateOnFocus: true }
   )
 
   // Fetch Indian market data — 30s
@@ -540,8 +540,10 @@ export function IntelligenceContent() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <TradingSessionsPanel />
-      <main className="pt-6 pb-12">
+      {/* mt-16 compensates for the fixed header so the sessions bar starts below it in normal flow */}
+      <div className="mt-16">
+        <TradingSessionsPanel />
+        <main className="pb-12">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
@@ -917,6 +919,7 @@ export function IntelligenceContent() {
 
         </div>
       </main>
+      </div>
       <Footer />
     </div>
   )
