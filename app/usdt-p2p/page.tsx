@@ -24,9 +24,10 @@ import {
   FileCheck,
   HelpCircle,
 } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { UsdtHelpModal } from "@/components/usdt-help-modal"
+import { Clock, History } from "lucide-react"
 
 const TELEGRAM_LINK = "https://t.me/ogkaaltrader"
 
@@ -65,11 +66,67 @@ const PAYMENT_DETAILS = {
   }
 }
 
+type HistoryRecord = {
+  id: string
+  userId: string
+  name: string
+  amountUsdt?: string
+  usdtAmount?: string
+  status: string
+  createdAt: string
+  type: "buy" | "sell"
+}
+
 export default function UsdtP2PPage() {
-  const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
+  const [activeTab, setActiveTab] = useState<"buy" | "sell" | "history">("buy")
   const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
+
+  // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
+  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+    const base = Math.floor(Math.random() * 16) + 105 // 105–120
+    return base
+  })
+  const [rateFlash, setRateFlash] = useState(false)
+
+  // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
+  const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
+
+  useEffect(() => {
+    const FIFTEEN_MINUTES = 15 * 60 * 1000
+    const id = setInterval(() => {
+      setExchangeRate(prev => {
+        const delta = Math.random() < 0.5 ? -2 : 2
+        const next  = Math.min(120, Math.max(105, prev + delta))
+        return next
+      })
+      setRateFlash(true)
+      setTimeout(() => setRateFlash(false), 600)
+    }, FIFTEEN_MINUTES)
+    return () => clearInterval(id)
+  }, [])
+
+  // History state
+  const [historyRecords, setHistoryRecords]       = useState<HistoryRecord[]>([])
+  const [historyLoading, setHistoryLoading]       = useState(false)
+  const [historyTab, setHistoryTab]               = useState<"pending" | "completed" | "cancelled">("pending")
+
+  useEffect(() => {
+    if (activeTab !== "history") return
+    setHistoryLoading(true)
+    Promise.all([
+      fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+    ]).then(([buyRes, sellRes]) => {
+      const buys:  HistoryRecord[] = (buyRes.ok  ? buyRes.data  ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "buy"  as const }))
+      const sells: HistoryRecord[] = (sellRes.ok ? sellRes.data ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "sell" as const }))
+      const all = [...buys, ...sells].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      setHistoryRecords(all)
+    }).finally(() => setHistoryLoading(false))
+  }, [activeTab])
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
@@ -170,11 +227,9 @@ export default function UsdtP2PPage() {
     setIsComplete(true)
   }
 
-  // Calculate payment amount
-  const usdtAmount = Number(formData.usdtAmount) || 0
-  const rate = usdtAmount < 50 ? 117.5 : 93.5
-  const rateDisplay = usdtAmount < 50 ? "₹115 - ₹120" : "₹93 - ₹94"
-  const totalAmount = usdtAmount * rate
+  // Calculate payment amount — always uses live p2pRate
+  const usdtAmount  = Number(formData.usdtAmount) || 0
+  const totalAmount = usdtAmount * p2pRate
 
   // Validation for each step
   const canProceedStep1 = formData.fullName && formData.email && formData.phone && formData.usdtAmount
@@ -183,16 +238,9 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT pricing tiers
-  const getSellRate = (amount: number): { min: number; max: number } => {
-    if (amount < 50) return { min: 90, max: 90 }
-    return { min: 92, max: 93 }
-  }
-
-  const sellAmount = Number(sellUsdtAmount) || 0
-  const sellRateRange = getSellRate(sellAmount)
-  const sellTotalINRMin = sellAmount * sellRateRange.min
-  const sellTotalINRMax = sellAmount * sellRateRange.max
+  // Sell USDT — uses live p2pRate
+  const sellAmount      = Number(sellUsdtAmount) || 0
+  const sellTotalINR    = sellAmount * p2pRate
 
   // Step labels for progress indicator
   const stepLabels = [
@@ -227,12 +275,12 @@ export default function UsdtP2PPage() {
               </p>
             </div>
 
-            {/* Buy/Sell Tabs */}
+            {/* Buy/Sell/History Tabs */}
             <div className="max-w-2xl mx-auto mb-8">
               <div className="flex rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
-                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                     activeTab === "buy"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -242,7 +290,7 @@ export default function UsdtP2PPage() {
                 </button>
                 <button
                   onClick={() => { setActiveTab("sell"); setStep(0); setIsComplete(false); }}
-                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                     activeTab === "sell"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -250,8 +298,141 @@ export default function UsdtP2PPage() {
                 >
                   Sell USDT
                 </button>
+                <button
+                  onClick={() => setActiveTab("history")}
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                    activeTab === "history"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  History
+                </button>
               </div>
             </div>
+
+            {/* History Card — shown directly below tab bar when History tab is active */}
+            {activeTab === "history" && (
+              <div className="max-w-2xl mx-auto mb-12">
+                <div className="p-6 rounded-2xl bg-card border border-border">
+                  {/* Card header */}
+                  <div className="flex items-center gap-2 mb-6">
+                    <History className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Transaction History</h3>
+                  </div>
+
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : historyRecords.length === 0 ? (
+                    /* No data at all */
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center">
+                        <History className="w-7 h-7 text-muted-foreground/50" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-base font-bold text-foreground">No Trade History Yet</p>
+                        <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                          Your completed and pending USDT transactions will appear here once you make a trade.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Sub-tabs with colored dots */}
+                      <div className="flex gap-1 p-1 rounded-xl bg-secondary/60 border border-border mb-5">
+                        {(["pending", "completed", "cancelled"] as const).map(tab => {
+                          const count = tab === "pending"
+                            ? historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length
+                            : tab === "completed"
+                            ? historyRecords.filter(r => ["completed","approved"].includes(r.status)).length
+                            : historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length
+                          const dotColor = tab === "pending" ? "bg-amber-400" : tab === "completed" ? "bg-emerald-400" : "bg-red-400"
+                          return (
+                            <button
+                              key={tab}
+                              onClick={() => setHistoryTab(tab)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+                              <span className="capitalize">{tab}</span>
+                              <span className="text-xs font-bold text-muted-foreground">({count})</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Per-tab records */}
+                      {(() => {
+                        const filtered = historyRecords.filter(r => {
+                          if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)
+                          if (historyTab === "completed") return ["completed","approved"].includes(r.status)
+                          return ["cancelled","rejected"].includes(r.status)
+                        })
+                        const statusColor: Record<string, string> = {
+                          pending:    "bg-amber-500/10 text-amber-400 border-amber-500/30",
+                          accepted:   "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                          processing: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                          completed:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                          approved:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                          cancelled:  "bg-red-500/10 text-red-400 border-red-500/30",
+                          rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+                        }
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-secondary/30 border border-border gap-2">
+                              <Clock className="w-8 h-8 text-muted-foreground/40" />
+                              <p className="text-sm font-medium text-muted-foreground">No {historyTab} transactions</p>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="rounded-xl border border-border overflow-hidden">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-border bg-secondary/40">
+                                    {["Name","Amount","Type","Status","Date"].map(h => (
+                                      <th key={h} className="text-left py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {filtered.map((r, i) => {
+                                    const d = new Date(r.createdAt)
+                                    const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                                    const amount = r.type === "buy" ? (r.amountUsdt ?? "—") : (r.usdtAmount ?? "—")
+                                    return (
+                                      <tr key={r.id} className={`border-b border-border/40 hover:bg-secondary/20 transition-colors ${i % 2 !== 0 ? "bg-secondary/10" : ""}`}>
+                                        <td className="py-2.5 px-3 font-medium text-foreground whitespace-nowrap">{r.name || "—"}</td>
+                                        <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">{amount} USDT</td>
+                                        <td className="py-2.5 px-3">
+                                          <span className={`inline-flex px-2 py-0.5 rounded border font-medium ${r.type === "buy" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
+                                            {r.type === "buy" ? "Buy" : "Sell"}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3">
+                                          <span className={`inline-flex px-2 py-0.5 rounded border font-medium capitalize ${statusColor[r.status] ?? "bg-secondary text-foreground border-border"}`}>
+                                            {r.status}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{date}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Buy USDT Section */}
             {activeTab === "buy" && (
@@ -266,12 +447,22 @@ export default function UsdtP2PPage() {
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Internet USDT Rate</p>
-                        <p className="text-2xl font-bold text-foreground">₹91</p>
+                        <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
+                        <p
+                          className="text-2xl font-bold text-foreground transition-all duration-500"
+                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                        >
+                          ₹{exchangeRate}
+                        </p>
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
-                        <p className="text-sm text-primary mb-1">Our P2P Rate</p>
-                        <p className="text-2xl font-bold text-primary">₹93 – ₹94</p>
+                        <p className="text-sm text-primary mb-1">Your P2P Rate</p>
+                        <p
+                          className="text-2xl font-bold text-primary transition-all duration-500"
+                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                        >
+                          ₹{exchangeRate - 5}
+                        </p>
                       </div>
                     </div>
 
@@ -356,7 +547,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹92–₹93 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹{p2pRate} <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -409,20 +600,12 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">{sellAmount} USDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Applicable Rate:</span>
-                          <span className="text-foreground font-medium">
-                            {sellRateRange.min === sellRateRange.max 
-                              ? `₹${sellRateRange.min}` 
-                              : `₹${sellRateRange.min}���₹${sellRateRange.max}`} per USDT
-                          </span>
+                          <span className="text-muted-foreground">P2P Rate:</span>
+                          <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
-                          <span className="text-2xl font-bold text-primary">
-                            {sellTotalINRMin === sellTotalINRMax 
-                              ? `₹${sellTotalINRMin.toLocaleString()}`
-                              : `₹${sellTotalINRMin.toLocaleString()}–₹${sellTotalINRMax.toLocaleString()}`}
-                          </span>
+                          <span className="text-2xl font-bold text-primary">₹{sellTotalINR.toLocaleString("en-IN")}</span>
                         </div>
                       </div>
                     </div>
@@ -737,7 +920,7 @@ export default function UsdtP2PPage() {
                             details: {
                               action: "sell",
                               amount: `${sellAmount} USDT`,
-                              rate: `₹${sellRateRange.min}-₹${sellRateRange.max}`,
+                              rate: `₹${p2pRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
                               paymentMethod: paymentDetails
                             }
@@ -949,12 +1132,12 @@ export default function UsdtP2PPage() {
                             <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Rate:</span>
-                            <span className="text-foreground font-medium">{rateDisplay}</span>
+                            <span className="text-muted-foreground">P2P Rate:</span>
+                            <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
                           </div>
                           <div className="flex justify-between pt-2 border-t border-border">
                             <span className="font-semibold text-foreground">Total to Pay:</span>
-                            <span className="text-xl font-bold text-primary">₹{totalAmount.toLocaleString()}</span>
+                            <span className="text-xl font-bold text-primary">₹{totalAmount.toLocaleString("en-IN")}</span>
                           </div>
                         </div>
                       </div>
@@ -1417,8 +1600,12 @@ export default function UsdtP2PPage() {
                               <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
                             </div>
                             <div className="flex justify-between">
+                              <span className="text-muted-foreground">P2P Rate:</span>
+                              <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
+                            </div>
+                            <div className="flex justify-between">
                               <span className="text-muted-foreground">Payment Amount:</span>
-                              <span className="text-foreground font-medium">₹{totalAmount.toLocaleString()}</span>
+                              <span className="text-foreground font-medium">₹{totalAmount.toLocaleString("en-IN")}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">UTR Number:</span>

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
 
 const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
 
+function createServiceClient() {
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL)!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return _createSupabaseClient(url, key, { auth: { persistSession: false } })
+}
+
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from("usdt_sell_requests")
       .select("*")
@@ -41,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     if (!VALID_STATUSES.includes(status)) {
       return NextResponse.json({ ok: false, error: `Invalid status: ${status}` }, { status: 400 })
     }
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("usdt_sell_requests").update({ status }).eq("id", id)
     if (error) throw error
     return NextResponse.json({ ok: true })
@@ -54,7 +60,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("usdt_sell_requests").delete().eq("id", id)
     if (error) throw error
     return NextResponse.json({ ok: true })

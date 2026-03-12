@@ -236,44 +236,37 @@ export async function loginWithSecretKey(
 
   const lock = isAccountLocked()
   if (lock.locked) {
-    await addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts")
+    // fire-and-forget — never block the return on IP lookup
+    addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts").catch(() => {})
     const hours = lock.remainingSeconds ? Math.ceil(lock.remainingSeconds / 3600) : 24
     return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
   }
 
-  // Verify the key server-side so ADMIN_SECRET_KEY (no NEXT_PUBLIC_ prefix) is
-  // never exposed in the client bundle.
+  // Verify the key server-side — ADMIN_SECRET_KEY has no NEXT_PUBLIC_ prefix
+  // so it must never be read in the client bundle.
   let serverVerified = false
   try {
-    const controller = new AbortController()
-    const timeoutId  = setTimeout(() => controller.abort(), 10_000) // 10s hard timeout
-    let res: Response
-    try {
-      res = await fetch("/api/admin/verify-key", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ key: key.trim() }),
-        signal:  controller.signal,
-      })
-    } finally {
-      clearTimeout(timeoutId)
-    }
+    const res = await fetch("/api/admin/verify-key", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ key: key.trim() }),
+    })
     if (res.status === 500) {
-      const data = await res.json()
-      if (!process.env.ADMIN_SECRET_KEY) {
-        console.error("ADMIN_SECRET_KEY environment variable missing.")
-      }
-      return { success: false, error: data.error ?? "Server configuration error." }
+      let errMsg = "Server configuration error."
+      try { const d = await res.json(); errMsg = d.error ?? errMsg } catch { /* ignore */ }
+      return { success: false, error: errMsg }
+    }
+    if (!res.ok) {
+      try { const d = await res.json(); serverError = d.error ?? "Invalid key" } catch { serverError = "Invalid key" }
     }
     serverVerified = res.ok
-  } catch (err: unknown) {
-    const isTimeout = err instanceof Error && err.name === "AbortError"
-    return { success: false, error: isTimeout ? "Verification timed out. Please try again." : "Network error — could not reach the server. Please try again." }
+  } catch {
+    return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
   if (!serverVerified) {
     const r = recordFailedAttempt()
-    await addSecurityLog("login_failed", "admin", "Invalid secret key")
+    addSecurityLog("login_failed", "admin", "Invalid secret key").catch(() => {})
     if (r.locked) {
       return { success: false, error: "Invalid Key – Access Denied. Account blocked for 24 hours." }
     }
@@ -284,10 +277,11 @@ export async function loginWithSecretKey(
     }
   }
 
-  // Key correct — create session
+  // Key correct — MUST await createSession so localStorage is written before
+  // router.push("/admin") fires and isSessionValid() is checked.
   await createSession("sheikhahmed2724@gmail.com")
   resetLoginAttempts()
-  await addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key")
+  addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key").catch(() => {})
   return { success: true }
 }
 
@@ -308,7 +302,7 @@ export async function loginWithGoogle(
     const data = await res.json()
 
     if (res.status === 403) {
-      await addSecurityLog("login_failed", email, "Google login — email not authorised")
+      addSecurityLog("login_failed", email, "Google login — email not authorised").catch(() => {})
       return { success: false, error: "Access Denied", accessDenied: true }
     }
     if (!res.ok) {
@@ -320,7 +314,7 @@ export async function loginWithGoogle(
 
   await createSession(email)
   resetLoginAttempts()
-  await addSecurityLog("login_success", email, "Login via Google")
+  addSecurityLog("login_success", email, "Login via Google").catch(() => {})
   return { success: true }
 }
 
@@ -363,15 +357,27 @@ export async function resetPassword(
 // ─── Session management ───────────────────────────────────────────────────────
 
 async function createSession(email: string): Promise<void> {
-  const { ip, location } = await getIPAndLocation()
+  // Write session immediately so login is never blocked by the IP lookup.
   const session: AdminSession = {
     email,
     loginTime: new Date().toISOString(),
     expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
-    ipAddress: ip,
-    location,
+    ipAddress: "Unknown",
+    location:  "Unknown",
   }
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
+
+  // Enrich with IP/location in the background — failure is silently ignored.
+  getIPAndLocation().then(({ ip, location }) => {
+    try {
+      const stored: AdminSession = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || "null")
+      if (stored && stored.email === email) {
+        stored.ipAddress = ip
+        stored.location  = location
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored))
+      }
+    } catch { /* ignore */ }
+  }).catch(() => { /* ignore */ })
 }
 
 export function isSessionValid(): boolean {

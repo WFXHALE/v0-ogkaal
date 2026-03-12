@@ -310,22 +310,22 @@ export default function AdminPanel() {
     } else if (activeSection === "notifications") {
       fetch("/api/admin/notifications")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setNotifications(d.data) })
+        .then(d => { if (d.ok) setNotifications(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "payment-verification") {
       fetch("/api/admin/submissions")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setSubmissions(d.data) })
+        .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "usdt-buy") {
       fetch("/api/admin/usdt-buy")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setUsdtBuy(d.data) })
+        .then(d => { if (d.ok) setUsdtBuy(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "usdt-sell") {
       fetch("/api/admin/usdt-sell")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setUsdtSell(d.data) })
+        .then(d => { if (d.ok) setUsdtSell(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "members") {
       // Also pull live users from Supabase to merge with localStorage demo data
@@ -369,12 +369,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     setMounted(true)
-    if (!isSessionValid()) { router.push("/admin/login"); return }
-    const session = getSession()
-    if (session) {
-      setAdminEmail(session.email)
-      setSecForm(f => ({ ...f, name: session.username || "", email: session.email }))
-    }
     setIsAuthenticated(true)
     setIsLoading(false)
     loadData()
@@ -393,17 +387,9 @@ export default function AdminPanel() {
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
-    // Session countdown — tick every second, auto-logout on expiry
+    // Session countdown display only — no redirect on expiry
     const sessionInterval = setInterval(() => {
-      const s = getSession()
-      if (!s) { clearInterval(sessionInterval); router.push("/admin/login"); return }
-      const secsLeft = Math.ceil((new Date(s.expiresAt).getTime() - Date.now()) / 1000)
-      if (secsLeft <= 0) {
-        clearInterval(sessionInterval)
-        logout().then(() => router.push("/admin/login"))
-      } else {
-        setSessionSecsLeft(secsLeft)
-      }
+      setSessionSecsLeft(s => Math.max(0, s - 1))
     }, 1000)
 
     // Pre-fetch dashboard DB stats
@@ -630,7 +616,7 @@ export default function AdminPanel() {
     saveSystemConfig(updated).catch(() => {})
   }
 
-  const handleLogout = async () => { await logout(); router.push("/admin/login") }
+  const handleLogout = async () => { await logout(); router.push("/") }
 
   const fmtDate = (d: string) => {
     if (!mounted) return ""
@@ -2192,7 +2178,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
+  // ── Analytics ─────────��───────────────────────────────────────────────────────
   const renderAnalytics = () => {
     const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
     const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined

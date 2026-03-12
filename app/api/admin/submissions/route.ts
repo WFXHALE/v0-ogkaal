@@ -4,8 +4,11 @@ import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
 // Use the service role key for all admin-submissions writes so they always
 // bypass RLS and succeed regardless of auth state.
 function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error(`Missing Supabase env vars: url=${!!url} key=${!!key}`)
+  }
   return _createSupabaseClient(url, key, { auth: { persistSession: false } })
 }
 
@@ -40,8 +43,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").insert({
-      type:           body.type,
-      name:           body.name,
+      type:           body.type           ?? null,
+      name:           body.name           ?? null,
       email:          body.email          ?? null,
       phone:          body.phone          ?? null,
       telegram:       body.telegram       ?? null,
@@ -54,15 +57,21 @@ export async function POST(req: NextRequest) {
       inr_equivalent: body.inr_equivalent ?? null,
       amount_paid:    body.amount_paid    ?? null,
       screenshot_url: body.screenshot_url ?? null,
-      payment_method: body.paymentMethod  ?? null,
+      payment_method: body.payment_method ?? body.paymentMethod ?? null,
       amount:         body.amount         ?? null,
       utr:            body.utr            ?? null,
-      user_id:        body.userId         ?? null,
+      user_id:        body.user_id        ?? body.userId ?? null,
     })
-    if (error) throw error
+    if (error) {
+      const msg = error.message || error.details || error.hint || `code ${error.code}` || "Unknown Supabase error"
+      console.error("[submissions POST] Supabase error:", error.code, error.message, error.details)
+      return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("[submissions POST] caught:", msg)
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }
 
@@ -74,10 +83,10 @@ export async function GET() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true, data: (data ?? []).map(normalize) })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }
 
@@ -87,10 +96,10 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").delete().eq("id", id)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }
 
@@ -104,9 +113,9 @@ export async function PATCH(req: NextRequest) {
     }
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").update({ status }).eq("id", id)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }

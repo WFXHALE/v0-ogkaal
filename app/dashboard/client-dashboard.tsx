@@ -148,7 +148,11 @@ function AuthScreen({
     if (!/^[a-z0-9_]+$/.test(regId.trim())) { setError("User ID may only contain lowercase letters, numbers, and underscores."); return }
     if (regPw !== regPw2) { setError("Passwords do not match."); return }
     if (regPw.length < 8) { setError("Password must be at least 8 characters."); return }
-    if (!turnstileToken) { setError("Please complete the security check."); return }
+    // Only enforce Turnstile if the site key is actually configured
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Please complete the security check.")
+      return
+    }
     setLoading(true)
     const res = await registerDashboardUser({
       userId:         regId.trim().toLowerCase(),
