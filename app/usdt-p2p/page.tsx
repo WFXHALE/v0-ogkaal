@@ -297,6 +297,128 @@ export default function UsdtP2PPage() {
               </div>
             </div>
 
+            {/* History Card — shown directly below tab bar when History tab is active */}
+            {activeTab === "history" && (
+              <div className="max-w-2xl mx-auto mb-12">
+                <div className="p-6 rounded-2xl bg-card border border-border">
+                  {/* Card header */}
+                  <div className="flex items-center gap-2 mb-6">
+                    <History className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Transaction History</h3>
+                  </div>
+
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : historyRecords.length === 0 ? (
+                    /* No data at all */
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center">
+                        <History className="w-7 h-7 text-muted-foreground/50" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-base font-bold text-foreground">No Trade History Yet</p>
+                        <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                          Your completed and pending USDT transactions will appear here once you make a trade.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Sub-tabs with colored dots */}
+                      <div className="flex gap-1 p-1 rounded-xl bg-secondary/60 border border-border mb-5">
+                        {(["pending", "completed", "cancelled"] as const).map(tab => {
+                          const count = tab === "pending"
+                            ? historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length
+                            : tab === "completed"
+                            ? historyRecords.filter(r => ["completed","approved"].includes(r.status)).length
+                            : historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length
+                          const dotColor = tab === "pending" ? "bg-amber-400" : tab === "completed" ? "bg-emerald-400" : "bg-red-400"
+                          return (
+                            <button
+                              key={tab}
+                              onClick={() => setHistoryTab(tab)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+                              <span className="capitalize">{tab}</span>
+                              <span className="text-xs font-bold text-muted-foreground">({count})</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Per-tab records */}
+                      {(() => {
+                        const filtered = historyRecords.filter(r => {
+                          if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)
+                          if (historyTab === "completed") return ["completed","approved"].includes(r.status)
+                          return ["cancelled","rejected"].includes(r.status)
+                        })
+                        const statusColor: Record<string, string> = {
+                          pending:    "bg-amber-500/10 text-amber-400 border-amber-500/30",
+                          accepted:   "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                          processing: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                          completed:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                          approved:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                          cancelled:  "bg-red-500/10 text-red-400 border-red-500/30",
+                          rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+                        }
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center py-10 rounded-xl bg-secondary/30 border border-border gap-2">
+                              <Clock className="w-8 h-8 text-muted-foreground/40" />
+                              <p className="text-sm font-medium text-muted-foreground">No {historyTab} transactions</p>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="rounded-xl border border-border overflow-hidden">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-border bg-secondary/40">
+                                    {["Name","Amount","Type","Status","Date"].map(h => (
+                                      <th key={h} className="text-left py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {filtered.map((r, i) => {
+                                    const d = new Date(r.createdAt)
+                                    const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                                    const amount = r.type === "buy" ? (r.amountUsdt ?? "—") : (r.usdtAmount ?? "—")
+                                    return (
+                                      <tr key={r.id} className={`border-b border-border/40 hover:bg-secondary/20 transition-colors ${i % 2 !== 0 ? "bg-secondary/10" : ""}`}>
+                                        <td className="py-2.5 px-3 font-medium text-foreground whitespace-nowrap">{r.name || "—"}</td>
+                                        <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">{amount} USDT</td>
+                                        <td className="py-2.5 px-3">
+                                          <span className={`inline-flex px-2 py-0.5 rounded border font-medium ${r.type === "buy" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
+                                            {r.type === "buy" ? "Buy" : "Sell"}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3">
+                                          <span className={`inline-flex px-2 py-0.5 rounded border font-medium capitalize ${statusColor[r.status] ?? "bg-secondary text-foreground border-border"}`}>
+                                            {r.status}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">{date}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Buy USDT Section */}
             {activeTab === "buy" && (
               <>
@@ -1582,132 +1704,6 @@ export default function UsdtP2PPage() {
           </p>
         </div>
       </section>
-
-      {/* History Tab View */}
-      {activeTab === "history" && (
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="flex items-center gap-3 mb-6">
-            <History className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Transaction History</h2>
-          </div>
-
-          {/* Table area */}
-          {historyLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="w-9 h-9 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : historyRecords.length === 0 ? (
-            /* ── No data at all ── */
-            <div className="flex flex-col items-center justify-center py-24 rounded-2xl bg-card border border-border gap-5">
-              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
-                <History className="w-8 h-8 text-muted-foreground/50" />
-              </div>
-              <div className="text-center space-y-1.5">
-                <p className="text-xl font-bold text-foreground">No Trade History Yet</p>
-                <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                  Your completed and pending USDT transactions will appear here once you make a trade.
-                </p>
-              </div>
-            </div>
-          ) : (() => {
-            /* ── Records exist — show tabs + table ── */
-            const counts = {
-              pending:   historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length,
-              completed: historyRecords.filter(r => ["completed","approved"].includes(r.status)).length,
-              cancelled: historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length,
-            }
-            const filtered = historyRecords.filter(r => {
-              if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)
-              if (historyTab === "completed") return ["completed","approved"].includes(r.status)
-              if (historyTab === "cancelled") return ["cancelled","rejected"].includes(r.status)
-              return true
-            })
-
-            const statusColor: Record<string, string> = {
-              pending:    "bg-amber-500/10 text-amber-400 border-amber-500/30",
-              accepted:   "bg-blue-500/10 text-blue-400 border-blue-500/30",
-              processing: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-              completed:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-              approved:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-              cancelled:  "bg-red-500/10 text-red-400 border-red-500/30",
-              rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
-            }
-
-            return (
-              <>
-                {/* Sub-tabs — only shown when records exist */}
-                <div className="flex gap-1 p-1 rounded-xl bg-secondary border border-border mb-6">
-                  {(["pending", "completed", "cancelled"] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setHistoryTab(tab)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      <span className="capitalize">{tab}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                        tab === "pending"   ? "bg-amber-500/20 text-amber-400"     :
-                        tab === "completed" ? "bg-emerald-500/20 text-emerald-400" :
-                        "bg-red-500/20 text-red-400"
-                      }`}>{counts[tab]}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Per-tab empty state */}
-                {filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 rounded-xl bg-card border border-border gap-3">
-                    <Clock className="w-10 h-10 text-muted-foreground/40" />
-                    <p className="text-muted-foreground font-medium">No {historyTab} transactions</p>
-                    <p className="text-sm text-muted-foreground/60">Your {historyTab} transactions will appear here.</p>
-                  </div>
-                ) : (
-              <div className="rounded-xl bg-card border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-secondary/40">
-                        {["Transaction ID","User ID","Username","USDT Amount","Type","Status","Date","Time"].map(h => (
-                          <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((r, i) => {
-                        const d    = new Date(r.createdAt)
-                        const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                        const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
-                        const amount = r.type === "buy" ? (r.amountUsdt ?? "—") : (r.usdtAmount ?? "—")
-                        return (
-                          <tr key={r.id} className={`border-b border-border/40 hover:bg-secondary/20 transition-colors ${i % 2 === 0 ? "" : "bg-secondary/10"}`}>
-                            <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[120px] truncate">{r.id}</td>
-                            <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate">{r.userId || "—"}</td>
-                            <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">{r.name || "—"}</td>
-                            <td className="py-3 px-4 font-semibold text-foreground whitespace-nowrap">{amount} USDT</td>
-                            <td className="py-3 px-4">
-                              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${r.type === "buy" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
-                                {r.type === "buy" ? "Buy" : "Sell"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium capitalize ${statusColor[r.status] ?? "bg-secondary text-foreground border-border"}`}>
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-muted-foreground whitespace-nowrap text-xs">{date}</td>
-                            <td className="py-3 px-4 text-muted-foreground whitespace-nowrap text-xs">{time}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-                )}
-              </>
-            )
-          })()}
-        </section>
-      )}
 
       <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
 
