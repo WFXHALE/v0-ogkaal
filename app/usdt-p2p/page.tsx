@@ -1591,45 +1591,31 @@ export default function UsdtP2PPage() {
             <h2 className="text-2xl font-bold text-foreground">Transaction History</h2>
           </div>
 
-          {/* Sub-tabs */}
-          <div className="flex gap-1 p-1 rounded-xl bg-secondary border border-border mb-6">
-            {(["pending", "completed", "cancelled"] as const).map(tab => {
-              const counts = {
-                pending:   historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length,
-                completed: historyRecords.filter(r => ["completed","approved"].includes(r.status)).length,
-                cancelled: historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length,
-              }
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setHistoryTab(tab)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <span className="capitalize">{tab}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                    tab === "pending"   ? "bg-amber-500/20 text-amber-400"     :
-                    tab === "completed" ? "bg-emerald-500/20 text-emerald-400" :
-                    "bg-red-500/20 text-red-400"
-                  }`}>{counts[tab]}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Table */}
+          {/* Table area */}
           {historyLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center justify-center py-24">
+              <div className="w-9 h-9 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : historyRecords.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border gap-4">
-              <Clock className="w-12 h-12 text-muted-foreground/30" />
-              <div className="text-center">
-                <p className="text-lg font-semibold text-foreground mb-1">No Trade History Yet</p>
-                <p className="text-sm text-muted-foreground max-w-xs">Your completed and pending USDT transactions will appear here once you make a trade.</p>
+            /* ── No data at all ── */
+            <div className="flex flex-col items-center justify-center py-24 rounded-2xl bg-card border border-border gap-5">
+              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
+                <History className="w-8 h-8 text-muted-foreground/50" />
+              </div>
+              <div className="text-center space-y-1.5">
+                <p className="text-xl font-bold text-foreground">No Trade History Yet</p>
+                <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+                  Your completed and pending USDT transactions will appear here once you make a trade.
+                </p>
               </div>
             </div>
           ) : (() => {
+            /* ── Records exist — show tabs + table ── */
+            const counts = {
+              pending:   historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length,
+              completed: historyRecords.filter(r => ["completed","approved"].includes(r.status)).length,
+              cancelled: historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length,
+            }
             const filtered = historyRecords.filter(r => {
               if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)
               if (historyTab === "completed") return ["completed","approved"].includes(r.status)
@@ -1647,17 +1633,34 @@ export default function UsdtP2PPage() {
               rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
             }
 
-            if (filtered.length === 0) {
-              return (
-                <div className="flex flex-col items-center justify-center py-16 rounded-xl bg-card border border-border gap-3">
-                  <Clock className="w-10 h-10 text-muted-foreground/40" />
-                  <p className="text-muted-foreground font-medium">No transactions found</p>
-                  <p className="text-sm text-muted-foreground/60">Your {historyTab} transactions will appear here.</p>
-                </div>
-              )
-            }
-
             return (
+              <>
+                {/* Sub-tabs — only shown when records exist */}
+                <div className="flex gap-1 p-1 rounded-xl bg-secondary border border-border mb-6">
+                  {(["pending", "completed", "cancelled"] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setHistoryTab(tab)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <span className="capitalize">{tab}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                        tab === "pending"   ? "bg-amber-500/20 text-amber-400"     :
+                        tab === "completed" ? "bg-emerald-500/20 text-emerald-400" :
+                        "bg-red-500/20 text-red-400"
+                      }`}>{counts[tab]}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Per-tab empty state */}
+                {filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 rounded-xl bg-card border border-border gap-3">
+                    <Clock className="w-10 h-10 text-muted-foreground/40" />
+                    <p className="text-muted-foreground font-medium">No {historyTab} transactions</p>
+                    <p className="text-sm text-muted-foreground/60">Your {historyTab} transactions will appear here.</p>
+                  </div>
+                ) : (
               <div className="rounded-xl bg-card border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -1699,6 +1702,8 @@ export default function UsdtP2PPage() {
                   </table>
                 </div>
               </div>
+                )}
+              </>
             )
           })()}
         </section>
