@@ -1,5 +1,3 @@
-"use client"
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app"
 import { getAnalytics, type Analytics }                       from "firebase/analytics"
 import { getMessaging, type Messaging }                       from "firebase/messaging"

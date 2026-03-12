@@ -376,6 +376,8 @@ export default function AdminPanel() {
     setIsAuthenticated(true)
     setIsLoading(false)
     loadData()
+    // Safety net: never leave the loading spinner visible more than 5s
+    const loadingTimeout = setTimeout(() => setIsLoading(false), 5000)
 
     // Load DB-backed settings in parallel; merge both into og_site_config so
     // useSiteConfig (and all frontend pages) gets the full picture immediately.
@@ -408,7 +410,7 @@ export default function AdminPanel() {
       .then(d => { if (d.ok) setDbStats(d.stats) })
       .catch(() => {})
 
-    return () => clearInterval(sessionInterval)
+    return () => { clearInterval(sessionInterval); clearTimeout(loadingTimeout) }
   }, [router, loadData])
 
   // ── Telegram helpers ─────────────────────────────────────────────────────────
@@ -2593,9 +2595,9 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex flex-col h-screen sticky top-0">
+      <div className="hidden lg:flex flex-col h-full shrink-0">
         <SidebarContent />
       </div>
 
@@ -2610,45 +2612,10 @@ export default function AdminPanel() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <Menu className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="font-bold text-foreground text-sm leading-tight">{NAV.find(n => n.key === activeSection)?.label || "Admin Panel"}</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">OG KAAL TRADER — Admin Panel</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={loadData} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Refresh">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button onClick={() => setActiveSection("notifications")} className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Notifications">
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>}
-            </button>
-            {/* Session countdown badge */}
-            {sessionSecsLeft !== null && (
-              <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold transition-colors ${
-                sessionSecsLeft <= 300
-                  ? "bg-red-500/10 border-red-500/30 text-red-400"
-                  : "bg-primary/10 border-primary/20 text-primary"
-              }`}>
-                <Clock className="w-3 h-3" />
-                {sessionSecsLeft >= 60
-                  ? `${Math.floor(sessionSecsLeft / 60)}m ${String(sessionSecsLeft % 60).padStart(2, "0")}s`
-                  : `${sessionSecsLeft}s`}
-              </div>
-            )}
-            <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors font-medium">
-              <LogOut className="w-4 h-4" /> Logout
-            </button>
-          </div>
-        </header>
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full">
+        <header className="shrink-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
 
-        <main className="flex-1 p-4 sm:p-6 overflow-auto">
+        <main className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
             {renderSection()}
           </div>
