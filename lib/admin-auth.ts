@@ -275,8 +275,9 @@ export async function loginWithSecretKey(
     }
   }
 
-  // Key correct — create session immediately, log in background
-  createSession("sheikhahmed2724@gmail.com")
+  // Key correct — MUST await createSession so localStorage is written before
+  // router.push("/admin") fires and isSessionValid() is checked.
+  await createSession("sheikhahmed2724@gmail.com")
   resetLoginAttempts()
   addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key").catch(() => {})
   return { success: true }
@@ -309,7 +310,7 @@ export async function loginWithGoogle(
     return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
-  createSession(email)
+  await createSession(email)
   resetLoginAttempts()
   addSecurityLog("login_success", email, "Login via Google").catch(() => {})
   return { success: true }
