@@ -6,8 +6,6 @@ export async function POST(request: Request) {
   const correctKey = process.env.ADMIN_SECRET_KEY
 
   if (!correctKey) {
-    // Log all env var keys to help diagnose missing variable in production
-    console.error("[v0] ADMIN_SECRET_KEY is not set. Available env keys:", Object.keys(process.env).filter(k => k.startsWith("ADMIN") || k.startsWith("NEXT")))
     return NextResponse.json(
       { success: false, error: "Admin secret key is not configured on the server." },
       { status: 500 },
