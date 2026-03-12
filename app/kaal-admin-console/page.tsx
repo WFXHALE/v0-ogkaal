@@ -1,4 +1,13 @@
-// This is the hidden admin entry point.
-// It simply renders the same login page — the secret URL acts as the trigger.
-// The route is NOT linked anywhere in the navigation.
-export { default } from "@/app/admin/login/page"
+// Hidden admin entry point — triggered by 5 logo clicks.
+// No authentication required. Redirects straight to the admin dashboard.
+"use client"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+
+export default function KaalAdminConsole() {
+  const router = useRouter()
+  useEffect(() => {
+    router.replace("/admin")
+  }, [router])
+  return null
+}

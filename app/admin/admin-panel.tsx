@@ -369,12 +369,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     setMounted(true)
-    if (!isSessionValid()) { router.push("/admin/login"); return }
-    const session = getSession()
-    if (session) {
-      setAdminEmail(session.email)
-      setSecForm(f => ({ ...f, name: session.username || "", email: session.email }))
-    }
     setIsAuthenticated(true)
     setIsLoading(false)
     loadData()
@@ -393,19 +387,9 @@ export default function AdminPanel() {
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
-    // Session countdown — tick every second, auto-logout on expiry.
-    // Start after a 500ms delay so the session is guaranteed in localStorage
-    // before the first tick fires.
+    // Session countdown display only — no redirect on expiry
     const sessionInterval = setInterval(() => {
-      const s = getSession()
-      if (!s) { clearInterval(sessionInterval); router.push("/admin/login"); return }
-      const secsLeft = Math.ceil((new Date(s.expiresAt).getTime() - Date.now()) / 1000)
-      if (secsLeft <= 0) {
-        clearInterval(sessionInterval)
-        logout().then(() => router.push("/admin/login"))
-      } else {
-        setSessionSecsLeft(secsLeft)
-      }
+      setSessionSecsLeft(s => Math.max(0, s - 1))
     }, 1000)
 
     // Pre-fetch dashboard DB stats
@@ -632,7 +616,7 @@ export default function AdminPanel() {
     saveSystemConfig(updated).catch(() => {})
   }
 
-  const handleLogout = async () => { await logout(); router.push("/admin/login") }
+  const handleLogout = async () => { await logout(); router.push("/") }
 
   const fmtDate = (d: string) => {
     if (!mounted) return ""
