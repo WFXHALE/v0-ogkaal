@@ -17,6 +17,9 @@ export async function signInWithGoogle(): Promise<
   | { success: true; user: DashboardSession; isNew: boolean }
   | { success: false; error: string }
 > {
+  if (!auth) {
+    return { success: false, error: "Google sign-in is not available on this domain. Please use email/password to sign in." }
+  }
   try {
     const provider = new GoogleAuthProvider()
     provider.addScope("email")

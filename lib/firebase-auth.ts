@@ -148,6 +148,7 @@ export async function firebaseSignUp(opts: {
   phone: string
   level: TraderLevel
 }): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Authentication is not available. Please try again later." }
   try {
     let cred: UserCredential
     try {
@@ -176,6 +177,7 @@ export async function firebaseSignIn(opts: {
   email: string
   password: string
 }): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Authentication is not available. Please try again later." }
   try {
     let cred: UserCredential
     try {
@@ -227,6 +229,7 @@ export async function firebaseSignIn(opts: {
  * Sign in / sign up with Google popup.
  */
 export async function firebaseSignInWithGoogle(): Promise<FirebaseAuthResult> {
+  if (!auth) return { ok: false, error: "Google sign-in is not available on this domain. Please use email/password instead." }
   try {
     const provider = new GoogleAuthProvider()
     provider.addScope("email")

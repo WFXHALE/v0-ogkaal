@@ -26,8 +26,16 @@ const firebaseConfig = {
 export const app: FirebaseApp =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
-export const auth: Auth = getAuth(app)
+// auth is browser-only — getAuth throws on unauthorized domains during server
+// rendering and during the session-restore ping. Wrap so it never crashes the page.
+let _auth: Auth | null = null
+try { _auth = getAuth(app) } catch { _auth = null }
+export const auth: Auth = _auth as Auth
+
 export const googleProvider = new GoogleAuthProvider()
+googleProvider.addScope("email")
+googleProvider.addScope("profile")
+googleProvider.setCustomParameters({ prompt: "select_account" })
 
 // Analytics and Messaging are browser-only
 let _analytics: Analytics | null = null
