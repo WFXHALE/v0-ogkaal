@@ -21,20 +21,33 @@ export async function GET() {
     if (!res.ok) throw new Error("CryptoCompare news failed")
     const json = await res.json()
 
-    const data = (json.Data ?? []).slice(0, 10).map(
-      (item: { id: string; title: string; source: string; published_on: number; url: string }, i: number) => ({
+    // CryptoCompare v2 wraps the array at json.Data — guard against both
+    // response shapes (array directly, or object with a nested Data array)
+    const raw: unknown = json.Data
+    const items: unknown[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray((raw as Record<string, unknown>)?.Data)
+        ? (raw as Record<string, unknown[]>).Data
+        : []
+
+    const data = items.slice(0, 10).map(
+      (unknown_item: unknown, i: number) => {
+        const item = unknown_item as { id?: string; title?: string; source?: string; published_on?: number; url?: string }
+        return ({
         id: item.id ?? `n-${i}`,
-        headline: item.title,
-        source: item.source,
-        time: new Date(item.published_on * 1000).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Kolkata",
-        }),
-        impact: sentiment(item.title),
+        headline: item.title ?? "",
+        source: item.source ?? "Unknown",
+        time: item.published_on
+          ? new Date(item.published_on * 1000).toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Asia/Kolkata",
+            })
+          : "Live",
+        impact: sentiment(item.title ?? ""),
         category: "Crypto",
-        url: item.url,
-      })
+        url: item.url ?? "",
+      })}
     )
 
     return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
