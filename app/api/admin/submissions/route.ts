@@ -4,8 +4,11 @@ import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
 // Use the service role key for all admin-submissions writes so they always
 // bypass RLS and succeed regardless of auth state.
 function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error(`Missing Supabase env vars: url=${!!url} key=${!!key}`)
+  }
   return _createSupabaseClient(url, key, { auth: { persistSession: false } })
 }
 
@@ -40,8 +43,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").insert({
-      type:           body.type,
-      name:           body.name,
+      type:           body.type           ?? null,
+      name:           body.name           ?? null,
       email:          body.email          ?? null,
       phone:          body.phone          ?? null,
       telegram:       body.telegram       ?? null,
@@ -54,9 +57,10 @@ export async function POST(req: NextRequest) {
       inr_equivalent: body.inr_equivalent ?? null,
       amount_paid:    body.amount_paid    ?? null,
       screenshot_url: body.screenshot_url ?? null,
-      payment_method: body.paymentMethod  ?? null,
+      payment_method: body.payment_method ?? body.paymentMethod ?? null,
       amount:         body.amount         ?? null,
-      user_id:        body.userId         ?? null,
+      utr:            body.utr            ?? null,
+      user_id:        body.user_id        ?? body.userId ?? null,
     })
     if (error) {
       const msg = error.message ?? error.details ?? JSON.stringify(error)
