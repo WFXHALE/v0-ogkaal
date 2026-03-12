@@ -241,12 +241,26 @@ export async function loginWithSecretKey(
     return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
   }
 
-  const correctKey = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || ""
-  if (!correctKey) {
-    return { success: false, error: "Admin secret key is not configured. Set ADMIN_SECRET_KEY in project environment variables." }
+  // Verify the key server-side so ADMIN_SECRET_KEY (no NEXT_PUBLIC_ prefix) is
+  // never exposed in the client bundle.
+  let serverVerified = false
+  let serverError: string | undefined
+  try {
+    const res = await fetch("/api/admin/verify-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key.trim() }),
+    })
+    if (res.status === 500) {
+      const data = await res.json()
+      return { success: false, error: data.error ?? "Server configuration error." }
+    }
+    serverVerified = res.ok
+  } catch {
+    return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
-  if (key.trim() !== correctKey.trim()) {
+  if (!serverVerified) {
     const r = recordFailedAttempt()
     await addSecurityLog("login_failed", "admin", "Invalid secret key")
     if (r.locked) {
