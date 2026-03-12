@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { loginWithSecretKey, loginWithGoogle, isSessionValid, isAccountLocked } from "@/lib/admin-auth"
-import { signInWithGoogle } from "@/lib/google-auth"
+// google-auth is imported dynamically inside handleGoogleLogin so Firebase never
+// loads at module time — prevents auth/unauthorized-domain crashing the page.
 
 // ─── Water drop animation ─────────────────────────────────────────────────────
 // Phases: "drop1" → shows "OG"
@@ -258,8 +259,17 @@ export default function AdminLoginPage() {
     setError("")
     setGoogleLoading(true)
 
-    // Step 1: sign in with Firebase Google popup
-    const googleResult = await signInWithGoogle()
+    // Step 1: sign in with Firebase Google popup — dynamically imported so
+    // Firebase never loads at module time and can't crash the secret-key form.
+    let googleResult: Awaited<ReturnType<typeof import("@/lib/google-auth").signInWithGoogle>>
+    try {
+      const { signInWithGoogle } = await import("@/lib/google-auth")
+      googleResult = await signInWithGoogle()
+    } catch {
+      setError("Google sign-in failed. Please use the secret key instead.")
+      setGoogleLoading(false)
+      return
+    }
     if (!googleResult.success || !("user" in googleResult)) {
       setError((googleResult as { error?: string }).error ?? "Google sign-in failed.")
       setGoogleLoading(false)

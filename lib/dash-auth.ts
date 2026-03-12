@@ -363,10 +363,13 @@ export async function registerDashboardUser(params: {
     .single()
 
   if (error || !data) {
-    // Surface the actual constraint violation if any
-    const msg = error?.message ?? ""
-    if (msg.includes("email"))   return { success: false, error: "Email already registered." }
-    if (msg.includes("user_id")) return { success: false, error: "User ID already taken." }
+    const msg = error?.message ?? error?.details ?? ""
+    console.error("[registerDashboardUser] insert error:", error)
+    if (msg.includes("email"))           return { success: false, error: "Email already registered." }
+    if (msg.includes("user_id"))         return { success: false, error: "User ID already taken." }
+    if (msg.includes("duplicate"))       return { success: false, error: "An account with this User ID or email already exists." }
+    if (msg.includes("violates"))        return { success: false, error: "Registration failed: " + msg }
+    if (msg)                             return { success: false, error: msg }
     return { success: false, error: "Registration failed. Please try again." }
   }
 
