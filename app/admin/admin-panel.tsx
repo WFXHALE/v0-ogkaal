@@ -310,22 +310,22 @@ export default function AdminPanel() {
     } else if (activeSection === "notifications") {
       fetch("/api/admin/notifications")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setNotifications(d.data) })
+        .then(d => { if (d.ok) setNotifications(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "payment-verification") {
       fetch("/api/admin/submissions")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setSubmissions(d.data) })
+        .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "usdt-buy") {
       fetch("/api/admin/usdt-buy")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setUsdtBuy(d.data) })
+        .then(d => { if (d.ok) setUsdtBuy(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "usdt-sell") {
       fetch("/api/admin/usdt-sell")
         .then(r => r.json())
-        .then(d => { if (d.ok && d.data?.length > 0) setUsdtSell(d.data) })
+        .then(d => { if (d.ok) setUsdtSell(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "members") {
       // Also pull live users from Supabase to merge with localStorage demo data

@@ -24,9 +24,10 @@ import {
   FileCheck,
   HelpCircle,
 } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { UsdtHelpModal } from "@/components/usdt-help-modal"
+import { Clock, History } from "lucide-react"
 
 const TELEGRAM_LINK = "https://t.me/ogkaaltrader"
 
@@ -65,11 +66,43 @@ const PAYMENT_DETAILS = {
   }
 }
 
+type HistoryRecord = {
+  id: string
+  userId: string
+  name: string
+  amountUsdt?: string
+  usdtAmount?: string
+  status: string
+  createdAt: string
+  type: "buy" | "sell"
+}
+
 export default function UsdtP2PPage() {
-  const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
+  const [activeTab, setActiveTab] = useState<"buy" | "sell" | "history">("buy")
   const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
+
+  // History state
+  const [historyRecords, setHistoryRecords]       = useState<HistoryRecord[]>([])
+  const [historyLoading, setHistoryLoading]       = useState(false)
+  const [historyTab, setHistoryTab]               = useState<"pending" | "completed" | "cancelled">("pending")
+
+  useEffect(() => {
+    if (activeTab !== "history") return
+    setHistoryLoading(true)
+    Promise.all([
+      fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+    ]).then(([buyRes, sellRes]) => {
+      const buys:  HistoryRecord[] = (buyRes.ok  ? buyRes.data  ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "buy"  as const }))
+      const sells: HistoryRecord[] = (sellRes.ok ? sellRes.data ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "sell" as const }))
+      const all = [...buys, ...sells].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      setHistoryRecords(all)
+    }).finally(() => setHistoryLoading(false))
+  }, [activeTab])
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
@@ -227,12 +260,12 @@ export default function UsdtP2PPage() {
               </p>
             </div>
 
-            {/* Buy/Sell Tabs */}
+            {/* Buy/Sell/History Tabs */}
             <div className="max-w-2xl mx-auto mb-8">
               <div className="flex rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
-                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                     activeTab === "buy"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -242,13 +275,24 @@ export default function UsdtP2PPage() {
                 </button>
                 <button
                   onClick={() => { setActiveTab("sell"); setStep(0); setIsComplete(false); }}
-                  className={`flex-1 py-3 px-6 rounded-lg font-semibold text-sm transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
                     activeTab === "sell"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Sell USDT
+                </button>
+                <button
+                  onClick={() => setActiveTab("history")}
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                    activeTab === "history"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  History
                 </button>
               </div>
             </div>
@@ -1538,6 +1582,119 @@ export default function UsdtP2PPage() {
           </p>
         </div>
       </section>
+
+      {/* History Tab View */}
+      {activeTab === "history" && (
+        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="flex items-center gap-3 mb-6">
+            <History className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold text-foreground">Transaction History</h2>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="flex gap-1 p-1 rounded-xl bg-secondary border border-border mb-6">
+            {(["pending", "completed", "cancelled"] as const).map(tab => {
+              const counts = {
+                pending:   historyRecords.filter(r => ["pending","accepted","processing"].includes(r.status)).length,
+                completed: historyRecords.filter(r => ["completed","approved"].includes(r.status)).length,
+                cancelled: historyRecords.filter(r => ["cancelled","rejected"].includes(r.status)).length,
+              }
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setHistoryTab(tab)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors ${historyTab === tab ? "bg-background text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <span className="capitalize">{tab}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                    tab === "pending"   ? "bg-amber-500/20 text-amber-400"     :
+                    tab === "completed" ? "bg-emerald-500/20 text-emerald-400" :
+                    "bg-red-500/20 text-red-400"
+                  }`}>{counts[tab]}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Table */}
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (() => {
+            const filtered = historyRecords.filter(r => {
+              if (historyTab === "pending")   return ["pending","accepted","processing"].includes(r.status)
+              if (historyTab === "completed") return ["completed","approved"].includes(r.status)
+              if (historyTab === "cancelled") return ["cancelled","rejected"].includes(r.status)
+              return true
+            })
+
+            const statusColor: Record<string, string> = {
+              pending:    "bg-amber-500/10 text-amber-400 border-amber-500/30",
+              accepted:   "bg-blue-500/10 text-blue-400 border-blue-500/30",
+              processing: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+              completed:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+              approved:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+              cancelled:  "bg-red-500/10 text-red-400 border-red-500/30",
+              rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+            }
+
+            if (filtered.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-16 rounded-xl bg-card border border-border gap-3">
+                  <Clock className="w-10 h-10 text-muted-foreground/40" />
+                  <p className="text-muted-foreground font-medium">No transactions found</p>
+                  <p className="text-sm text-muted-foreground/60">Your {historyTab} transactions will appear here.</p>
+                </div>
+              )
+            }
+
+            return (
+              <div className="rounded-xl bg-card border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/40">
+                        {["Transaction ID","User ID","Username","USDT Amount","Type","Status","Date","Time"].map(h => (
+                          <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((r, i) => {
+                        const d    = new Date(r.createdAt)
+                        const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                        const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+                        const amount = r.type === "buy" ? (r.amountUsdt ?? "—") : (r.usdtAmount ?? "—")
+                        return (
+                          <tr key={r.id} className={`border-b border-border/40 hover:bg-secondary/20 transition-colors ${i % 2 === 0 ? "" : "bg-secondary/10"}`}>
+                            <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[120px] truncate">{r.id}</td>
+                            <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[100px] truncate">{r.userId || "—"}</td>
+                            <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">{r.name || "—"}</td>
+                            <td className="py-3 px-4 font-semibold text-foreground whitespace-nowrap">{amount} USDT</td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${r.type === "buy" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>
+                                {r.type === "buy" ? "Buy" : "Sell"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium capitalize ${statusColor[r.status] ?? "bg-secondary text-foreground border-border"}`}>
+                                {r.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground whitespace-nowrap text-xs">{date}</td>
+                            <td className="py-3 px-4 text-muted-foreground whitespace-nowrap text-xs">{time}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
+        </section>
+      )}
 
       <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
 
