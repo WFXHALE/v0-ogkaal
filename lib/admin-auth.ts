@@ -244,20 +244,31 @@ export async function loginWithSecretKey(
   // Verify the key server-side so ADMIN_SECRET_KEY (no NEXT_PUBLIC_ prefix) is
   // never exposed in the client bundle.
   let serverVerified = false
-  let serverError: string | undefined
   try {
-    const res = await fetch("/api/admin/verify-key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key.trim() }),
-    })
+    const controller = new AbortController()
+    const timeoutId  = setTimeout(() => controller.abort(), 10_000) // 10s hard timeout
+    let res: Response
+    try {
+      res = await fetch("/api/admin/verify-key", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ key: key.trim() }),
+        signal:  controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
     if (res.status === 500) {
       const data = await res.json()
+      if (!process.env.ADMIN_SECRET_KEY) {
+        console.error("ADMIN_SECRET_KEY environment variable missing.")
+      }
       return { success: false, error: data.error ?? "Server configuration error." }
     }
     serverVerified = res.ok
-  } catch {
-    return { success: false, error: "Network error — could not reach the server. Please try again." }
+  } catch (err: unknown) {
+    const isTimeout = err instanceof Error && err.name === "AbortError"
+    return { success: false, error: isTimeout ? "Verification timed out. Please try again." : "Network error — could not reach the server. Please try again." }
   }
 
   if (!serverVerified) {
