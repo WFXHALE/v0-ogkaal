@@ -352,15 +352,27 @@ export async function resetPassword(
 // ─── Session management ───────────────────────────────────────────────────────
 
 async function createSession(email: string): Promise<void> {
-  const { ip, location } = await getIPAndLocation()
+  // Write session immediately so login is never blocked by the IP lookup.
   const session: AdminSession = {
     email,
     loginTime: new Date().toISOString(),
     expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
-    ipAddress: ip,
-    location,
+    ipAddress: "Unknown",
+    location:  "Unknown",
   }
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
+
+  // Enrich with IP/location in the background — failure is silently ignored.
+  getIPAndLocation().then(({ ip, location }) => {
+    try {
+      const stored: AdminSession = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || "null")
+      if (stored && stored.email === email) {
+        stored.ipAddress = ip
+        stored.location  = location
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored))
+      }
+    } catch { /* ignore */ }
+  }).catch(() => { /* ignore */ })
 }
 
 export function isSessionValid(): boolean {
