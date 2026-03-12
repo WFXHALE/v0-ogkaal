@@ -1,7 +1,7 @@
 "use client"
 
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth"
-import { app } from "./firebase"
+import { GoogleAuthProvider, signInWithPopup, signOut, getAuth } from "firebase/auth"
+import { app, auth } from "./firebase"
 import { createClient } from "./supabase/client"
 import { Analytics, identifyUser } from "./analytics"
 import type { DashboardSession } from "./dash-auth"
@@ -18,10 +18,10 @@ export async function signInWithGoogle(): Promise<
   | { success: false; error: string }
 > {
   try {
-    const auth     = getAuth(app)
     const provider = new GoogleAuthProvider()
     provider.addScope("email")
     provider.addScope("profile")
+    provider.setCustomParameters({ prompt: "select_account" })
 
     const result  = await signInWithPopup(auth, provider)
     const gUser   = result.user
@@ -101,12 +101,19 @@ export async function signInWithGoogle(): Promise<
 
     return { success: true, user: session, isNew }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Google sign-in failed."
-    // User cancelled popup — don't surface as error
-    if (msg.includes("popup-closed-by-user") || msg.includes("cancelled")) {
+    const code = (err as { code?: string })?.code ?? ""
+    const msg  = err instanceof Error ? err.message : ""
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request" ||
+        msg.includes("popup-closed-by-user") || msg.includes("cancelled")) {
       return { success: false, error: "Sign-in cancelled." }
     }
-    return { success: false, error: msg }
+    if (code === "auth/unauthorized-domain" || msg.includes("unauthorized-domain")) {
+      return { success: false, error: "Google sign-in is not available on this domain. Please use email/password to sign in." }
+    }
+    if (code === "auth/api-key-not-valid" || msg.includes("api-key-not-valid")) {
+      return { success: false, error: "Login temporarily unavailable, please try again." }
+    }
+    return { success: false, error: "Google sign-in failed. Please try again." }
   }
 }
 
