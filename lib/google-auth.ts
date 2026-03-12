@@ -56,28 +56,22 @@ export async function signInWithGoogle(): Promise<
       const { data: inserted, error: insErr } = await supabase
         .from("dashboard_users")
         .insert({
-          user_id:    userId,
+          user_id:       userId,
           email,
-          full_name:  name,
-          google_uid: gUser.uid,
-          numeric_uid: numericUid,
+          full_name:     name,
+          numeric_uid:   numericUid,
           password_hash: "", // no password for Google users
-          is_verified: true,
-          kyc_status:  "none",
+          is_verified:   true,
+          kyc_status:    "none",
         })
         .select("*")
         .single()
 
       if (insErr || !inserted) {
+        console.error("User creation error:", insErr)
         return { success: false, error: "Failed to create account. Please try again." }
       }
       row = inserted
-    } else if (!row.google_uid) {
-      // Link existing account to Google
-      await supabase
-        .from("dashboard_users")
-        .update({ google_uid: gUser.uid })
-        .eq("id", row.id)
     }
 
     const session: DashboardSession = {

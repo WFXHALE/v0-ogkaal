@@ -76,13 +76,6 @@ async function syncToSupabase(opts: {
 
   if (existing && existing.length > 0) {
     const row = existing[0] as Record<string, unknown>
-    // Update firebase_uid if not yet set
-    if (!row.firebase_uid) {
-      await sb
-        .from("community_users")
-        .update({ firebase_uid: opts.firebaseUid })
-        .eq("id", row.id as string)
-    }
     const user: CommunityUser = {
       id:        row.id        as string,
       fullName:  row.full_name as string,
@@ -112,17 +105,20 @@ async function syncToSupabase(opts: {
     createdAt: now,
   }
 
-  await sb.from("community_users").insert({
+  const { error: insertErr } = await sb.from("community_users").insert({
     id,
-    full_name:    opts.fullName,
-    email:        opts.email.toLowerCase(),
-    phone:        opts.phone,
-    level:        opts.level,
+    full_name:  opts.fullName,
+    email:      opts.email.toLowerCase(),
+    phone:      opts.phone,
+    level:      opts.level,
     avatar,
-    is_admin:     false,
-    firebase_uid: opts.firebaseUid,
-    created_at:   now,
+    is_admin:   false,
+    created_at: now,
   })
+  if (insertErr) {
+    console.error("User creation error:", insertErr)
+    throw new Error(insertErr.message)
+  }
 
   setSession(newUser)
   return newUser
