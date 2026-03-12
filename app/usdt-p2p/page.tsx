@@ -83,6 +83,24 @@ export default function UsdtP2PPage() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
 
+  // Live simulated exchange rate — random between 100–120, updates every 5–10s
+  const [exchangeRate, setExchangeRate] = useState<number>(() => Math.floor(Math.random() * 21) + 100)
+  const [rateFlash, setRateFlash]       = useState(false)
+
+  useEffect(() => {
+    const schedule = () => {
+      const delay = Math.floor(Math.random() * 5000) + 5000 // 5000–10000 ms
+      return setTimeout(() => {
+        setExchangeRate(Math.floor(Math.random() * 21) + 100)
+        setRateFlash(true)
+        setTimeout(() => setRateFlash(false), 600)
+        timerId.current = schedule()
+      }, delay)
+    }
+    const timerId = { current: schedule() }
+    return () => clearTimeout(timerId.current)
+  }, [])
+
   // History state
   const [historyRecords, setHistoryRecords]       = useState<HistoryRecord[]>([])
   const [historyLoading, setHistoryLoading]       = useState(false)
@@ -432,12 +450,22 @@ export default function UsdtP2PPage() {
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Internet USDT Rate</p>
-                        <p className="text-2xl font-bold text-foreground">₹91</p>
+                        <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
+                        <p
+                          className="text-2xl font-bold text-foreground transition-all duration-500"
+                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                        >
+                          ₹{exchangeRate}
+                        </p>
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
-                        <p className="text-sm text-primary mb-1">Our P2P Rate</p>
-                        <p className="text-2xl font-bold text-primary">₹93 – ₹94</p>
+                        <p className="text-sm text-primary mb-1">Your P2P Rate</p>
+                        <p
+                          className="text-2xl font-bold text-primary transition-all duration-500"
+                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                        >
+                          ₹{exchangeRate - 5}
+                        </p>
                       </div>
                     </div>
 
