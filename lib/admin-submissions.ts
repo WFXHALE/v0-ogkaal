@@ -140,9 +140,17 @@ export async function saveSubmission(data: SubmissionData): Promise<void> {
   const ipInfo = await getIpInfo()
   const location = [ipInfo.city, ipInfo.region, ipInfo.country].filter(Boolean).join(", ") || "Unknown"
 
-  // Write directly to Supabase admin_submissions table via server API route
+  // Write directly to Supabase admin_submissions table via server API route.
+  // Use an absolute URL so this works correctly whether called from client or SSR.
+  const baseUrl =
+    typeof window !== "undefined"
+      ? ""  // browser — relative URL is fine
+      : (process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+          ? `https://${process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL}`
+          : "http://localhost:3000")
+
   try {
-    await fetch("/api/admin/submissions", {
+    const res = await fetch(`${baseUrl}/api/admin/submissions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -162,8 +170,12 @@ export async function saveSubmission(data: SubmissionData): Promise<void> {
         screenshot_url:  String(data.details.screenshotUrl ?? ""),
       }),
     })
-  } catch {
-    // Silent — never block user flow
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => res.statusText)
+      console.error("[saveSubmission] API error:", res.status, errBody)
+    }
+  } catch (err) {
+    console.error("[saveSubmission] fetch failed:", err)
   }
 
   // Fire Telegram admin alert in parallel (fire-and-forget)

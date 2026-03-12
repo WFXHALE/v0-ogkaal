@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Protected admin routes — redirect to the hidden console if no session cookie
+const ADMIN_ROUTES = ['/admin', '/admin/dashboard', '/admin/users', '/admin/payments']
+const ADMIN_LOGIN_PATHS = ['/admin/login', '/kaal-admin-console']
+
+function isAdminAuthenticated(request: NextRequest): boolean {
+  // The session cookie is set by createSession() in admin-auth.ts
+  const cookie = request.cookies.get('admin_session')
+  return !!cookie?.value
+}
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Protect /admin/* (but not login page) and /kaal-admin-console itself is always accessible
+  const isProtectedAdmin =
+    ADMIN_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))
+
+  if (isProtectedAdmin && !isAdminAuthenticated(request)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/kaal-admin-console'
+    return NextResponse.redirect(url)
+  }
+
   const response = NextResponse.next()
 
   // Add cache headers for static assets
