@@ -236,7 +236,8 @@ export async function loginWithSecretKey(
 
   const lock = isAccountLocked()
   if (lock.locked) {
-    await addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts")
+    // fire-and-forget — never block the return on IP lookup
+    addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts").catch(() => {})
     const hours = lock.remainingSeconds ? Math.ceil(lock.remainingSeconds / 3600) : 24
     return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
   }
@@ -262,7 +263,8 @@ export async function loginWithSecretKey(
 
   if (!serverVerified) {
     const r = recordFailedAttempt()
-    await addSecurityLog("login_failed", "admin", "Invalid secret key")
+    // fire-and-forget — never block the return on IP lookup
+    addSecurityLog("login_failed", "admin", "Invalid secret key").catch(() => {})
     if (r.locked) {
       return { success: false, error: "Invalid Key – Access Denied. Account blocked for 24 hours." }
     }
@@ -273,10 +275,10 @@ export async function loginWithSecretKey(
     }
   }
 
-  // Key correct — create session
-  await createSession("sheikhahmed2724@gmail.com")
+  // Key correct — create session immediately, log in background
+  createSession("sheikhahmed2724@gmail.com")
   resetLoginAttempts()
-  await addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key")
+  addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key").catch(() => {})
   return { success: true }
 }
 
@@ -297,7 +299,7 @@ export async function loginWithGoogle(
     const data = await res.json()
 
     if (res.status === 403) {
-      await addSecurityLog("login_failed", email, "Google login — email not authorised")
+      addSecurityLog("login_failed", email, "Google login — email not authorised").catch(() => {})
       return { success: false, error: "Access Denied", accessDenied: true }
     }
     if (!res.ok) {
@@ -307,9 +309,9 @@ export async function loginWithGoogle(
     return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
-  await createSession(email)
+  createSession(email)
   resetLoginAttempts()
-  await addSecurityLog("login_success", email, "Login via Google")
+  addSecurityLog("login_success", email, "Login via Google").catch(() => {})
   return { success: true }
 }
 
