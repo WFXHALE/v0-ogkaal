@@ -38,6 +38,7 @@ import {
   listIndicators, createIndicator, updateIndicator, deleteIndicator,
 } from "@/lib/indicators-store"
 import type { Indicator, IndicatorCategory } from "@/lib/indicators-store"
+import { AdminDataManagement } from "./admin-data-management"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ type Section =
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
   | "signals" | "memberships" | "performance" | "indicators"
-  | "analytics"
+  | "analytics" | "data"
 
 interface Submission {
   id: string
@@ -138,6 +139,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "security",             label: "Security Settings",    icon: Lock           },
   { key: "logs",                 label: "Admin Logs",           icon: Activity       },
   { key: "analytics",           label: "Analytics",            icon: BarChart2,      group: "Insights" },
+  { key: "data",                label: "Data",                 icon: Folder,         group: "Data" },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -868,6 +870,16 @@ export default function AdminPanel() {
             </button>
           )
         })}
+
+        {/* DATA section */}
+        <div className="pt-1 border-t border-border" />
+        <p className="px-3 pt-2 pb-1 text-xs font-bold text-muted-foreground uppercase tracking-widest">Data</p>
+        <button onClick={() => { setActiveSection("data"); setSidebarOpen(false) }}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${activeSection === "data" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+          <Folder className="w-4 h-4 shrink-0" />
+          Data Management
+          {activeSection === "data" && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+        </button>
 
         <div className="pt-1 border-t border-border" />
 
@@ -2590,6 +2602,7 @@ export default function AdminPanel() {
       case "performance":          return renderPerformanceManager()
       case "indicators":           return renderIndicators()
       case "analytics":            return renderAnalytics()
+      case "data":                 return <AdminDataManagement />
       default:                     return renderDashboard()
     }
   }
