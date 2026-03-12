@@ -56,13 +56,17 @@ export async function POST(req: NextRequest) {
       screenshot_url: body.screenshot_url ?? null,
       payment_method: body.paymentMethod  ?? null,
       amount:         body.amount         ?? null,
-      utr:            body.utr            ?? null,
       user_id:        body.userId         ?? null,
     })
-    if (error) throw error
+    if (error) {
+      const msg = error.message ?? error.details ?? JSON.stringify(error)
+      console.error("[submissions POST] Supabase error:", msg)
+      return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    const msg = err instanceof Error ? err.message : JSON.stringify(err)
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }
 
@@ -74,10 +78,10 @@ export async function GET() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true, data: (data ?? []).map(normalize) })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }
 
@@ -87,10 +91,10 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").delete().eq("id", id)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }
 
@@ -104,9 +108,9 @@ export async function PATCH(req: NextRequest) {
     }
     const supabase = createServiceClient()
     const { error } = await supabase.from("admin_submissions").update({ status }).eq("id", id)
-    if (error) throw error
+    if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : JSON.stringify(err) }, { status: 500 })
   }
 }
