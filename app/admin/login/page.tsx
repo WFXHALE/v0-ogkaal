@@ -293,6 +293,9 @@ export default function AdminLoginPage() {
 
     const result = await loginWithSecretKey(secretKey.trim())
 
+    // Always reset loading state first so the button never stays stuck
+    setIsLoading(false)
+
     if (result.success) {
       router.push("/admin")
     } else {
@@ -302,8 +305,6 @@ export default function AdminLoginPage() {
       }
       setSecretKey("")
     }
-
-    setIsLoading(false)
   }
 
   return (
