@@ -83,22 +83,28 @@ export default function UsdtP2PPage() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
 
-  // Live simulated exchange rate — random between 100–120, updates every 5–10s
-  const [exchangeRate, setExchangeRate] = useState<number>(() => Math.floor(Math.random() * 21) + 100)
-  const [rateFlash, setRateFlash]       = useState(false)
+  // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
+  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+    const base = Math.floor(Math.random() * 16) + 105 // 105–120
+    return base
+  })
+  const [rateFlash, setRateFlash] = useState(false)
+
+  // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
+  const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
 
   useEffect(() => {
-    const schedule = () => {
-      const delay = Math.floor(Math.random() * 5000) + 5000 // 5000–10000 ms
-      return setTimeout(() => {
-        setExchangeRate(Math.floor(Math.random() * 21) + 100)
-        setRateFlash(true)
-        setTimeout(() => setRateFlash(false), 600)
-        timerId.current = schedule()
-      }, delay)
-    }
-    const timerId = { current: schedule() }
-    return () => clearTimeout(timerId.current)
+    const FIFTEEN_MINUTES = 15 * 60 * 1000
+    const id = setInterval(() => {
+      setExchangeRate(prev => {
+        const delta = Math.random() < 0.5 ? -2 : 2
+        const next  = Math.min(120, Math.max(105, prev + delta))
+        return next
+      })
+      setRateFlash(true)
+      setTimeout(() => setRateFlash(false), 600)
+    }, FIFTEEN_MINUTES)
+    return () => clearInterval(id)
   }, [])
 
   // History state
@@ -221,11 +227,9 @@ export default function UsdtP2PPage() {
     setIsComplete(true)
   }
 
-  // Calculate payment amount
-  const usdtAmount = Number(formData.usdtAmount) || 0
-  const rate = usdtAmount < 50 ? 117.5 : 93.5
-  const rateDisplay = usdtAmount < 50 ? "₹115 - ₹120" : "₹93 - ₹94"
-  const totalAmount = usdtAmount * rate
+  // Calculate payment amount — always uses live p2pRate
+  const usdtAmount  = Number(formData.usdtAmount) || 0
+  const totalAmount = usdtAmount * p2pRate
 
   // Validation for each step
   const canProceedStep1 = formData.fullName && formData.email && formData.phone && formData.usdtAmount
@@ -234,16 +238,9 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT pricing tiers
-  const getSellRate = (amount: number): { min: number; max: number } => {
-    if (amount < 50) return { min: 90, max: 90 }
-    return { min: 92, max: 93 }
-  }
-
-  const sellAmount = Number(sellUsdtAmount) || 0
-  const sellRateRange = getSellRate(sellAmount)
-  const sellTotalINRMin = sellAmount * sellRateRange.min
-  const sellTotalINRMax = sellAmount * sellRateRange.max
+  // Sell USDT — uses live p2pRate
+  const sellAmount      = Number(sellUsdtAmount) || 0
+  const sellTotalINR    = sellAmount * p2pRate
 
   // Step labels for progress indicator
   const stepLabels = [
@@ -550,7 +547,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹92–₹93 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹{p2pRate} <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -603,20 +600,12 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">{sellAmount} USDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Applicable Rate:</span>
-                          <span className="text-foreground font-medium">
-                            {sellRateRange.min === sellRateRange.max 
-                              ? `₹${sellRateRange.min}` 
-                              : `₹${sellRateRange.min}���₹${sellRateRange.max}`} per USDT
-                          </span>
+                          <span className="text-muted-foreground">P2P Rate:</span>
+                          <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
-                          <span className="text-2xl font-bold text-primary">
-                            {sellTotalINRMin === sellTotalINRMax 
-                              ? `₹${sellTotalINRMin.toLocaleString()}`
-                              : `₹${sellTotalINRMin.toLocaleString()}–₹${sellTotalINRMax.toLocaleString()}`}
-                          </span>
+                          <span className="text-2xl font-bold text-primary">₹{sellTotalINR.toLocaleString("en-IN")}</span>
                         </div>
                       </div>
                     </div>
@@ -931,7 +920,7 @@ export default function UsdtP2PPage() {
                             details: {
                               action: "sell",
                               amount: `${sellAmount} USDT`,
-                              rate: `₹${sellRateRange.min}-₹${sellRateRange.max}`,
+                              rate: `₹${p2pRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
                               paymentMethod: paymentDetails
                             }
@@ -1143,12 +1132,12 @@ export default function UsdtP2PPage() {
                             <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Rate:</span>
-                            <span className="text-foreground font-medium">{rateDisplay}</span>
+                            <span className="text-muted-foreground">P2P Rate:</span>
+                            <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
                           </div>
                           <div className="flex justify-between pt-2 border-t border-border">
                             <span className="font-semibold text-foreground">Total to Pay:</span>
-                            <span className="text-xl font-bold text-primary">₹{totalAmount.toLocaleString()}</span>
+                            <span className="text-xl font-bold text-primary">₹{totalAmount.toLocaleString("en-IN")}</span>
                           </div>
                         </div>
                       </div>
@@ -1611,8 +1600,12 @@ export default function UsdtP2PPage() {
                               <span className="text-foreground font-medium">{formData.usdtAmount} USDT</span>
                             </div>
                             <div className="flex justify-between">
+                              <span className="text-muted-foreground">P2P Rate:</span>
+                              <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
+                            </div>
+                            <div className="flex justify-between">
                               <span className="text-muted-foreground">Payment Amount:</span>
-                              <span className="text-foreground font-medium">₹{totalAmount.toLocaleString()}</span>
+                              <span className="text-foreground font-medium">₹{totalAmount.toLocaleString("en-IN")}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">UTR Number:</span>
