@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Menu, ChevronDown } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -196,8 +196,30 @@ function OverflowNav({ items, pathname }: { items: NavItem[]; pathname: string }
 // ── Header ────────────────────────────────────────────────────────────────────
 export function Header() {
   const pathname = usePathname()
+  const router   = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+
+  // 5-click logo secret trigger — navigate to /kaal-admin-console
+  const logoClickCount = useRef(0)
+  const logoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleLogoClick = useCallback((e: React.MouseEvent) => {
+    logoClickCount.current += 1
+
+    // Reset counter after 3 seconds of inactivity
+    if (logoClickTimer.current) clearTimeout(logoClickTimer.current)
+    logoClickTimer.current = setTimeout(() => {
+      logoClickCount.current = 0
+    }, 3000)
+
+    if (logoClickCount.current === 5) {
+      e.preventDefault()
+      logoClickCount.current = 0
+      if (logoClickTimer.current) clearTimeout(logoClickTimer.current)
+      router.push("/kaal-admin-console")
+    }
+  }, [router])
 
   useEffect(() => {
     const session = getSession()
@@ -222,7 +244,7 @@ export function Header() {
             {/* Left: back button + logo */}
             <div className="flex items-center gap-2 shrink-0">
               <BackButton inline />
-              <Link href="/admin-login" aria-label="Admin Panel">
+              <Link href="/" onClick={handleLogoClick} aria-label="OG KAAL TRADER — Home">
                 <div className="relative w-9 h-9 rounded-lg bg-[#FCD535] flex items-center justify-center overflow-hidden">
                   <svg viewBox="0 0 24 24" className="w-5 h-5 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="5" y="10" width="4" height="8" fill="#0B0E11" rx="0.5" />
