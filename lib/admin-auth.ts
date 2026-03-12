@@ -280,6 +280,39 @@ export async function loginWithSecretKey(
   return { success: true }
 }
 
+// ─── Google login (backup method) ────────────────────────────────────────────
+// Verifies the signed-in Google user's email against ADMIN_EMAIL (server-side).
+
+export async function loginWithGoogle(
+  email: string,
+): Promise<{ success: boolean; error?: string; accessDenied?: boolean }> {
+  if (typeof window === "undefined") return { success: false, error: "Cannot login on server" }
+
+  try {
+    const res = await fetch("/api/admin/verify-google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    const data = await res.json()
+
+    if (res.status === 403) {
+      await addSecurityLog("login_failed", email, "Google login — email not authorised")
+      return { success: false, error: "Access Denied", accessDenied: true }
+    }
+    if (!res.ok) {
+      return { success: false, error: data.error ?? "Server error. Please try again." }
+    }
+  } catch {
+    return { success: false, error: "Network error — could not reach the server. Please try again." }
+  }
+
+  await createSession(email)
+  resetLoginAttempts()
+  await addSecurityLog("login_success", email, "Login via Google")
+  return { success: true }
+}
+
 // ─── Password reset ───────────────────────────────────────────────────────────
 
 export async function requestPasswordReset(
