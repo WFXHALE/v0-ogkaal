@@ -52,43 +52,43 @@ const C: Record<Color, {
 }> = {
   blue: {
     dot:       "bg-blue-500/40",
-    dotActive: "bg-blue-400",
-    text:      "text-blue-400",
-    textMuted: "text-blue-400/70",
-    bg:        "bg-blue-400/10",
-    border:    "border-blue-400/40",
-    card:      "bg-blue-950/30",
-    badge:     "bg-blue-400/20 text-blue-300",
+    dotActive: "bg-blue-500",
+    text:      "text-blue-600 dark:text-blue-400",
+    textMuted: "text-blue-500 dark:text-blue-400/70",
+    bg:        "bg-blue-500/10",
+    border:    "border-blue-500/40",
+    card:      "bg-blue-500/10 dark:bg-blue-950/30",
+    badge:     "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   },
   yellow: {
     dot:       "bg-yellow-500/40",
-    dotActive: "bg-yellow-400",
-    text:      "text-yellow-400",
-    textMuted: "text-yellow-400/70",
-    bg:        "bg-yellow-400/10",
-    border:    "border-yellow-400/40",
-    card:      "bg-yellow-950/30",
-    badge:     "bg-yellow-400/20 text-yellow-300",
+    dotActive: "bg-yellow-500",
+    text:      "text-yellow-600 dark:text-yellow-400",
+    textMuted: "text-yellow-600 dark:text-yellow-400/70",
+    bg:        "bg-yellow-500/10",
+    border:    "border-yellow-500/40",
+    card:      "bg-yellow-500/10 dark:bg-yellow-950/30",
+    badge:     "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
   },
   green: {
     dot:       "bg-green-500/40",
-    dotActive: "bg-green-400",
-    text:      "text-green-400",
-    textMuted: "text-green-400/70",
-    bg:        "bg-green-400/10",
-    border:    "border-green-400/40",
-    card:      "bg-green-950/30",
-    badge:     "bg-green-400/20 text-green-300",
+    dotActive: "bg-green-500",
+    text:      "text-green-700 dark:text-green-400",
+    textMuted: "text-green-600 dark:text-green-400/70",
+    bg:        "bg-green-500/10",
+    border:    "border-green-500/40",
+    card:      "bg-green-500/10 dark:bg-green-950/30",
+    badge:     "bg-green-500/15 text-green-700 dark:text-green-300",
   },
   orange: {
     dot:       "bg-orange-500/40",
-    dotActive: "bg-orange-400",
-    text:      "text-orange-400",
-    textMuted: "text-orange-400/70",
-    bg:        "bg-orange-400/10",
-    border:    "border-orange-400/40",
-    card:      "bg-orange-950/30",
-    badge:     "bg-orange-400/20 text-orange-300",
+    dotActive: "bg-orange-500",
+    text:      "text-orange-600 dark:text-orange-400",
+    textMuted: "text-orange-600 dark:text-orange-400/70",
+    bg:        "bg-orange-500/10",
+    border:    "border-orange-500/40",
+    card:      "bg-orange-500/10 dark:bg-orange-950/30",
+    badge:     "bg-orange-500/15 text-orange-700 dark:text-orange-300",
   },
 }
 
@@ -285,7 +285,7 @@ export function TradingSessionsPanel() {
                     </div>
 
                     {/* Time range */}
-                    <div className={`font-mono text-[11px] ${active ? c.textMuted : "text-muted-foreground/50"}`} suppressHydrationWarning>
+                    <div className={`font-mono text-[11px] ${active ? c.textMuted : "text-muted-foreground"}`} suppressHydrationWarning>
                       {startStr} – {endStr}
                     </div>
 
@@ -296,7 +296,7 @@ export function TradingSessionsPanel() {
                           {fmtDuration(left)} remaining
                         </span>
                       ) : away !== null ? (
-                        <span className="text-muted-foreground/50">
+                        <span className="text-muted-foreground">
                           Opens in {fmtDuration(away)}
                         </span>
                       ) : null}
@@ -320,10 +320,10 @@ export function TradingSessionsPanel() {
                       <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
                       <span className="text-[11px] font-semibold text-muted-foreground">{u.name}</span>
                     </div>
-                    <div className="font-mono text-[10px] text-muted-foreground/60" suppressHydrationWarning>
+                    <div className="font-mono text-[10px] text-muted-foreground" suppressHydrationWarning>
                       {u.startDisplay} – {u.endDisplay}
                     </div>
-                    <div className="text-[10px] text-muted-foreground/50" suppressHydrationWarning>
+                    <div className="text-[10px] text-muted-foreground" suppressHydrationWarning>
                       {u.dayLabel} · in {fmtDuration(u.minsAway)}
                     </div>
                   </div>

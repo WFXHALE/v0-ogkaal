@@ -541,7 +541,7 @@ export function IntelligenceContent() {
     <div className="min-h-screen bg-background">
       <Header />
       <TradingSessionsPanel />
-      <main className="pt-4 sm:pt-6 pb-12">
+      <main className="pt-6 pb-12">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
