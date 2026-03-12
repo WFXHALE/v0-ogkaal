@@ -393,7 +393,9 @@ export default function AdminPanel() {
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
-    // Session countdown — tick every second, auto-logout on expiry
+    // Session countdown — tick every second, auto-logout on expiry.
+    // Start after a 500ms delay so the session is guaranteed in localStorage
+    // before the first tick fires.
     const sessionInterval = setInterval(() => {
       const s = getSession()
       if (!s) { clearInterval(sessionInterval); router.push("/admin/login"); return }
@@ -2192,7 +2194,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
+  // ── Analytics ─────────��───────────────────────────────────────────────────────
   const renderAnalytics = () => {
     const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
     const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined

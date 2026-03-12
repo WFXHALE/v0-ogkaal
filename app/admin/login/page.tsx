@@ -136,11 +136,13 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading]                 = useState(false)
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null)
   const [showKey, setShowKey]                     = useState(false)
+  const [redirecting, setRedirecting]             = useState(false)
 
-  // Redirect immediately if session already valid
+  // Redirect if session already valid — but only on initial mount, never during an active login
   useEffect(() => {
-    if (isSessionValid()) router.replace("/admin")
-  }, [router])
+    if (!redirecting && isSessionValid()) router.replace("/admin")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // intentionally empty — run once on mount only
 
   const handleExpire = useCallback(() => router.push("/"), [router])
 
@@ -158,6 +160,7 @@ export default function AdminLoginPage() {
     setIsLoading(false)
 
     if (result.success) {
+      setRedirecting(true)
       router.push("/admin")
     } else {
       setError(result.error ?? "Access denied.")
