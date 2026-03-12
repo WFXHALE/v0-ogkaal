@@ -5,17 +5,18 @@ import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import {
-  CommunityUser, Post, Comment, TraderLevel,
-  getSession, setSession, signUp, signIn, ADMIN_ID,
+  CommunityUser, Post, Comment,
+  getSession, setSession, ADMIN_ID,
   getPosts, createPost, toggleLike, addComment,
   isFollowing, toggleFollow, timeAgo,
 } from "@/lib/community-store"
 import {
   Heart, MessageCircle, UserPlus, UserCheck, X, Image as ImageIcon,
-  Hash, TrendingUp, ChevronDown, Send, LogOut, Shield,
+  Hash, TrendingUp, ChevronDown, Send, LogOut,
   Plus, FileText, Video, RefreshCw,
 } from "lucide-react"
 import { sendNotification, NotificationBell } from "@/components/notification-bell"
+import { AuthModal } from "@/components/auth-modal"
 
 // ---- admin badges -----------------------------------------------------------
 
@@ -263,89 +264,6 @@ function PostCard({ post, currentUser, onLike, onComment }: {
   )
 }
 
-// ---- auth modal -------------------------------------------------------------
-
-type AuthMode = "choose" | "signup" | "signin"
-
-function AuthModal({ onClose, onAuth }: { onClose: () => void; onAuth: (u: CommunityUser) => void }) {
-  const [mode, setMode]   = useState<AuthMode>("choose")
-  const [form, setForm]   = useState({ fullName: "", email: "", phone: "", level: "Beginner" as TraderLevel, identifier: "" })
-  const [error, setError] = useState("")
-
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
-
-  async function handleSignUp() {
-    if (!form.fullName || !form.email || !form.phone) { setError("All fields required."); return }
-    const res = await signUp({ fullName: form.fullName, email: form.email, phone: form.phone, level: form.level })
-    if (!res.ok) { setError(res.error || "Error"); return }
-    onAuth(res.user!)
-  }
-
-  async function handleSignIn() {
-    if (!form.identifier) { setError("Enter email or phone."); return }
-    const res = await signIn(form.identifier)
-    if (!res.ok) { setError(res.error || "Error"); return }
-    onAuth(res.user!)
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-8">
-        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
-          <X className="w-5 h-5" />
-        </button>
-
-        {mode === "choose" && (
-          <div className="text-center">
-            <div className="w-14 h-14 rounded-full bg-[#FCD535]/10 border border-[#FCD535]/30 flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-7 h-7 text-[#FCD535]" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground mb-1">Join the Community</h2>
-            <p className="text-sm text-muted-foreground mb-6">Sign in to post, like, and comment.</p>
-            <div className="space-y-3">
-              <button onClick={() => setMode("signup")} className="w-full py-3 rounded-xl bg-[#FCD535] text-[#0B0E11] font-bold hover:bg-[#F0B90B] transition-colors">Sign Up</button>
-              <button onClick={() => setMode("signin")} className="w-full py-3 rounded-xl bg-secondary border border-border text-foreground font-semibold hover:bg-secondary/80 transition-colors">Sign In</button>
-              <button onClick={onClose} className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">Continue as Anonymous Viewer</button>
-            </div>
-          </div>
-        )}
-
-        {mode === "signup" && (
-          <div>
-            <button onClick={() => { setMode("choose"); setError("") }} className="text-sm text-muted-foreground hover:text-foreground mb-4">← Back</button>
-            <h2 className="text-xl font-bold text-foreground mb-5">Create Account</h2>
-            <div className="space-y-3">
-              <input value={form.fullName}   onChange={(e) => set("fullName", e.target.value)}   placeholder="Full Name"     className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/40 text-sm" />
-              <input value={form.email}      onChange={(e) => set("email", e.target.value)}      placeholder="Email" type="email"  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/40 text-sm" />
-              <input value={form.phone}      onChange={(e) => set("phone", e.target.value)}      placeholder="Phone Number" type="tel" className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/40 text-sm" />
-              <div className="relative">
-                <select value={form.level} onChange={(e) => set("level", e.target.value)} className="w-full appearance-none px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/40 text-sm">
-                  {(["Beginner", "Trader", "Pro Trader", "Master Trader"] as TraderLevel[]).map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-                <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-muted-foreground pointer-events-none" />
-              </div>
-              {error && <p className="text-xs text-red-400">{error}</p>}
-              <button onClick={handleSignUp} className="w-full py-3 rounded-xl bg-[#FCD535] text-[#0B0E11] font-bold hover:bg-[#F0B90B] transition-colors">Create Account</button>
-            </div>
-          </div>
-        )}
-
-        {mode === "signin" && (
-          <div>
-            <button onClick={() => { setMode("choose"); setError("") }} className="text-sm text-muted-foreground hover:text-foreground mb-4">← Back</button>
-            <h2 className="text-xl font-bold text-foreground mb-5">Sign In</h2>
-            <div className="space-y-3">
-              <input value={form.identifier} onChange={(e) => set("identifier", e.target.value)} placeholder="Email or Phone Number" className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/40 text-sm" />
-              {error && <p className="text-xs text-red-400">{error}</p>}
-              <button onClick={handleSignIn} className="w-full py-3 rounded-xl bg-[#FCD535] text-[#0B0E11] font-bold hover:bg-[#F0B90B] transition-colors">Sign In</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ---- post creator -----------------------------------------------------------
 
 type CreatorType = "post" | "article" | "video"
@@ -531,7 +449,6 @@ export default function CommunityPage() {
     const session = getSession()
     setCurrentUser(session)
     getPosts().then(setPosts)
-    if (!session) setShowAuth(true)
   }, [])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

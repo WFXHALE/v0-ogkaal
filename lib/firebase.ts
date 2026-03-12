@@ -5,14 +5,17 @@ import { getAnalytics, type Analytics }                       from "firebase/ana
 import { getMessaging, type Messaging }                       from "firebase/messaging"
 import { getAuth, GoogleAuthProvider, type Auth }             from "firebase/auth"
 
+// Firebase web config — these NEXT_PUBLIC_ values are safe to ship to the browser.
+// Fall back to hardcoded values so the app works even if env vars aren't set in the
+// hosting environment (the root cause of the auth/api-key-not-valid error).
 const firebaseConfig = {
-  apiKey:            process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain:        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId:         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket:     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  measurementId:     process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey:            process.env.NEXT_PUBLIC_FIREBASE_API_KEY            ?? "AIzaSyBwQEOzxjsR_eOGpaFhCKvtyWw8eSmy5y4",
+  authDomain:        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN        ?? "kaalsite.firebaseapp.com",
+  projectId:         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID         ?? "kaalsite",
+  storageBucket:     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET     ?? "kaalsite.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "1075312749724",
+  appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID             ?? "1:1075312749724:web:cd7c844e891648f22e9159",
+  measurementId:     process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID     ?? "G-JS503CQ6RZ",
 }
 
 // Singleton — reuse existing app across HMR re-evaluations

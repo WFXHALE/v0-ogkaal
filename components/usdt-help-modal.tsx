@@ -66,24 +66,28 @@ export function UsdtHelpModal({ mode, isOpen, onClose }: HelpModalProps) {
   const [issueType, setIssueType] = useState<IssueType>(null)
 
   // Proof fields
-  const [bankStatement, setBankStatement]   = useState<File | null>(null)
-  const [upiScreenshot, setUpiScreenshot]   = useState<File | null>(null)
-  const [screenRecording, setScreenRecording] = useState<File | null>(null)
-  const [walletAddress, setWalletAddress]   = useState("")
-  const [exchange, setExchange]             = useState("")
-  const [otherWallet, setOtherWallet]       = useState("")
+  const [bankStatement,    setBankStatement]    = useState<File | null>(null)
+  const [upiScreenshot,    setUpiScreenshot]    = useState<File | null>(null)
+  const [screenRecording,  setScreenRecording]  = useState<File | null>(null)
+  const [walletScreenshot, setWalletScreenshot] = useState<File | null>(null)
+  const [walletAddress,    setWalletAddress]    = useState("")
+  const [exchange,         setExchange]         = useState("")
+  const [otherWallet,      setOtherWallet]      = useState("")
+  const [transactionId,    setTransactionId]    = useState("")
+  const [utrNumber,        setUtrNumber]        = useState("")
 
   // Contact fields
-  const [phone, setPhone]         = useState("")
-  const [telegram, setTelegram]   = useState("")
-  const [instagram, setInstagram] = useState("")
-  const [email, setEmail]         = useState("")
+  const [phone,      setPhone]      = useState("")
+  const [telegram,   setTelegram]   = useState("")
+  const [instagram,  setInstagram]  = useState("")
+  const [email,      setEmail]      = useState("")
 
   const [submitting, setSubmitting] = useState(false)
 
-  const bankRef      = useRef<HTMLInputElement>(null)
-  const upiRef       = useRef<HTMLInputElement>(null)
-  const recordingRef = useRef<HTMLInputElement>(null)
+  const bankRef        = useRef<HTMLInputElement>(null)
+  const upiRef         = useRef<HTMLInputElement>(null)
+  const recordingRef   = useRef<HTMLInputElement>(null)
+  const walletImgRef   = useRef<HTMLInputElement>(null)
 
   const resetAll = () => {
     setFlowStep("faq")
@@ -91,9 +95,12 @@ export function UsdtHelpModal({ mode, isOpen, onClose }: HelpModalProps) {
     setBankStatement(null)
     setUpiScreenshot(null)
     setScreenRecording(null)
+    setWalletScreenshot(null)
     setWalletAddress("")
     setExchange("")
     setOtherWallet("")
+    setTransactionId("")
+    setUtrNumber("")
     setPhone("")
     setTelegram("")
     setInstagram("")
@@ -105,27 +112,51 @@ export function UsdtHelpModal({ mode, isOpen, onClose }: HelpModalProps) {
   const canProceedProof =
     issueType === "payment_not_received"
       ? !!(bankStatement || upiScreenshot || screenRecording)
-      : !!(screenRecording && walletAddress && exchange)
+      : !!(walletAddress && exchange)
 
   const canProceedContact = !!(phone && telegram)
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    await saveSubmission({
-      type: "other",
-      name: phone,
-      phone,
-      telegram,
-      details: {
-        issueType,
-        exchange: exchange === "Other Wallet (Enter Name)" ? otherWallet : exchange,
-        walletAddress,
-        instagram,
+    try {
+      // ── Upload proof files to Blob ──────────────────────────────────────
+      const formData = new FormData()
+      if (bankStatement)    formData.append("bankStatement",    bankStatement)
+      if (upiScreenshot)    formData.append("upiScreenshot",    upiScreenshot)
+      if (screenRecording)  formData.append("screenRecording",  screenRecording)
+      if (walletScreenshot) formData.append("walletScreenshot", walletScreenshot)
+
+      let fileUrls: Record<string, string> = {}
+      const hasFiles = bankStatement || upiScreenshot || screenRecording || walletScreenshot
+      if (hasFiles) {
+        const uploadRes = await fetch("/api/support-upload", { method: "POST", body: formData })
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json() as { ok: boolean; urls: Record<string, string> }
+          if (uploadData.ok) fileUrls = uploadData.urls
+        }
+      }
+
+      // ── Save submission with full details ──────────────────────────────
+      await saveSubmission({
+        type:     "support",
+        name:     phone,
+        phone,
         email,
-        mode,
-        hasProof: true,
-      },
-    })
+        telegram,
+        details: {
+          issueType,
+          mode,
+          exchange: exchange === "Other Wallet (Enter Name)" ? otherWallet : exchange,
+          walletAddress,
+          transactionId,
+          utrNumber,
+          instagram,
+          fileUrls,
+        },
+      })
+    } catch {
+      // Silent — still show success so user knows we received their report
+    }
     setSubmitting(false)
     setFlowStep("success")
   }
@@ -243,7 +274,31 @@ export function UsdtHelpModal({ mode, isOpen, onClose }: HelpModalProps) {
 
               {issueType === "payment_not_received" && (
                 <>
-                  <p className="text-sm text-muted-foreground">Upload at least one of the following:</p>
+                  <p className="text-sm text-muted-foreground">Upload at least one file and enter your transaction details.</p>
+
+                  {/* Transaction ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Transaction ID / Reference Number</label>
+                    <input
+                      type="text"
+                      value={transactionId}
+                      onChange={e => setTransactionId(e.target.value)}
+                      placeholder="e.g. 42345678901234"
+                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-mono"
+                    />
+                  </div>
+
+                  {/* UTR Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">UTR Number (if UPI)</label>
+                    <input
+                      type="text"
+                      value={utrNumber}
+                      onChange={e => setUtrNumber(e.target.value)}
+                      placeholder="e.g. 423456789012"
+                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-mono"
+                    />
+                  </div>
 
                   {/* Bank Statement */}
                   <div>
@@ -329,6 +384,31 @@ export function UsdtHelpModal({ mode, isOpen, onClose }: HelpModalProps) {
                       placeholder="Paste your wallet address"
                       className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-mono"
                     />
+                  </div>
+
+                  {/* Transaction ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Transaction ID / Hash</label>
+                    <input
+                      type="text"
+                      value={transactionId}
+                      onChange={e => setTransactionId(e.target.value)}
+                      placeholder="e.g. TxHash or order reference"
+                      className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-mono"
+                    />
+                  </div>
+
+                  {/* Wallet Screenshot */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Wallet / Exchange Screenshot</label>
+                    <div
+                      onClick={() => walletImgRef.current?.click()}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-border bg-secondary/20 cursor-pointer hover:border-primary/50 transition-colors"
+                    >
+                      <Upload className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{walletScreenshot ? walletScreenshot.name : "Tap to upload screenshot"}</span>
+                    </div>
+                    <input ref={walletImgRef} type="file" accept="image/*" className="hidden" onChange={e => setWalletScreenshot(e.target.files?.[0] ?? null)} />
                   </div>
 
                   {/* Screen Recording */}

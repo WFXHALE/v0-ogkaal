@@ -47,6 +47,7 @@ const FEATURED_FIRMS: FeaturedFirm[] = [
     rating:       3.8,
     description:  "Broker-backed prop firm with 2-Step, 1-Step and Instant Elite models. No consistency rule, weekend holding allowed.",
     referralLink: "https://blueberryfunded.com/?utm_source=affiliate&ref=6538",
+    discountCode: "OGKAAL",
     logoUrl:      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-11%20at%202.07.11%E2%80%AFPM-pUuxSCUjpCyGlmrY2OQ8EBEwhwyJha.png",
     logoAlt:      "Blueberry Funded logo",
   },
@@ -55,14 +56,7 @@ const FEATURED_FIRMS: FeaturedFirm[] = [
 // ── FeaturedFirmCard ───────────────────────────────────────────────────────────
 
 function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = () => {
-    if (!firm.discountCode) return
-    navigator.clipboard.writeText(firm.discountCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const [showTooltip, setShowTooltip] = useState(false)
 
   return (
     <article className="relative flex flex-col rounded-2xl border border-primary/20 bg-card overflow-hidden shadow-md shadow-black/10 transition-shadow hover:shadow-lg hover:shadow-black/20">
@@ -85,33 +79,36 @@ function FeaturedFirmCard({ firm }: { firm: FeaturedFirm }) {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">{firm.description}</p>
         </div>
-        {firm.discountCode && (
-          <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2">
-            <Tag className="w-3 h-3 text-primary shrink-0" />
-            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Code</span>
-            <span className="flex-1 font-mono text-xs font-bold text-primary tracking-wider">{firm.discountCode}</span>
-          </div>
-        )}
         <div className="flex flex-col gap-2 mt-auto pt-1">
-          <a
-            href={firm.referralLink}
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[.98] transition-all"
+          {/* Buy Account button with discount code tooltip on hover */}
+          <div
+            className="relative"
+            onMouseEnter={() => firm.discountCode && setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Buy Account
-          </a>
-          {firm.discountCode && (
-            <button
-              onClick={handleCopy}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/8 text-primary text-sm font-semibold hover:bg-primary/15 active:scale-[.98] transition-all"
+            {firm.discountCode && (
+              <div
+                className={`absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-20 whitespace-nowrap
+                  rounded-lg bg-zinc-900 border border-zinc-700 px-3 py-2 shadow-lg
+                  transition-all duration-200 pointer-events-none
+                  ${showTooltip ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}
+              >
+                <p className="text-[11px] text-zinc-400 font-medium uppercase tracking-wide leading-none mb-1">Discount Code</p>
+                <p className="font-mono text-sm font-bold text-yellow-400 tracking-widest">{firm.discountCode}</p>
+                {/* Arrow */}
+                <span className="absolute left-1/2 -translate-x-1/2 -bottom-[5px] w-2.5 h-2.5 bg-zinc-900 border-r border-b border-zinc-700 rotate-45" />
+              </div>
+            )}
+            <a
+              href={firm.referralLink}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[.98] transition-all"
             >
-              {copied
-                ? <><CheckCheck className="w-3.5 h-3.5" /> Copied!</>
-                : <><Copy className="w-3.5 h-3.5" /> Copy Discount Code</>}
-            </button>
-          )}
+              <ExternalLink className="w-3.5 h-3.5" />
+              Buy Account
+            </a>
+          </div>
         </div>
       </div>
     </article>
@@ -1265,7 +1262,7 @@ function RuleRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-// ── CopyCode ──────────────────────────────────────────────────────────────────
+// ── CopyCode ──────────��───────────────────────────────────────────────────────
 function CopyCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {

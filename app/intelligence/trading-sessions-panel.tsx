@@ -1,204 +1,191 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Globe, Clock } from "lucide-react"
+import { Clock } from "lucide-react"
 
-// ── DST-aware New York offset ──────────────────────────────────────────────
-// Returns UTC offset in minutes for New York (EDT = -240, EST = -300)
+// ── DST-aware New York UTC offset ─────────────────────────────────────────────
 function getNyOffsetMinutes(d: Date): number {
-  // DST in USA: Second Sunday of March → First Sunday of November
-  const year = d.getUTCFullYear()
-
-  // Second Sunday of March
-  const march = new Date(Date.UTC(year, 2, 1))
-  const marchDay = march.getUTCDay() // 0=Sun
-  const dstStart = new Date(Date.UTC(year, 2, (14 - marchDay) % 7 + 1, 7)) // 2:00 AM ET = 7:00 UTC (EST)
-
-  // First Sunday of November
-  const nov = new Date(Date.UTC(year, 10, 1))
-  const novDay = nov.getUTCDay()
-  const dstEnd = new Date(Date.UTC(year, 10, (7 - novDay) % 7 + 1, 6)) // 2:00 AM ET = 6:00 UTC (EDT)
-
-  const isDST = d >= dstStart && d < dstEnd
-  return isDST ? -240 : -300 // EDT = UTC-4, EST = UTC-5
-}
-
-// Get a Date's time parts in a given UTC offset (minutes)
-function getTimeParts(d: Date, offsetMin: number) {
-  const totalMin = d.getUTCHours() * 60 + d.getUTCMinutes() + offsetMin
-  const corrected = ((totalMin % 1440) + 1440) % 1440
-  const h = Math.floor(corrected / 60)
-  const m = corrected % 60
-  const s = d.getUTCSeconds()
-  return { h, m, s, totalMin: corrected }
+  const y = d.getUTCFullYear()
+  const march = new Date(Date.UTC(y, 2, 1))
+  const dstStart = new Date(Date.UTC(y, 2, (14 - march.getUTCDay()) % 7 + 1, 7))
+  const nov = new Date(Date.UTC(y, 10, 1))
+  const dstEnd = new Date(Date.UTC(y, 10, (7 - nov.getUTCDay()) % 7 + 1, 6))
+  return d >= dstStart && d < dstEnd ? -240 : -300
 }
 
 function pad(n: number) { return String(n).padStart(2, "0") }
 
-function formatTime12(h: number, m: number, s: number) {
-  const ampm = h >= 12 ? "PM" : "AM"
-  const h12  = h % 12 || 12
-  return `${pad(h12)}:${pad(m)}:${pad(s)} ${ampm}`
+// UTC minutes → display minutes for a given offset
+function toLocalMin(utcMin: number, offsetMin: number): number {
+  return ((utcMin + offsetMin + 1440 * 4) % 1440)
 }
 
-function formatTime24(h: number, m: number) {
-  return `${pad(h)}:${pad(m)}`
+function fmtHHMM(min: number): string {
+  const m = ((min % 1440) + 1440) % 1440
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
 }
 
-// ── Session definitions (in NY minutes from midnight) ─────────────────────
-type SessionName = "Sydney" | "Tokyo" | "London" | "New York"
-
-interface SessionDef {
-  name: SessionName
-  displayName: string
-  startMin: number   // NY minutes from midnight
-  endMin:   number   // NY minutes from midnight (may wrap >1440 overnight)
-  colorClass: string
-  bgClass:    string
+function fmt12(d: Date, offsetMin: number): string {
+  const min = toLocalMin(d.getUTCHours() * 60 + d.getUTCMinutes(), offsetMin)
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  const s = d.getUTCSeconds()
+  return `${pad(h % 12 || 12)}:${pad(m)}:${pad(s)} ${h >= 12 ? "PM" : "AM"}`
 }
 
-// Times based on NY time (as specified in config):
-// Sydney:   5:00 PM → 2:00 AM  (17:00 → 26:00 → wrap to 02:00)
-// Tokyo:    7:00 PM → 4:00 AM  (19:00 → 28:00 → wrap to 04:00)
-// London:   3:00 AM → 12:00 PM (03:00 → 12:00)
-// New York: 8:00 AM → 5:00 PM  (08:00 → 17:00)
+// All session times are in NY time (UTC offset applied)
+// Times stored as NY minutes from midnight
+const SESSIONS = [
+  { key: "asian",    name: "Asian",    startNY: 17 * 60, endNY: 28 * 60, color: "blue"   as const },
+  { key: "london",   name: "London",   startNY:  3 * 60, endNY: 12 * 60, color: "yellow" as const },
+  { key: "newyork",  name: "New York", startNY:  8 * 60, endNY: 17 * 60, color: "green"  as const },
+  { key: "overlap",  name: "Overlap",  startNY:  8 * 60, endNY: 12 * 60, color: "orange" as const },
+] as const
 
-const SESSIONS: SessionDef[] = [
-  {
-    name: "Sydney",
-    displayName: "Sydney",
-    startMin: 17 * 60,       // 5:00 PM
-    endMin:   26 * 60,       // 2:00 AM next day (26h notation)
-    colorClass: "text-sky-400",
-    bgClass:    "bg-sky-400/10 border-sky-400/20",
-  },
-  {
-    name: "Tokyo",
-    displayName: "Tokyo",
-    startMin: 19 * 60,       // 7:00 PM
-    endMin:   28 * 60,       // 4:00 AM next day
-    colorClass: "text-violet-400",
-    bgClass:    "bg-violet-400/10 border-violet-400/20",
-  },
-  {
-    name: "London",
-    displayName: "London",
-    startMin:  3 * 60,       // 3:00 AM
-    endMin:   12 * 60,       // 12:00 PM
-    colorClass: "text-amber-400",
-    bgClass:    "bg-amber-400/10 border-amber-400/20",
-  },
-  {
-    name: "New York",
-    displayName: "New York",
-    startMin:  8 * 60,       // 8:00 AM
-    endMin:   17 * 60,       // 5:00 PM
-    colorClass: "text-emerald-400",
-    bgClass:    "bg-emerald-400/10 border-emerald-400/20",
-  },
-]
+type Color = "blue" | "yellow" | "green" | "orange"
 
-// Grouped sessions for display: Asian = Sydney + Tokyo
-const GROUPED_SESSIONS = [
-  {
-    name: "Asian",
-    components: ["Sydney", "Tokyo"] as SessionName[],
-    startMin: 17 * 60,  // earliest start (Sydney 5PM)
-    endMin:   28 * 60,  // latest end (Tokyo 4AM)
-    colorClass: "text-sky-400",
-    bgClass:    "bg-sky-400/10 border-sky-400/20",
+const C: Record<Color, {
+  dot: string; dotActive: string
+  text: string; textMuted: string
+  bg: string; border: string; card: string
+  badge: string
+}> = {
+  blue: {
+    dot:       "bg-blue-500/40",
+    dotActive: "bg-blue-500",
+    text:      "text-blue-600 dark:text-blue-400",
+    textMuted: "text-blue-500 dark:text-blue-400/70",
+    bg:        "bg-blue-500/10",
+    border:    "border-blue-500/40",
+    card:      "bg-blue-500/10 dark:bg-blue-950/30",
+    badge:     "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   },
-  {
-    name: "London",
-    components: ["London"] as SessionName[],
-    startMin: 3 * 60,
-    endMin:   12 * 60,
-    colorClass: "text-amber-400",
-    bgClass:    "bg-amber-400/10 border-amber-400/20",
+  yellow: {
+    dot:       "bg-yellow-500/40",
+    dotActive: "bg-yellow-500",
+    text:      "text-yellow-600 dark:text-yellow-400",
+    textMuted: "text-yellow-600 dark:text-yellow-400/70",
+    bg:        "bg-yellow-500/10",
+    border:    "border-yellow-500/40",
+    card:      "bg-yellow-500/10 dark:bg-yellow-950/30",
+    badge:     "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
   },
-  {
-    name: "New York",
-    components: ["New York"] as SessionName[],
-    startMin: 8 * 60,
-    endMin:   17 * 60,
-    colorClass: "text-emerald-400",
-    bgClass:    "bg-emerald-400/10 border-emerald-400/20",
+  green: {
+    dot:       "bg-green-500/40",
+    dotActive: "bg-green-500",
+    text:      "text-green-700 dark:text-green-400",
+    textMuted: "text-green-600 dark:text-green-400/70",
+    bg:        "bg-green-500/10",
+    border:    "border-green-500/40",
+    card:      "bg-green-500/10 dark:bg-green-950/30",
+    badge:     "bg-green-500/15 text-green-700 dark:text-green-300",
   },
-]
-
-// Normalise minutes to 0-1439 and check if nyMin is within session
-// Overnight sessions (endMin > 1440) are handled by extending into next day
-function isSessionActive(nyMin: number, startMin: number, endMin: number): boolean {
-  if (endMin <= 1440) {
-    return nyMin >= startMin && nyMin < endMin
-  }
-  // Overnight: active if nyMin >= startMin OR nyMin < (endMin - 1440)
-  return nyMin >= startMin || nyMin < (endMin - 1440)
+  orange: {
+    dot:       "bg-orange-500/40",
+    dotActive: "bg-orange-500",
+    text:      "text-orange-600 dark:text-orange-400",
+    textMuted: "text-orange-600 dark:text-orange-400/70",
+    bg:        "bg-orange-500/10",
+    border:    "border-orange-500/40",
+    card:      "bg-orange-500/10 dark:bg-orange-950/30",
+    badge:     "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  },
 }
 
-// Build a display string for a session start/end in the requested timezone
-function sessionTimeStr(
-  nyStartMin: number,
-  nyEndMin:   number,
-  mode: "IST" | "NY"
-): { start: string; end: string } {
-  if (mode === "NY") {
-    const s = nyStartMin % 1440
-    const e = nyEndMin   % 1440
-    return {
-      start: formatTime24(Math.floor(s / 60), s % 60),
-      end:   formatTime24(Math.floor(e / 60), e % 60),
+function isSessionActive(nyMin: number, startNY: number, endNY: number): boolean {
+  if (endNY <= 1440) return nyMin >= startNY && nyMin < endNY
+  // Overnight session (e.g. Asian 17:00–04:00 next day)
+  return nyMin >= startNY || nyMin < endNY - 1440
+}
+
+function minsLeft(nyMin: number, endNY: number): number {
+  const end = endNY % 1440
+  const diff = end - nyMin
+  return diff <= 0 ? diff + 1440 : diff
+}
+
+function minsUntil(nyMin: number, startNY: number): number {
+  const start = startNY % 1440
+  const diff = start - nyMin
+  return diff <= 0 ? diff + 1440 : diff
+}
+
+function fmtDuration(mins: number): string {
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  if (h === 0) return `${m}m`
+  return `${h}h ${m}m`
+}
+
+// Convert NY startMin → display string in either NY or IST
+function sessionTime(nyMin: number, offsetMin: number, mode: "NY" | "IST"): string {
+  if (mode === "NY") return fmtHHMM(nyMin)
+  // NY → UTC → IST (+330)
+  const utcMin = nyMin - offsetMin
+  return fmtHHMM(utcMin + 330)
+}
+
+// ── Upcoming sessions for the next 3 days ────────────────────────────────────
+interface UpcomingSession {
+  key: string
+  name: string
+  color: Color
+  dayLabel: string   // "Today", "Tomorrow", "Wed 12"
+  startDisplay: string
+  endDisplay: string
+  minsAway: number
+}
+
+function getUpcomingSessions(nyMin: number, nyOffsetMin: number, now: Date, mode: "NY" | "IST"): UpcomingSession[] {
+  const results: UpcomingSession[] = []
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+  for (let dayOffset = 0; dayOffset <= 3; dayOffset++) {
+    for (const s of SESSIONS) {
+      if (dayOffset === 0 && isSessionActive(nyMin, s.startNY, s.endNY)) continue
+      if (s.key === "overlap") continue  // overlap is derivative
+
+      const startInThisDay = s.startNY % 1440
+      const endInThisDay = s.endNY % 1440
+
+      // Minutes until this session starts
+      let minsAway: number
+      if (dayOffset === 0) {
+        const diff = startInThisDay - nyMin
+        if (diff <= 0) continue  // already started today (but not active? → skip)
+        minsAway = diff
+      } else {
+        const remainingToday = 1440 - nyMin
+        minsAway = remainingToday + (dayOffset - 1) * 1440 + startInThisDay
+      }
+
+      const futureDate = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000)
+      const dow = futureDate.getUTCDay()
+      const dom = futureDate.getUTCDate()
+      const mon = futureDate.getUTCMonth()
+
+      const dayLabel =
+        dayOffset === 0 ? "Today" :
+        dayOffset === 1 ? "Tomorrow" :
+        `${days[dow]} ${dom} ${months[mon]}`
+
+      results.push({
+        key: `${s.key}-day${dayOffset}`,
+        name: s.name,
+        color: s.color,
+        dayLabel,
+        startDisplay: sessionTime(s.startNY % 1440, nyOffsetMin, mode),
+        endDisplay:   sessionTime(s.endNY % 1440,   nyOffsetMin, mode),
+        minsAway,
+      })
     }
   }
-  // IST = NY + 9h30m  (IST is UTC+5:30, NY EST is UTC-5, EDT is UTC-4)
-  // Average offset difference: IST - NY ≈ +9.5h (EST) or +9.5h (EDT — IST is UTC+5:30, EDT UTC-4 → diff 9.5h)
-  // Actually: IST = UTC+5:30; EST = UTC-5 → IST-EST = 10:30; EDT = UTC-4 → IST-EDT = 9:30
-  // We use a fixed 9:30 offset (EDT) as approximate — for session display this is fine
-  const IST_OFFSET = 9 * 60 + 30
-  const sIst = (nyStartMin + IST_OFFSET) % 1440
-  const eIst = (nyEndMin   + IST_OFFSET) % 1440
-  return {
-    start: formatTime24(Math.floor(sIst / 60), sIst % 60),
-    end:   formatTime24(Math.floor(eIst / 60), eIst % 60),
-  }
+
+  return results.sort((a, b) => a.minsAway - b.minsAway).slice(0, 8)
 }
 
-function getSessionStatus(nyTotalMin: number) {
-  let current: typeof GROUPED_SESSIONS[number] | null = null
-  let past: typeof GROUPED_SESSIONS[number] | null = null
-  let upcoming: typeof GROUPED_SESSIONS[number] | null = null
-
-  // Find active grouped session
-  for (const g of GROUPED_SESSIONS) {
-    if (isSessionActive(nyTotalMin, g.startMin, g.endMin)) {
-      current = g
-      break
-    }
-  }
-
-  if (current) {
-    // Past: the grouped session that ended most recently before current
-    // Order by start time — find the one that started before current
-    const idx = GROUPED_SESSIONS.indexOf(current)
-    past     = GROUPED_SESSIONS[(idx - 1 + GROUPED_SESSIONS.length) % GROUPED_SESSIONS.length]
-    upcoming = GROUPED_SESSIONS[(idx + 1)                           % GROUPED_SESSIONS.length]
-  } else {
-    // Between sessions — find upcoming and most recent past
-    let minFwdDist = Infinity
-    let minBwdDist = Infinity
-    for (const g of GROUPED_SESSIONS) {
-      let fwdDist = (g.startMin - nyTotalMin + 1440) % 1440
-      let bwdDist = (nyTotalMin - g.endMin   % 1440 + 1440) % 1440
-      if (fwdDist < minFwdDist) { minFwdDist = fwdDist; upcoming = g }
-      if (bwdDist < minBwdDist) { minBwdDist = bwdDist; past     = g }
-    }
-  }
-
-  return { current, past, upcoming }
-}
-
-// ── Component ──────────────────────────────────────────────────────────────
-
+// ── Component ─────────────────────────────────────────────────────────────────
 export function TradingSessionsPanel() {
   const [mode, setMode] = useState<"IST" | "NY">("IST")
   const [now,  setNow]  = useState<Date | null>(null)
@@ -210,161 +197,144 @@ export function TradingSessionsPanel() {
     return () => clearInterval(id)
   }, [])
 
+  // Skeleton while hydrating
   if (!now) {
     return (
-      <div className="rounded-xl bg-card border border-border p-5 animate-pulse h-96" />
+      <div className="sticky top-16 z-30 w-full bg-card border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center gap-4">
+            <div className="h-5 w-36 bg-muted rounded animate-pulse" />
+            <div className="flex gap-3">
+              {[1,2,3,4].map(i => <div key={i} className="h-14 w-40 bg-muted rounded-xl animate-pulse" />)}
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
-  // IST = UTC+5:30
-  const IST_OFFSET_MIN = 5 * 60 + 30
-  const istParts = getTimeParts(now, IST_OFFSET_MIN)
-
-  // NY dynamic offset
   const nyOffsetMin = getNyOffsetMinutes(now)
-  const nyParts     = getTimeParts(now, nyOffsetMin)
-  const nyTotalMin  = nyParts.totalMin  // 0–1439
-
-  const { current, past, upcoming } = getSessionStatus(nyTotalMin)
-
-  // ── Render ──────────────────────────────────────────────────────────────
+  const nyMin = toLocalMin(now.getUTCHours() * 60 + now.getUTCMinutes(), nyOffsetMin)
+  const upcoming = getUpcomingSessions(nyMin, nyOffsetMin, now, mode)
 
   return (
-    <div className="rounded-xl bg-card border border-border p-5 flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Globe className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Trading Sessions</h2>
-        </div>
-        {/* Timezone toggle */}
-        <div className="flex items-center rounded-lg border border-border bg-secondary/40 p-0.5 gap-0.5">
-          {(["IST", "NY"] as const).map((m) => (
+    <div className="sticky top-16 z-30 w-full bg-card/95 backdrop-blur-md border-b border-border shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+
+        {/* Top row: title + clock toggle + active sessions */}
+        <div className="flex items-start gap-4">
+
+          {/* Title + clock */}
+          <div className="shrink-0 flex flex-col gap-1 pt-0.5">
+            <span className="text-sm font-bold text-foreground tracking-wide uppercase">
+              Trading Sessions
+            </span>
             <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-                mode === m
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              onClick={() => setMode(m => m === "IST" ? "NY" : "IST")}
+              className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors"
+              title="Toggle IST / NY"
+              suppressHydrationWarning
             >
-              {m === "IST" ? "Indian (IST)" : "New York (NY)"}
+              <Clock className="w-3 h-3" />
+              <span suppressHydrationWarning>
+                {mode === "IST"
+                  ? `IST ${fmt12(now, 330)}`
+                  : `NY  ${fmt12(now, nyOffsetMin)}`}
+              </span>
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Live Clocks */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Indian Time</p>
-          <p className="font-mono text-lg font-bold text-foreground tabular-nums leading-none">
-            {formatTime12(istParts.h, istParts.m, istParts.s)}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">IST (UTC+5:30)</p>
-        </div>
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">New York Time</p>
-          <p className="font-mono text-lg font-bold text-foreground tabular-nums leading-none">
-            {formatTime12(nyParts.h, nyParts.m, nyParts.s)}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {nyOffsetMin === -240 ? "EDT (UTC-4)" : "EST (UTC-5)"}
-          </p>
-        </div>
-      </div>
+          {/* Scrollable session cards */}
+          <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-3 pb-0.5">
 
-      {/* Session Status */}
-      <div className="space-y-2">
-        {/* Past */}
-        {past && (
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-secondary/20">
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Past Session</p>
-              <p className="font-semibold text-muted-foreground mt-0.5">{past.name}</p>
-            </div>
-            <div className="text-right text-xs text-muted-foreground">
-              <p>{sessionTimeStr(past.startMin, past.endMin, mode).start} – {sessionTimeStr(past.startMin, past.endMin, mode).end}</p>
-              <p className="text-[10px] mt-0.5">{mode === "IST" ? "IST" : "NY Time"}</p>
+              {/* Active sessions first */}
+              {SESSIONS.map((s) => {
+                const active = isSessionActive(nyMin, s.startNY, s.endNY)
+                const left   = active ? minsLeft(nyMin, s.endNY) : null
+                const away   = !active ? minsUntil(nyMin, s.startNY) : null
+                const c = C[s.color]
+
+                const startStr = sessionTime(s.startNY % 1440, nyOffsetMin, mode)
+                const endStr   = sessionTime(s.endNY   % 1440, nyOffsetMin, mode)
+
+                return (
+                  <div
+                    key={s.key}
+                    className={`flex flex-col gap-1 px-3.5 py-2.5 rounded-xl border shrink-0 min-w-[140px] transition-all duration-300 ${
+                      active
+                        ? `${c.card} ${c.border} shadow-sm`
+                        : "bg-secondary/20 border-border/30 opacity-60"
+                    }`}
+                  >
+                    {/* Session name + live dot */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          active ? `${c.dotActive} shadow-[0_0_6px_2px] shadow-current animate-pulse` : c.dot
+                        }`}
+                      />
+                      <span className={`text-xs font-bold ${active ? c.text : "text-muted-foreground"}`}>
+                        {s.name}
+                      </span>
+                      {active && (
+                        <span className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase tracking-wide ${c.badge}`}>
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Time range */}
+                    <div className={`font-mono text-[11px] ${active ? c.textMuted : "text-muted-foreground"}`} suppressHydrationWarning>
+                      {startStr} – {endStr}
+                    </div>
+
+                    {/* Status */}
+                    <div className="text-[10px]" suppressHydrationWarning>
+                      {active && left !== null ? (
+                        <span className={c.text}>
+                          {fmtDuration(left)} remaining
+                        </span>
+                      ) : away !== null ? (
+                        <span className="text-muted-foreground">
+                          Opens in {fmtDuration(away)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Divider */}
+              <div className="w-px bg-border/50 self-stretch shrink-0 mx-1" />
+
+              {/* Upcoming sessions */}
+              {upcoming.slice(0, 4).map((u) => {
+                const c = C[u.color]
+                return (
+                  <div
+                    key={u.key}
+                    className="flex flex-col gap-1 px-3 py-2.5 rounded-xl border border-border/20 bg-secondary/10 shrink-0 min-w-[130px] opacity-70 hover:opacity-90 transition-opacity"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
+                      <span className="text-[11px] font-semibold text-muted-foreground">{u.name}</span>
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground" suppressHydrationWarning>
+                      {u.startDisplay} – {u.endDisplay}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground" suppressHydrationWarning>
+                      {u.dayLabel} · in {fmtDuration(u.minsAway)}
+                    </div>
+                  </div>
+                )
+              })}
+
             </div>
           </div>
-        )}
-
-        {/* Current */}
-        {current ? (
-          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${current.bgClass}`}>
-            <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className={`w-2 h-2 rounded-full ${current.colorClass.replace("text-", "bg-")} animate-pulse shadow-[0_0_6px_2px] ${current.colorClass.replace("text-", "shadow-")}/50`} />
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Current Session</p>
-              </div>
-              <p className={`text-base font-bold ${current.colorClass}`}>{current.name}</p>
-            </div>
-            <div className="text-right text-xs">
-              <p className={`font-medium ${current.colorClass}`}>
-                {sessionTimeStr(current.startMin, current.endMin, mode).start} – {sessionTimeStr(current.startMin, current.endMin, mode).end}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{mode === "IST" ? "IST" : "NY Time"}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border/50 bg-secondary/10">
-            <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Current Session</p>
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">Between Sessions</p>
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming */}
-        {upcoming && (
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-secondary/20">
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Upcoming Session</p>
-              <p className="font-semibold text-foreground mt-0.5">{upcoming.name}</p>
-            </div>
-            <div className="text-right text-xs text-muted-foreground">
-              <p>Starts {sessionTimeStr(upcoming.startMin, upcoming.endMin, mode).start}</p>
-              <p className="text-[10px] mt-0.5">{mode === "IST" ? "IST" : "NY Time"}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* All sessions reference */}
-      <div>
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">All Sessions ({mode})</p>
-        <div className="space-y-1.5">
-          {GROUPED_SESSIONS.map((g) => {
-            const times = sessionTimeStr(g.startMin, g.endMin, mode)
-            const active = isSessionActive(nyTotalMin, g.startMin, g.endMin)
-            return (
-              <div
-                key={g.name}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-colors ${
-                  active ? `${g.bgClass} ${g.colorClass}` : "border-border/50 bg-secondary/10 text-muted-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {active && <span className={`w-1.5 h-1.5 rounded-full ${g.colorClass.replace("text-", "bg-")} animate-pulse`} />}
-                  <span className="font-semibold">{g.name}</span>
-                </div>
-                <span className="font-mono">{times.start} – {times.end}</span>
-              </div>
-            )
-          })}
         </div>
-      </div>
 
-      {/* Footer note */}
-      <p className="text-[10px] text-muted-foreground text-center">
-        <Clock className="inline w-3 h-3 mr-1 -mt-0.5" />
-        Times auto-adjust for DST · Based on real forex session hours
-      </p>
+      </div>
     </div>
   )
 }

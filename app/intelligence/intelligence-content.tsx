@@ -307,6 +307,107 @@ const INDIAN_INDICES = [
   { symbol: "BANKNIFTY", name: "Bank NIFTY", tvSymbol: "NSE:BANKNIFTY" },
 ]
 
+// ── Gold Impact Explanations ──────────────────────────────────────────────────
+
+interface GoldImpact {
+  positive: string  // "If result is positive → ..."
+  negative: string  // "If result is negative → ..."
+}
+
+const GOLD_IMPACT_MAP: Array<{ keywords: RegExp; impact: GoldImpact }> = [
+  {
+    keywords: /\bNFP\b|non.?farm.?payroll/i,
+    impact: {
+      positive: "If result is positive (more jobs) → Gold likely goes DOWN (risk-on, USD strength)",
+      negative: "If result is negative (fewer jobs) → Gold likely goes UP (risk-off, USD weakness)",
+    },
+  },
+  {
+    keywords: /\bCPI\b|consumer.?price.?index/i,
+    impact: {
+      positive: "If CPI is higher than expected → Gold likely goes UP (inflation hedge demand rises)",
+      negative: "If CPI is lower than expected → Gold likely goes DOWN (less inflation pressure)",
+    },
+  },
+  {
+    keywords: /\bcore.?CPI\b/i,
+    impact: {
+      positive: "If Core CPI is higher than expected → Gold likely goes UP (sticky inflation = rate uncertainty)",
+      negative: "If Core CPI is lower than expected → Gold likely goes DOWN (disinflation reduces safe-haven demand)",
+    },
+  },
+  {
+    keywords: /\bFOMC\b|federal.?open.?market/i,
+    impact: {
+      positive: "If FOMC is hawkish (rate hike or hold) → Gold likely goes DOWN (higher yields, stronger USD)",
+      negative: "If FOMC is dovish (cut or pause signal) → Gold likely goes UP (lower yields, weaker USD)",
+    },
+  },
+  {
+    keywords: /interest.?rate.?decision|rate.?decision/i,
+    impact: {
+      positive: "If rate is raised or held hawkishly → Gold likely goes DOWN (USD strengthens)",
+      negative: "If rate is cut or guidance is dovish → Gold likely goes UP (USD weakens, yields fall)",
+    },
+  },
+  {
+    keywords: /\bGDP\b|gross.?domestic.?product/i,
+    impact: {
+      positive: "If GDP beats expectations → Gold likely goes DOWN (strong economy = less safe-haven need)",
+      negative: "If GDP misses expectations → Gold likely goes UP (recession fears = safe-haven demand)",
+    },
+  },
+  {
+    keywords: /retail.?sales/i,
+    impact: {
+      positive: "If Retail Sales are strong → Gold likely goes DOWN (consumer confidence, USD strength)",
+      negative: "If Retail Sales disappoint → Gold likely goes UP (economic slowdown = risk-off)",
+    },
+  },
+  {
+    keywords: /\bPPI\b|producer.?price/i,
+    impact: {
+      positive: "If PPI is higher than expected → Gold likely goes UP (upstream inflation signals CPI rise ahead)",
+      negative: "If PPI is lower than expected → Gold likely goes DOWN (deflation risk reduces inflation hedge demand)",
+    },
+  },
+  {
+    keywords: /\bECB\b|european.?central.?bank/i,
+    impact: {
+      positive: "If ECB is hawkish → Gold may go DOWN vs EUR pairs; watch USD reaction for overall direction",
+      negative: "If ECB is dovish (rate cut / weak outlook) → Gold likely goes UP (global easing = safe-haven bid)",
+    },
+  },
+  {
+    keywords: /initial.?jobless|unemployment.?claims/i,
+    impact: {
+      positive: "If claims are lower (fewer unemployed) → Gold likely goes DOWN (strong labor market = USD up)",
+      negative: "If claims are higher (more unemployed) → Gold likely goes UP (labor weakness = risk-off)",
+    },
+  },
+  {
+    keywords: /ISM|manufacturing.?PMI|services.?PMI/i,
+    impact: {
+      positive: "If PMI beats expectations → Gold likely goes DOWN (economic expansion = risk-on)",
+      negative: "If PMI misses expectations → Gold likely goes UP (contraction fears = safe-haven demand)",
+    },
+  },
+  {
+    keywords: /\bADP\b/i,
+    impact: {
+      positive: "If ADP is strong (more private jobs) → Gold likely goes DOWN (strong employment = USD up)",
+      negative: "If ADP is weak → Gold likely goes UP (jobs weakness ahead of NFP = risk-off)",
+    },
+  },
+]
+
+function getGoldImpact(text: string): GoldImpact | null {
+  for (const entry of GOLD_IMPACT_MAP) {
+    if (entry.keywords.test(text)) return entry.impact
+  }
+  return null
+}
+
 export function IntelligenceContent() {
   const t = useT()
   const [activeTab, setActiveTab] = useState<Tab>("forex")
@@ -325,11 +426,11 @@ export function IntelligenceContent() {
     { refreshInterval: 3000 }
   )
 
-  // Fetch forex data — 15s refresh
+  // Fetch forex data — 30s refresh (Yahoo Finance rate-limit friendly)
   const { data: forexData, mutate: mutateForex, isValidating: forexLoading } = useSWR(
     activeTab === "forex" ? "/api/intelligence/forex" : null,
     fetcher,
-    { refreshInterval: 15000 }
+    { refreshInterval: 30000, revalidateOnFocus: true }
   )
 
   // Fetch Indian market data — 30s
@@ -439,7 +540,10 @@ export function IntelligenceContent() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16 sm:pt-20 pb-12">
+      {/* mt-16 compensates for the fixed header so the sessions bar starts below it in normal flow */}
+      <div className="mt-16">
+        <TradingSessionsPanel />
+        <main className="pb-12">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
@@ -620,203 +724,202 @@ export function IntelligenceContent() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            {/* Market News */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Newspaper className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-foreground">
-                  {activeTab === "forex" ? "Forex News" : activeTab === "crypto" ? "Crypto News" : "Indian Market News"}
-                </h2>
-                {newsLoading && (
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                )}
-              </div>
-              <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
-                {news.length > 0 ? (
-                  <div className="space-y-4">
-                    {news.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors"
-                      >
-                        <div className={`p-1.5 rounded-full shrink-0 ${
-                          item.impact === "bullish" 
-                            ? "bg-green-500/20" 
-                            : item.impact === "bearish"
-                            ? "bg-red-500/20"
-                            : "bg-muted"
-                        }`}>
-                          {item.impact === "bullish" ? (
-                            <TrendingUp className="w-3 h-3 text-green-500" />
-                          ) : item.impact === "bearish" ? (
-                            <TrendingDown className="w-3 h-3 text-red-500" />
-                          ) : (
-                            <Minus className="w-3 h-3 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground font-medium line-clamp-2">
-                            {item.headline}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-muted-foreground">{item.source}</span>
-                            <span className="text-xs text-muted-foreground">-</span>
-                            <span className="text-xs text-muted-foreground">{item.time}</span>
-                          </div>
-                        </div>
-                        {item.url && (
-                          <a 
-                            href={item.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex gap-3 animate-pulse">
-                        <div className="w-8 h-8 rounded-full bg-muted" />
-                        <div className="flex-1">
-                          <div className="h-4 w-full bg-muted rounded mb-2" />
-                          <div className="h-3 w-24 bg-muted rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
+          {/* Single-column layout — Trading Sessions is the sticky bar above */}
+          <div className="space-y-8 min-w-0">
 
-            {/* Economic Calendar - only for Forex */}
-            {activeTab === "forex" && (
+              {/* Market News */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  <h2 className="text-xl font-semibold text-foreground">Economic Calendar</h2>
-                  {calendarLoading && (
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  )}
+                  <Newspaper className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {activeTab === "forex" ? "Forex News" : activeTab === "crypto" ? "Crypto News" : "Indian Market News"}
+                  </h2>
+                  {newsLoading && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
                 </div>
-                <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
-                  {calendar.length > 0 ? (
+                <div className="p-4 rounded-xl bg-card border border-border max-h-[520px] overflow-y-auto">
+                  {news.length > 0 ? (
                     <div className="space-y-3">
-                      {calendar.map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-2 h-8 rounded-full ${
-                              event.impact === "high"
-                                ? "bg-red-500"
-                                : event.impact === "medium"
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                            }`} />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{event.event}</p>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span className="font-semibold">{event.country}</span>
-                                <span>-</span>
-                                <span>{event.date}</span>
-                                <span>{event.time}</span>
-                              </div>
+                      {news.map((item) => {
+                        const goldImpact = activeTab === "forex" ? getGoldImpact(item.headline) : null
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors ${
+                              goldImpact ? "border border-amber-500/20 bg-amber-500/5" : ""
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-full shrink-0 ${
+                              item.impact === "bullish" ? "bg-green-500/20"
+                              : item.impact === "bearish" ? "bg-red-500/20"
+                              : "bg-muted"
+                            }`}>
+                              {item.impact === "bullish" ? <TrendingUp className="w-3 h-3 text-green-500" />
+                               : item.impact === "bearish" ? <TrendingDown className="w-3 h-3 text-red-500" />
+                               : <Minus className="w-3 h-3 text-muted-foreground" />}
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground font-medium line-clamp-2">{item.headline}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-muted-foreground">{item.source}</span>
+                                <span className="text-xs text-muted-foreground">·</span>
+                                <span className="text-xs text-muted-foreground">{item.time}</span>
+                              </div>
+                              {goldImpact && (
+                                <div className="mt-2 pt-2 border-t border-amber-500/15 space-y-0.5">
+                                  <p className="text-[11px] font-semibold text-amber-400/90">Gold Impact</p>
+                                  <p className="text-[11px] text-muted-foreground">{goldImpact.positive}</p>
+                                  <p className="text-[11px] text-muted-foreground">{goldImpact.negative}</p>
+                                </div>
+                              )}
+                            </div>
+                            {item.url && (
+                              <a href={item.url} target="_blank" rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-primary shrink-0">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            )}
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">
-                              F: <span className="text-foreground">{event.forecast}</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              P: <span className="text-foreground">{event.previous}</span>
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                        <div key={i} className="flex gap-3 animate-pulse">
+                          <div className="w-8 h-8 rounded-full bg-muted" />
+                          <div className="flex-1">
+                            <div className="h-4 w-full bg-muted rounded mb-2" />
+                            <div className="h-3 w-24 bg-muted rounded" />
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
               </section>
-            )}
 
-            {/* Technical Overview - for Crypto and Indian */}
-            {(activeTab === "crypto" || activeTab === "indian") && (
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                  <h2 className="text-xl font-semibold text-foreground">Technical Overview</h2>
-                </div>
-                <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
-                  <div className="space-y-3">
-                    {getCurrentAssets().slice(0, 5).map((asset) => (
-                      <div
-                        key={asset.symbol}
-                        className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
-                      >
-                        <div>
-                          <p className="font-semibold text-foreground">{asset.symbol}</p>
-                          <p className="text-sm text-muted-foreground">{asset.name}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-medium text-foreground">{asset.price}</p>
-                            <p className={`text-sm ${asset.isPositive ? "text-green-500" : "text-red-500"}`}>
-                              {asset.change}
-                            </p>
-                          </div>
-                          {asset.bias && (
-                            <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                              asset.bias === "Bullish" ? "bg-green-500/20 text-green-400" :
-                              asset.bias === "Bearish" ? "bg-red-500/20 text-red-400" :
-                              "bg-muted text-muted-foreground"
-                            }`}>
-                              {asset.bias}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+              {/* Economic Calendar - Forex only */}
+              {activeTab === "forex" && (
+                <section>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-semibold text-foreground">Economic Calendar</h2>
+                    {calendarLoading && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
                   </div>
-                </div>
-              </section>
-            )}
-            {/* Trading Sessions Panel — always visible, all tabs */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-foreground">Trading Sessions</h2>
-              </div>
-              <TradingSessionsPanel />
-            </section>
+                  <div className="p-4 rounded-xl bg-card border border-border max-h-[600px] overflow-y-auto">
+                    {calendar.length > 0 ? (
+                      <div className="space-y-3">
+                        {calendar.map((event) => {
+                          const goldImpact = event.impact === "high" ? getGoldImpact(event.event) : null
+                          return (
+                            <div
+                              key={event.id}
+                              className={`p-3 rounded-lg ${
+                                goldImpact
+                                  ? "bg-amber-500/10 border border-amber-500/20"
+                                  : "bg-secondary/30"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-2 h-full min-h-[32px] rounded-full shrink-0 ${
+                                    event.impact === "high" ? "bg-red-500"
+                                    : event.impact === "medium" ? "bg-yellow-500"
+                                    : "bg-green-500"
+                                  }`} />
+                                  <div>
+                                    <p className="text-sm font-medium text-foreground">{event.event}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                      <span className="font-semibold">{event.country}</span>
+                                      <span>·</span>
+                                      <span>{event.date}</span>
+                                      <span>{event.time}</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                        event.impact === "high" ? "bg-red-500/15 text-red-400"
+                                        : event.impact === "medium" ? "bg-yellow-500/15 text-yellow-400"
+                                        : "bg-green-500/15 text-green-400"
+                                      }`}>{event.impact.toUpperCase()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs text-muted-foreground">F: <span className="text-foreground">{event.forecast}</span></p>
+                                  <p className="text-xs text-muted-foreground">P: <span className="text-foreground">{event.previous}</span></p>
+                                </div>
+                              </div>
+                              {goldImpact && (
+                                <div className="mt-2.5 pt-2.5 border-t border-amber-500/15 space-y-1">
+                                  <p className="text-[11px] font-bold text-amber-400">Gold Impact — {event.event}</p>
+                                  <p className="text-[11px] text-muted-foreground">{goldImpact.positive}</p>
+                                  <p className="text-[11px] text-muted-foreground">{goldImpact.negative}</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
-            {/* Market Correlations — always visible */}
-            <section>
-              <div className="flex items-center gap-2 mb-5">
-                <GitCompare className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-foreground">Market Correlations</h2>
-              </div>
-              <p className="text-sm text-muted-foreground mb-5 max-w-2xl leading-relaxed">
-                Understanding how assets move relative to each other helps traders confirm directional bias before entering a trade. Use these relationships as confluence, not as standalone signals.
-              </p>
-              <MarketCorrelations />
-            </section>
-          </div>
+              {/* Technical Overview - Crypto + Indian */}
+              {(activeTab === "crypto" || activeTab === "indian") && (
+                <section>
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-semibold text-foreground">Technical Overview</h2>
+                  </div>
+                  <div className="p-4 rounded-xl bg-card border border-border max-h-[400px] overflow-y-auto">
+                    <div className="space-y-3">
+                      {getCurrentAssets().slice(0, 5).map((asset) => (
+                        <div key={asset.symbol} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                          <div>
+                            <p className="font-semibold text-foreground">{asset.symbol}</p>
+                            <p className="text-sm text-muted-foreground">{asset.name}</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="font-medium text-foreground">{asset.price}</p>
+                              <p className={`text-sm ${asset.isPositive ? "text-green-500" : "text-red-500"}`}>{asset.change}</p>
+                            </div>
+                            {asset.bias && (
+                              <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                                asset.bias === "Bullish" ? "bg-green-500/20 text-green-400"
+                                : asset.bias === "Bearish" ? "bg-red-500/20 text-red-400"
+                                : "bg-muted text-muted-foreground"
+                              }`}>{asset.bias}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Market Correlations */}
+              <section>
+                <div className="flex items-center gap-2 mb-5">
+                  <GitCompare className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">Market Correlations</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-5 max-w-2xl leading-relaxed">
+                  Understanding how assets move relative to each other helps traders confirm directional bias before entering a trade. Use these relationships as confluence, not as standalone signals.
+                </p>
+                <MarketCorrelations />
+              </section>
+            </div>
 
         </div>
       </main>
+      </div>
       <Footer />
     </div>
   )

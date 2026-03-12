@@ -1,11 +1,14 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { VipAccessFlow, useVipAccessFlow } from "@/components/vip-access-flow"
 import { Check, Crown, Shield, TrendingUp, Users, AlertCircle, Copy } from "lucide-react"
 import { useState } from "react"
+import { useSiteConfig } from "@/lib/use-site-config"
 
 const PARTNER_CODE = "XV3F9"
 
@@ -21,6 +24,7 @@ const vipFeatures = [
 export default function VipGroupPage() {
   const { isOpen, initialUserType, openFlow, closeFlow } = useVipAccessFlow()
   const [copiedCode, setCopiedCode] = useState(false)
+  const siteConfig = useSiteConfig()
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(PARTNER_CODE)
@@ -31,7 +35,7 @@ export default function VipGroupPage() {
   const pricingOptions = [
     {
       title: "XM Existing User",
-      price: "₹2500 / $30",
+      price: siteConfig.vip_signal_xm_existing,
       description: "For traders who already have an XM trading account.",
       requirements: "Deposit minimum $50 under partner code XV3F9 and submit your Trader ID.",
       highlight: false,
@@ -40,7 +44,7 @@ export default function VipGroupPage() {
     },
     {
       title: "XM New User",
-      price: "₹3500 / $40",
+      price: siteConfig.vip_signal_xm_new,
       description: "For new XM users",
       requirements: "Create XM account using partner link, deposit minimum $50.",
       highlight: true,
@@ -49,7 +53,7 @@ export default function VipGroupPage() {
     },
     {
       title: "Funded Account User",
-      price: "₹4500 / $50",
+      price: siteConfig.funded_account,
       description: "For funded traders",
       requirements: "For traders using funded accounts. Select your account size.",
       highlight: false,

@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useState, useRef } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -694,7 +696,12 @@ export default function MentorshipPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
               {/* Card 1 — Mentorship 1.0 */}
-              <div className="flex flex-col p-7 rounded-2xl bg-card border border-border/60 hover:border-primary/40 transition-colors">
+              <div className="flex flex-col p-7 rounded-2xl bg-card border border-border/60 hover:border-primary/40 transition-colors relative overflow-hidden">
+                <div className="absolute top-4 right-4">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30">
+                    <span className="text-xs font-bold text-primary">{siteConfig.mentorship_1}</span>
+                  </div>
+                </div>
                 <div className="mb-5">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-xs font-semibold text-muted-foreground mb-3">
                     Mentorship 1.0 — Basic Program
@@ -726,7 +733,7 @@ export default function MentorshipPage() {
                 <div className="absolute top-4 right-4">
                   <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30">
                     <Zap className="w-3 h-3 text-primary" />
-                    <span className="text-xs font-bold text-primary">2026</span>
+                    <span className="text-xs font-bold text-primary">{siteConfig.mentorship_2}</span>
                   </div>
                 </div>
                 <div className="mb-5">
@@ -760,7 +767,7 @@ export default function MentorshipPage() {
                 <div className="absolute top-4 right-4">
                   <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
                     <Bitcoin className="w-3 h-3 text-amber-400" />
-                    <span className="text-xs font-bold text-amber-400">{siteConfig.mentorshipPrice}</span>
+                    <span className="text-xs font-bold text-amber-400">{siteConfig.crypto_mentorship}</span>
                   </div>
                 </div>
                 <div className="mb-5">

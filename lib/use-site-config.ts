@@ -2,68 +2,86 @@
 
 import { useEffect, useState } from "react"
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+// Inline types here so this file has ZERO imports from admin-settings.ts.
+// admin-settings.ts imports supabase/client which causes HMR module factory
+// errors when loaded in the same bundle as this hook.
+
 export interface SiteConfig {
-  upiEnabled: boolean
-  cryptoEnabled: boolean
-  erupeeEnabled: boolean
-  vipPrice: string
-  mentorshipPrice: string
-  maintenanceMode: boolean
+  // Pricing
+  mentorship_1:           string
+  mentorship_2:           string
+  crypto_mentorship:      string
+  vip_signal:             string
+  funded_account:         string
+  vip_signal_xm_existing: string
+  vip_signal_xm_new:      string
+  // System
+  upiEnabled:          boolean
+  cryptoEnabled:       boolean
+  erupeeEnabled:       boolean
+  maintenanceMode:     boolean
+  telegramEnabled:     boolean
+  notifEnabled:        boolean
   paymentInstructions: string
-  telegramEnabled: boolean
-  notifEnabled: boolean
 }
 
 const DEFAULT_CONFIG: SiteConfig = {
-  upiEnabled: true,
-  cryptoEnabled: true,
-  erupeeEnabled: true,
-  vipPrice: "₹2,999",
-  mentorshipPrice: "₹4,999",
-  maintenanceMode: false,
+  mentorship_1:           "₹6,500",
+  mentorship_2:           "₹15,000",
+  crypto_mentorship:      "₹20,000",
+  vip_signal:             "₹2,999",
+  funded_account:         "₹5,000",
+  vip_signal_xm_existing: "₹2,000",
+  vip_signal_xm_new:      "₹2,500",
+  upiEnabled:          true,
+  cryptoEnabled:       true,
+  erupeeEnabled:       true,
+  maintenanceMode:     false,
+  telegramEnabled:     true,
+  notifEnabled:        true,
   paymentInstructions: "Pay via UPI or Crypto and upload screenshot with UTR number.",
-  telegramEnabled: true,
-  notifEnabled: true,
-}
-
-function readConfig(): SiteConfig {
-  if (typeof window === "undefined") return DEFAULT_CONFIG
-  try {
-    const raw = localStorage.getItem("og_site_config")
-    if (!raw) return DEFAULT_CONFIG
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) }
-  } catch {
-    return DEFAULT_CONFIG
-  }
 }
 
 /**
- * Reads og_site_config from localStorage (written by admin-panel)
- * and re-syncs whenever the storage event fires (cross-tab) or
- * whenever the component mounts.
+ * Returns live site config from /api/pricing (server-side Supabase read).
+ *
+ * Key guarantee: the hook NEVER reads localStorage synchronously.
+ * The initial state on both server and client is always DEFAULT_CONFIG,
+ * which prevents hydration mismatches. Live values load after mount via
+ * useEffect, so the first paint is always consistent.
  */
 export function useSiteConfig(): SiteConfig {
+  // Always start with DEFAULT_CONFIG on both server and client.
+  // Never use a lazy initialiser that reads localStorage — that causes
+  // server/client mismatches because localStorage is browser-only.
   const [config, setConfig] = useState<SiteConfig>(DEFAULT_CONFIG)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setConfig(readConfig())
+    setMounted(true)
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "og_site_config") {
-        setConfig(readConfig())
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/pricing", { cache: "no-store" })
+        if (!res.ok) return
+        const json = await res.json()
+        if (json?.config) {
+          setConfig(prev => ({ ...prev, ...json.config }))
+        }
+      } catch {
+        // Network failure — keep defaults
       }
     }
 
-    // Also handle same-tab updates via a custom event
-    const onSiteConfigChange = () => setConfig(readConfig())
+    fetchConfig()
 
-    window.addEventListener("storage", onStorage)
-    window.addEventListener("og_site_config_change", onSiteConfigChange)
-    return () => {
-      window.removeEventListener("storage", onStorage)
-      window.removeEventListener("og_site_config_change", onSiteConfigChange)
-    }
+    // Re-fetch when admin saves new pricing in the same tab
+    window.addEventListener("og_site_config_change", fetchConfig)
+    return () => window.removeEventListener("og_site_config_change", fetchConfig)
   }, [])
 
-  return config
+  // Return defaults until mounted to guarantee server/client render parity.
+  // After mount, return the fetched live config.
+  return mounted ? config : DEFAULT_CONFIG
 }

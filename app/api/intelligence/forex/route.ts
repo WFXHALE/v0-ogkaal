@@ -1,10 +1,32 @@
 import { NextResponse } from "next/server"
 
-// TwelveData batch quote — only Gold and DXY
-const SYMBOLS = [
-  { td: "XAU/USD", symbol: "XAUUSD", name: "Gold",            metal: true  },
-  { td: "DXY",     symbol: "DXY",    name: "US Dollar Index", metal: false },
-]
+export const dynamic = "force-dynamic"
+
+interface YFMeta {
+  regularMarketPrice?: number
+  previousClose?: number
+  chartPreviousClose?: number
+  regularMarketChangePercent?: number
+}
+
+async function fetchYFChart(ticker: string): Promise<YFMeta | null> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+      },
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const meta: YFMeta = json?.chart?.result?.[0]?.meta
+    return meta ?? null
+  } catch {
+    return null
+  }
+}
 
 function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   if (pct > 0.1) return "Bullish"
@@ -12,58 +34,61 @@ function bias(pct: number): "Bullish" | "Bearish" | "Neutral" {
   return "Neutral"
 }
 
-function formatPrice(symbol: string, price: number, metal: boolean): string {
-  if (metal) return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  if (symbol === "EURUSD" || symbol === "GBPUSD") return price.toFixed(5)
-  if (symbol === "USDJPY") return price.toFixed(3)
-  return price.toFixed(2)
+function isForexWeekend(): boolean {
+  const now = new Date()
+  const day = now.getUTCDay()
+  const h   = now.getUTCHours()
+  return day === 6 || (day === 0 && h < 21) || (day === 5 && h >= 21)
 }
 
 export async function GET() {
-  const apiKey = process.env.TWELVE_DATA_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ success: false, data: [], error: "TWELVE_DATA_API_KEY not set" }, { status: 500 })
+  const isClosed = isForexWeekend()
+
+  const [goldMeta, dxyMeta] = await Promise.all([
+    fetchYFChart("GC=F"),      // Gold futures — XAUUSD proxy
+    fetchYFChart("DX-Y.NYB"),  // US Dollar Index
+  ])
+
+  function buildAsset(
+    symbol: string,
+    name: string,
+    meta: YFMeta | null,
+    decimals: number,
+    formatFn?: (price: number) => string,
+  ) {
+    const price     = meta?.regularMarketPrice ?? 0
+    const prevClose = meta?.previousClose ?? meta?.chartPreviousClose ?? price
+    const changeAbs = price - prevClose
+    const changePct = prevClose > 0 ? (changeAbs / prevClose) * 100 : 0
+    const isPositive = changePct >= 0
+
+    const formattedPrice = price > 0
+      ? (formatFn ? formatFn(price) : price.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }))
+      : "—"
+
+    return {
+      symbol,
+      name,
+      price:         formattedPrice,
+      change:        isClosed ? "Market Closed" : `${isPositive ? "+" : ""}${changePct.toFixed(2)}%`,
+      changePercent: `${Math.abs(changePct).toFixed(2)}%`,
+      changeAbs:     isClosed ? "" : `${isPositive ? "+" : ""}${changeAbs.toFixed(decimals)}`,
+      isPositive,
+      bias:          bias(changePct),
+      isWeekend:     isClosed,
+      rawPrice:      price,
+    }
   }
 
-  try {
-    // /quote returns price, open, percent_change — one credit per symbol in batch
-    const tickers = SYMBOLS.map(s => s.td).join(",")
-    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(tickers)}&apikey=${apiKey}`
+  const data = [
+    buildAsset("XAUUSD", "Gold / US Dollar", goldMeta, 2,
+      p => `$${p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ),
+    buildAsset("DXY", "US Dollar Index", dxyMeta, 3),
+  ]
 
-    const res = await fetch(url, { next: { revalidate: 30 } })
-    if (!res.ok) throw new Error(`TwelveData responded ${res.status}`)
-
-    const json = await res.json()
-
-    // Single symbol returns the object directly; multiple symbols returns a keyed map
-    const isSingle = SYMBOLS.length === 1
-    const map: Record<string, { close?: string; open?: string; percent_change?: string; status?: string }> =
-      isSingle ? { [SYMBOLS[0].td]: json } : json
-
-    const data = SYMBOLS.map(s => {
-      const q = map[s.td] ?? {}
-      if (q.status === "error") return null
-
-      const price     = parseFloat(q.close ?? "0")
-      const open      = parseFloat(q.open  ?? "0")
-      const changePct = q.percent_change != null
-        ? parseFloat(q.percent_change)
-        : open > 0 ? ((price - open) / open) * 100 : 0
-
-      return {
-        symbol: s.symbol,
-        name:   s.name,
-        price:  price > 0 ? formatPrice(s.symbol, price, s.metal) : "-",
-        change: `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`,
-        changePercent: `${Math.abs(changePct).toFixed(2)}%`,
-        isPositive: changePct >= 0,
-        bias: bias(changePct),
-      }
-    }).filter(Boolean)
-
-    return NextResponse.json({ success: true, data, timestamp: new Date().toISOString() })
-  } catch (err) {
-    console.error("[forex route]", err)
-    return NextResponse.json({ success: false, data: [], error: String(err) }, { status: 500 })
-  }
+  return NextResponse.json(
+    { success: true, data, timestamp: new Date().toISOString() },
+    { headers: { "Cache-Control": "no-store, max-age=0" } },
+  )
 }

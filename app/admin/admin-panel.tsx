@@ -12,7 +12,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Menu, Folder, Lock,
   Globe, ToggleLeft, ToggleRight, Mail, Phone,
   ExternalLink, Send, Bot, Zap, Settings,
-  Crown, UserPlus,
+  Crown, UserPlus, Save,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,7 +28,6 @@ import {
   loadSystemConfig, saveSystemConfig,
   loadPricing, savePricing,
   loadAdminProfile, saveAdminProfile,
-  loadReadIds, saveReadIds,
   DEFAULT_PRICING,
   type PricingConfig,
 } from "@/lib/admin-settings"
@@ -53,13 +52,13 @@ type Section =
 interface Submission {
   id: string
   userId?: string
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "support" | "member" | "other"
   name: string
   email?: string
   telegram?: string
   phone?: string
   details: Record<string, unknown>
-  status: "pending" | "approved" | "rejected" | "completed"
+  status: "pending" | "approved" | "rejected" | "completed" | "dismissed" | "deleted"
   paymentMethod?: string
   amount?: string
   utr?: string
@@ -86,7 +85,7 @@ interface USDTBuyRequest {
   amountUsdt: string
   inrEquivalent: string
   amountPaid: string
-  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
+  status: "pending" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -102,19 +101,20 @@ interface USDTSellRequest {
   usdtAmount: string
   txId: string
   screenshotUrl: string
-  status: "pending" | "accepted" | "completed" | "cancelled" | "rejected"
+  status: "pending" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
 interface AdminNotification {
   id: string
-  type: "vip" | "mentorship" | "usdt" | "suspicious"
+  type: string          // DB text column — not restricted to a closed union
+  title?: string
   message: string
   read: boolean
+  status?: "read" | "unread"
   createdAt: string
-  // Links to the relevant record
   refId?: string
-  refSection?: Section
+  refSection?: string   // derived from type by the API normalizer
 }
 
 // ─── Sidebar nav config ───────────────────────────────────────────────────────
@@ -158,8 +158,10 @@ function statusBadge(status: string) {
     approved:  "bg-green-500/10 text-green-400 border-green-500/30",
     accepted:  "bg-blue-500/10 text-blue-400 border-blue-500/30",
     completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    cancelled: "bg-orange-500/10 text-orange-400 border-orange-500/30",
-    rejected:  "bg-red-500/10 text-red-400 border-red-500/30",
+    cancelled:  "bg-orange-500/10 text-orange-400 border-orange-500/30",
+    rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
+    dismissed:  "bg-zinc-500/10 text-zinc-400 border-zinc-500/30",
+    deleted:    "bg-zinc-700/20 text-zinc-500 border-zinc-600/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
@@ -174,30 +176,8 @@ function downloadCSV(rows: Record<string, unknown>[], filename: string) {
   URL.revokeObjectURL(url)
 }
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
+// ─── Demo data ─────────────────────────────────────���──────────────────────────
 
-const DEMO_SUBMISSIONS: Submission[] = [
-  { id: "1", userId: "USER-0001", type: "mentorship", name: "Rahul Kumar", email: "rahul@example.com", telegram: "@rahulk", phone: "+91 76543 21098", details: { program: "Mentorship 2.0" }, status: "pending", paymentMethod: "UPI", amount: "₹4,999", utr: "UTR123456789", screenshotUrl: "", ipAddress: "49.207.89.123", location: "Bangalore, India", createdAt: new Date(Date.now() - 24 * 3600000).toISOString() },
-  { id: "2", userId: "USER-0002", type: "vip_group", name: "Jane Smith",   email: "jane@example.com",  telegram: "@janesmith", phone: "+91 87654 32109", details: { plan: "VIP Group" },        status: "pending", paymentMethod: "USDT TRC20", amount: "$29",    utr: "UTR123456789", screenshotUrl: "", ipAddress: "182.73.45.12", location: "Delhi, India",      createdAt: new Date(Date.now() - 5 * 3600000).toISOString()  },
-  { id: "3", userId: "USER-0001", type: "usdt_p2p",   name: "Rahul Kumar", telegram: "@rahulk",        phone: "+91 98765 43210", details: { action: "buy" },               status: "completed", paymentMethod: "UPI",        amount: "₹41,000", utr: "UTR999111222", screenshotUrl: "", ipAddress: "103.45.67.89", location: "Mumbai, India",   createdAt: new Date(Date.now() - 2 * 3600000).toISOString()  },
-  { id: "4", userId: "USER-0003", type: "vip",         name: "Priya Singh", email: "priya@example.com", telegram: "@priyasingh", phone: "+91 90012 34567", details: { plan: "VIP Signals" },   status: "approved", paymentMethod: "UPI",        amount: "₹2,999", utr: "UTR987654321", screenshotUrl: "", ipAddress: "122.45.12.89", location: "Chennai, India",  createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
-]
-
-const DEMO_BUY: USDTBuyRequest[] = [
-  { id: "b1", userId: "USER-0001", name: "Rahul Kumar", email: "rahul@example.com", phone: "+91 76543 21098", telegram: "@rahulk", walletAddress: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF", txId: "ABC123TX", screenshotUrl: "", amountUsdt: "500", inrEquivalent: "₹41,750", amountPaid: "₹41,750", status: "pending", createdAt: new Date(Date.now() - 2 * 3600000).toISOString() },
-]
-
-const DEMO_SELL: USDTSellRequest[] = [
-  { id: "s1", userId: "USER-0002", name: "Jane Smith", email: "jane@example.com", phone: "+91 87654 32109", telegram: "@janesmith", upiId: "jane@upi", walletAddress: "TF7gytsAtFPM9f2RQPy...", usdtAmount: "200", txId: "TX9988SELL", screenshotUrl: "", status: "pending", createdAt: new Date(Date.now() - 3600000).toISOString() },
-]
-
-const DEMO_NOTIFICATIONS: AdminNotification[] = [
-  { id: "n1", type: "vip",        message: "New VIP payment received from Priya Singh",         read: false, createdAt: new Date(Date.now() - 30 * 60000).toISOString(),    refId: "4",  refSection: "payment-verification" },
-  { id: "n2", type: "mentorship", message: "New Mentorship payment received from Rahul Kumar",  read: false, createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),  refId: "1",  refSection: "payment-verification" },
-  { id: "n3", type: "usdt",       message: "New USDT buy request submitted by Rahul Kumar",     read: false, createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),  refId: "b1", refSection: "usdt-buy" },
-  { id: "n4", type: "usdt",       message: "New USDT sell request submitted by Jane Smith",     read: true,  createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),  refId: "s1", refSection: "usdt-sell" },
-  { id: "n5", type: "suspicious", message: "Fraud alert: Duplicate UTR detected for Jane Smith",read: false, createdAt: new Date(Date.now() - 6 * 3600000).toISOString(),  refId: "2",  refSection: "suspicious" },
-]
 
 const DEFAULT_SYSTEM = {
   upiEnabled: true,
@@ -254,6 +234,7 @@ export default function AdminPanel() {
   // ── Pricing config (DB-backed) ───────────────────────────────────────────────
   const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
   const [pricingSaving, setPricingSaving]       = useState(false)
+  const [pricingSaved,  setPricingSaved]        = useState(false)
 
   // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
   const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
@@ -261,6 +242,12 @@ export default function AdminPanel() {
   // ── Analytics state ──────────────────────────────────────────────────────────
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
+  // ── Global refresh state ───────────────��─────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false)
+
+  // ── Session countdown (30-minute window) ─────────────────────────────────────
+  const [sessionSecsLeft, setSessionSecsLeft] = useState<number | null>(null)
 
   // ── Indicators state ─────────────────────────────────────────────────────────
   const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
@@ -273,25 +260,25 @@ export default function AdminPanel() {
   const [indicatorEditId,   setIndicatorEditId]   = useState<string | null>(null)
   const [indicatorMsg,      setIndicatorMsg]      = useState<{ ok: boolean; text: string } | null>(null)
 
-  const loadData = useCallback(() => {
-    const stored = localStorage.getItem("og_admin_submissions")
-    setSubmissions(stored ? JSON.parse(stored) : DEMO_SUBMISSIONS)
-    if (!stored) localStorage.setItem("og_admin_submissions", JSON.stringify(DEMO_SUBMISSIONS))
+  const loadData = useCallback(async (opts?: { spinning?: boolean }) => {
+    if (opts?.spinning) setRefreshing(true)
+    try {
+      // Load all live data from Supabase-backed API routes in parallel
+      const [subRes, buyRes, sellRes, notifRes] = await Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+        fetch("/api/admin/notifications").then(r => r.json()).catch(() => ({ ok: false })),
+      ])
 
-    const buyStored = localStorage.getItem("og_admin_usdt_buy")
-    setUsdtBuy(buyStored ? JSON.parse(buyStored) : DEMO_BUY)
-    if (!buyStored) localStorage.setItem("og_admin_usdt_buy", JSON.stringify(DEMO_BUY))
-
-    const sellStored = localStorage.getItem("og_admin_usdt_sell")
-    setUsdtSell(sellStored ? JSON.parse(sellStored) : DEMO_SELL)
-    if (!sellStored) localStorage.setItem("og_admin_usdt_sell", JSON.stringify(DEMO_SELL))
-
-    const notifStored = localStorage.getItem("og_admin_notifications")
-    setNotifications(notifStored ? JSON.parse(notifStored) : DEMO_NOTIFICATIONS)
-    if (!notifStored) localStorage.setItem("og_admin_notifications", JSON.stringify(DEMO_NOTIFICATIONS))
-
-    const sysStored = localStorage.getItem("og_admin_system")
-    if (sysStored) setSystemSettings(s => ({ ...s, ...JSON.parse(sysStored) }))
+      // Always use DB result — empty array if no data (no localStorage fallback)
+      if (subRes.ok)   setSubmissions(subRes.data ?? [])
+      if (buyRes.ok)   setUsdtBuy(buyRes.data ?? [])
+      if (sellRes.ok)  setUsdtSell(sellRes.data ?? [])
+      if (notifRes.ok) setNotifications(notifRes.data ?? [])
+    } finally {
+      if (opts?.spinning) setRefreshing(false)
+    }
 
     setTwoFAEnabled(localStorage.getItem("og_admin_2fa") === "true")
     setSecurityLogs(getSecurityLogs())
@@ -318,6 +305,26 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setAnalyticsData(d); })
         .finally(() => setAnalyticsLoading(false))
+    } else if (activeSection === "notifications") {
+      fetch("/api/admin/notifications")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setNotifications(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "payment-verification") {
+      fetch("/api/admin/submissions")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setSubmissions(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "usdt-buy") {
+      fetch("/api/admin/usdt-buy")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setUsdtBuy(d.data) })
+        .catch(() => {})
+    } else if (activeSection === "usdt-sell") {
+      fetch("/api/admin/usdt-sell")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data?.length > 0) setUsdtSell(d.data) })
+        .catch(() => {})
     } else if (activeSection === "members") {
       // Also pull live users from Supabase to merge with localStorage demo data
       import("@/lib/supabase/client").then(({ createClient }) => {
@@ -370,32 +377,39 @@ export default function AdminPanel() {
     setIsLoading(false)
     loadData()
 
-    // Load DB-backed settings in parallel
-    loadSystemConfig().then(cfg => {
+    // Load DB-backed settings in parallel; merge both into og_site_config so
+    // useSiteConfig (and all frontend pages) gets the full picture immediately.
+    Promise.all([loadSystemConfig(), loadPricing()]).then(([cfg, pricing]) => {
       setSystemSettings(s => ({ ...s, ...cfg }))
-      localStorage.setItem("og_site_config", JSON.stringify(cfg))
+      setPricingConfig(pricing)
+      const merged = { ...cfg, ...pricing }
+      localStorage.setItem("og_site_config", JSON.stringify(merged))
       window.dispatchEvent(new Event("og_site_config_change"))
     })
-    loadPricing().then(p => setPricingConfig(p))
     loadAdminProfile().then(p => {
       if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
-    loadReadIds().then(({ read_ids }) => {
-      if (read_ids.length > 0) {
-        setNotifications(ns => ns.map(n => read_ids.includes(n.id) ? { ...n, read: true } : n))
+    // Session countdown — tick every second, auto-logout on expiry
+    const sessionInterval = setInterval(() => {
+      const s = getSession()
+      if (!s) { clearInterval(sessionInterval); router.push("/admin/login"); return }
+      const secsLeft = Math.ceil((new Date(s.expiresAt).getTime() - Date.now()) / 1000)
+      if (secsLeft <= 0) {
+        clearInterval(sessionInterval)
+        logout().then(() => router.push("/admin/login"))
+      } else {
+        setSessionSecsLeft(secsLeft)
       }
-    })
+    }, 1000)
+
     // Pre-fetch dashboard DB stats
     fetch("/api/admin/analytics")
       .then(r => r.json())
       .then(d => { if (d.ok) setDbStats(d.stats) })
       .catch(() => {})
-  }, [router, loadData])
 
-  const saveSubmissions = (updated: Submission[]) => {
-    setSubmissions(updated)
-    localStorage.setItem("og_admin_submissions", JSON.stringify(updated))
-  }
+    return () => clearInterval(sessionInterval)
+  }, [router, loadData])
 
   // ── Telegram helpers ─────────────────────────────────────────────────────────
   const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
@@ -410,7 +424,13 @@ export default function AdminPanel() {
   }
 
   const updateStatus = async (id: string, status: Submission["status"]) => {
-    saveSubmissions(submissions.map(s => s.id === id ? { ...s, status } : s))
+    setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status } : s))
+    // Persist status change to Supabase
+    fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     if (detailView?.id === id) setDetailView(prev => prev ? { ...prev, status } : null)
 
     const sub = submissions.find(s => s.id === id)
@@ -462,10 +482,24 @@ export default function AdminPanel() {
     }
   }
 
-  const deleteSubmission = (id: string) => {
-    if (!confirm("Delete this submission?")) return
-    saveSubmissions(submissions.filter(s => s.id !== id))
+  const deleteSubmission = async (id: string) => {
+    if (!confirm("Permanently delete this submission? This cannot be undone.")) return
+    // Remove from UI immediately for instant feedback
+    setSubmissions(prev => prev.filter(s => s.id !== id))
+    // Hard-delete from Supabase
+    fetch("/api/admin/submissions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
   }
+
+  // Soft-delete: marks status as "deleted" so it appears in the Deleted column
+  // and disappears from Fraud Detection without losing the record permanently.
+  const softDeleteSubmission = (id: string) => updateStatus(id, "deleted")
+
+  // Dismiss: marks status as "dismissed" — clears from fraud queue permanently
+  const dismissSubmission = (id: string) => updateStatus(id, "dismissed")
 
   const USDT_BUY_MESSAGES: Record<string, { title: string; body: string }> = {
     accepted:  { title: "USDT Order Accepted",       body: "Your USDT buy order has been accepted. Please complete payment."          },
@@ -483,9 +517,13 @@ export default function AdminPanel() {
 
   const updateBuyStatus = (id: string, status: USDTBuyRequest["status"]) => {
     const order = usdtBuy.find(r => r.id === id)
-    const updated = usdtBuy.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtBuy(updated)
-    localStorage.setItem("og_admin_usdt_buy", JSON.stringify(updated))
+    setUsdtBuy(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    // Persist to Supabase
+    fetch("/api/admin/usdt-buy", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     // Fire targeted push notification to the affected user
     const msg = USDT_BUY_MESSAGES[status]
     if (msg && order?.userId) {
@@ -507,9 +545,13 @@ export default function AdminPanel() {
 
   const updateSellStatus = (id: string, status: USDTSellRequest["status"]) => {
     const order = usdtSell.find(r => r.id === id)
-    const updated = usdtSell.map(r => r.id === id ? { ...r, status } : r)
-    setUsdtSell(updated)
-    localStorage.setItem("og_admin_usdt_sell", JSON.stringify(updated))
+    setUsdtSell(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    // Persist to Supabase
+    fetch("/api/admin/usdt-sell", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {})
     // Fire targeted push notification to the affected user
     const msg = USDT_SELL_MESSAGES[status]
     if (msg && order?.userId) {
@@ -530,26 +572,39 @@ export default function AdminPanel() {
   }
 
   const markNotifRead = (id: string) => {
-    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n)
-    setNotifications(updated)
-    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
-    // Persist all read IDs to DB
-    saveReadIds(updated.filter(n => n.read).map(n => n.id)).catch(() => {})
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    // Persist to Supabase admin_notifications table
+    fetch("/api/admin/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
   }
 
   const markAllRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }))
-    setNotifications(updated)
-    localStorage.setItem("og_admin_notifications", JSON.stringify(updated))
-    // Persist read IDs to Supabase so they survive refresh
-    saveReadIds(updated.map(n => n.id)).catch(() => {})
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    // Persist to Supabase — mark ALL unread notifications as read
+    fetch("/api/admin/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    }).catch(() => {})
+  }
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+    fetch("/api/admin/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
   }
 
   // Navigate to the relevant section and open detail when notification is clicked
   const handleNotifClick = (notif: AdminNotification) => {
     markNotifRead(notif.id)
     if (notif.refSection) {
-      setActiveSection(notif.refSection)
+      setActiveSection(notif.refSection as Section)
       // If the ref points to a payment submission, open its detail modal
       if (notif.refSection === "payment-verification" || notif.refSection === "suspicious") {
         const sub = submissions.find(s => s.id === notif.refId)
@@ -596,8 +651,16 @@ export default function AdminPanel() {
   const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
   const mentorSubs     = submissions.filter(s => s.type === "mentorship")
   const utrCounts: Record<string, string[]> = {}
-  submissions.forEach(s => { if (s.utr) { utrCounts[s.utr] = utrCounts[s.utr] || []; utrCounts[s.utr].push(s.id) } })
-  const suspiciousSubs = submissions.filter(s => s.utr && utrCounts[s.utr]?.length > 1)
+  submissions.forEach(s => {
+    if (s.utr && s.status !== "dismissed" && s.status !== "deleted") {
+      utrCounts[s.utr] = utrCounts[s.utr] || []
+      utrCounts[s.utr].push(s.id)
+    }
+  })
+  const suspiciousSubs = submissions.filter(s =>
+    s.utr && utrCounts[s.utr]?.length > 1 &&
+    s.status !== "dismissed" && s.status !== "deleted"
+  )
   const unreadCount    = notifications.filter(n => !n.read).length
 
   const userList = submissions.reduce<Submission[]>((acc, s) => {
@@ -920,59 +983,119 @@ export default function AdminPanel() {
     </div>
   )
 
-  const renderPaymentVerification = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-foreground">Payment Verification</h2>
-        <button onClick={loadData} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><RefreshCw className="w-4 h-4" /> Refresh</button>
-      </div>
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                {["User ID","Name","Telegram","Payment Method","Amount Paid","UTR / TXID","Screenshot","Date","Status","Actions"].map(h => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.length === 0
-                ? <tr><td colSpan={10} className="py-12 text-center text-muted-foreground text-sm">No submissions yet</td></tr>
-                : submissions.map((s, i) => (
-                  <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
-                    <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
-                      <button onClick={() => setDetailView(s)} className="hover:text-primary hover:underline">{s.name}</button>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
-                    <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{s.paymentMethod || "—"}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{s.amount || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[110px] truncate">{s.utr || "—"}</td>
-                    <td className="py-3 px-4"><ScreenshotCell url={s.screenshotUrl} /></td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
-                    <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span></td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
-                        {s.status === "pending" && (
-                          <>
-                            <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
-                            <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
-                          </>
-                        )}
-                        <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </div>
+  const SubTable = ({ rows, cols, emptyMsg }: {
+    rows: Submission[]
+    cols: string[]
+    emptyMsg: string
+  }) => (
+    <div className="rounded-xl bg-card border border-border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary/40">
+              {cols.map(h => (
+                <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0
+              ? <tr><td colSpan={cols.length} className="py-10 text-center text-muted-foreground text-sm">{emptyMsg}</td></tr>
+              : rows.map((s, i) => (
+                <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                  <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
+                  <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
+                    <button onClick={() => setDetailView(s)} className="hover:text-primary hover:underline">{s.name}</button>
+                  </td>
+                  <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
+                  <td className="py-3 px-4 text-xs text-foreground whitespace-nowrap">{s.paymentMethod || "—"}</td>
+                  <td className="py-3 px-4 text-xs font-medium text-foreground whitespace-nowrap">{s.amount || "—"}</td>
+                  <td className="py-3 px-4 font-mono text-xs text-muted-foreground max-w-[110px] truncate">{s.utr || "—"}</td>
+                  <td className="py-3 px-4"><ScreenshotCell url={s.screenshotUrl} /></td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
+                      {s.status === "pending" && (
+                        <>
+                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                          <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                        </>
+                      )}
+                      {s.status !== "deleted" && (
+                        <button onClick={() => softDeleteSubmission(s.id)} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-500/10" title="Move to Deleted"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                      {s.status === "deleted" && (
+                        <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Hard Delete (permanent)"><Trash2 className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
       </div>
     </div>
   )
+
+  const renderPaymentVerification = () => {
+    const cols = ["User ID","Name","Telegram","Payment Method","Amount Paid","UTR / TXID","Screenshot","Date","Actions"]
+    const pending   = submissions.filter(s => s.status === "pending")
+    const completed = submissions.filter(s => s.status === "approved" || s.status === "completed")
+    const dismissed = submissions.filter(s => s.status === "dismissed" || s.status === "rejected")
+    const deleted   = submissions.filter(s => s.status === "deleted")
+
+    const ColHeader = ({ label, count, accent }: { label: string; count: number; accent: string }) => (
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${accent}`}>{count}</span>
+      </div>
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Payment Verification</h2>
+          <button
+            onClick={() => loadData({ spinning: true })}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 transition-opacity"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {/* Pending */}
+        <div>
+          <ColHeader label="Pending Review" count={pending.length} accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
+          <SubTable rows={pending} cols={cols} emptyMsg="No pending submissions" />
+        </div>
+
+        {/* Completed / Approved */}
+        <div>
+          <ColHeader label="Completed / Approved" count={completed.length} accent="bg-emerald-500/10 text-emerald-400 border-emerald-500/20" />
+          <SubTable rows={completed} cols={cols} emptyMsg="No completed submissions yet" />
+        </div>
+
+        {/* Dismissed / Rejected */}
+        <div>
+          <ColHeader label="Dismissed / Rejected" count={dismissed.length} accent="bg-zinc-500/10 text-zinc-400 border-zinc-500/20" />
+          <SubTable rows={dismissed} cols={cols} emptyMsg="No dismissed submissions" />
+        </div>
+
+        {/* Deleted (soft) */}
+        {deleted.length > 0 && (
+          <div>
+            <ColHeader label="Deleted" count={deleted.length} accent="bg-zinc-700/20 text-zinc-500 border-zinc-600/20" />
+            <p className="text-xs text-muted-foreground mb-2">These rows are soft-deleted. Click the trash icon to permanently remove a record from the database.</p>
+            <SubTable rows={deleted} cols={cols} emptyMsg="No deleted submissions" />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const USDTOrderCard = ({ r, type }: { r: USDTBuyRequest | USDTSellRequest; type: "buy" | "sell" }) => {
     const isBuy = type === "buy"
@@ -1086,10 +1209,20 @@ export default function AdminPanel() {
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <ArrowDownLeft className="w-6 h-6 text-green-400" />
-          <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
-          <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <ArrowDownLeft className="w-6 h-6 text-green-400" />
+            <h2 className="text-xl font-bold text-foreground">USDT Buy Requests</h2>
+            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full font-semibold border border-green-500/20">{usdtBuy.length}</span>
+          </div>
+          <button
+            onClick={() => { setRefreshing(true); fetch("/api/admin/usdt-buy").then(r => r.json()).then(d => { if (d.ok && d.data) setUsdtBuy(d.data) }).finally(() => setRefreshing(false)) }}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground">Users buying USDT from you — verify payment then complete the order. Notifications are sent automatically.</p>
         <USDTSection label="Pending Requests"  orders={pending}   type="buy" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
@@ -1107,10 +1240,20 @@ export default function AdminPanel() {
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <ArrowUpRight className="w-6 h-6 text-amber-400" />
-          <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
-          <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <ArrowUpRight className="w-6 h-6 text-amber-400" />
+            <h2 className="text-xl font-bold text-foreground">USDT Sell Requests</h2>
+            <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20">{usdtSell.length}</span>
+          </div>
+          <button
+            onClick={() => { setRefreshing(true); fetch("/api/admin/usdt-sell").then(r => r.json()).then(d => { if (d.ok && d.data) setUsdtSell(d.data) }).finally(() => setRefreshing(false)) }}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground">Users selling USDT to you — verify their USDT transfer then send INR to their UPI. Notifications are sent automatically.</p>
         <USDTSection label="Pending Requests"  orders={pending}   type="sell" accent="bg-amber-500/10 text-amber-400 border-amber-500/20" />
@@ -1173,10 +1316,22 @@ export default function AdminPanel() {
                       <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><UserCheck className="w-4 h-4" /></button>
-                          <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><UserX className="w-4 h-4" /></button>
-                          <button onClick={() => deleteSubmission(s.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Block"><Ban className="w-4 h-4" /></button>
+                          <button onClick={() => setDetailView(s)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View Details"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve — mark as legitimate"><UserCheck className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => dismissSubmission(s.id)}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-500/10"
+                            title="Dismiss — removes from fraud queue permanently (saved as dismissed in DB)"
+                          >
+                            <UserX className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => softDeleteSubmission(s.id)}
+                            className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10"
+                            title="Delete — moves to Deleted column in Payment Verification (soft delete)"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1192,7 +1347,17 @@ export default function AdminPanel() {
 
   const renderMembers = () => (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">Member Database</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-foreground">Member Database</h2>
+        <button
+          onClick={() => loadData({ spinning: true })}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={memberSearch} onChange={e => setMemberSearch(e.target.value)}
@@ -1258,6 +1423,14 @@ export default function AdminPanel() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => { setRefreshing(true); fetch("/api/admin/notifications").then(r => r.json()).then(d => { if (d.ok && d.data) setNotifications(d.data) }).finally(() => setRefreshing(false)) }}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
               onClick={() => saveSystem({ notifEnabled: !systemSettings.notifEnabled })}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${systemSettings.notifEnabled ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-border"}`}>
               {systemSettings.notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
@@ -1285,19 +1458,32 @@ export default function AdminPanel() {
             {notifications.length === 0
               ? <div className="py-16 text-center text-muted-foreground text-sm">No notifications yet</div>
               : notifications.map(n => (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => handleNotifClick(n)}
-                  className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
+                  className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40 ${!n.read ? "bg-primary/5" : ""}`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
-                    <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                  <button
+                    onClick={() => handleNotifClick(n)}
+                    className="flex items-start gap-4 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">{notifIcon(n.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                      <p className="text-xs text-primary mt-0.5">{notifSectionLabel(n)} →</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                    {!n.read && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    <button
+                      onClick={() => deleteNotification(n.id)}
+                      className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="Delete notification permanently"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  {!n.read && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
-                </button>
+                </div>
               ))
             }
           </div>
@@ -1437,34 +1623,52 @@ export default function AdminPanel() {
       <div className="rounded-xl bg-card border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-foreground text-sm">Pricing — All Plans</h3>
-          {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+          <div className="flex items-center gap-2">
+            {pricingSaving && <span className="text-xs text-primary animate-pulse">Saving...</span>}
+            {pricingSaved && <span className="text-xs text-green-400">Saved to database</span>}
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">Changes are saved to the database and shown on checkout pages immediately.</p>
+        <p className="text-xs text-muted-foreground">Edit prices below then click Save. Changes are written directly to the database and reflected immediately on all frontend pages.</p>
         {([
-          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals"                },
-          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP + XM (Existing Client)" },
-          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP + XM (New Client)"      },
-          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0"              },
-          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0"              },
-          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship"           },
-          { key: "funded_account"         as keyof PricingConfig, label: "Funded Account"              },
+          { key: "vip_signal_xm_existing" as keyof PricingConfig, label: "VIP Group — XM Existing User",   group: "VIP Group" },
+          { key: "vip_signal_xm_new"      as keyof PricingConfig, label: "VIP Group — XM New User",         group: "VIP Group" },
+          { key: "funded_account"         as keyof PricingConfig, label: "VIP Group — Funded Account User", group: "VIP Group" },
+          { key: "vip_signal"             as keyof PricingConfig, label: "VIP Signals",                      group: "Other"     },
+          { key: "mentorship_1"           as keyof PricingConfig, label: "Mentorship 1.0",                   group: "Mentorship" },
+          { key: "mentorship_2"           as keyof PricingConfig, label: "Mentorship 2.0",                   group: "Mentorship" },
+          { key: "crypto_mentorship"      as keyof PricingConfig, label: "Crypto Mentorship",                group: "Mentorship" },
         ]).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-4">
-            <label className="text-sm text-foreground w-48 shrink-0">{label}</label>
+            <label className="text-sm text-foreground w-56 shrink-0">{label}</label>
             <input
               value={pricingConfig[key]}
               onChange={e => setPricingConfig(p => ({ ...p, [key]: e.target.value }))}
-              onBlur={async () => {
-                setPricingSaving(true)
-                await savePricing(pricingConfig)
-                // Keep legacy vipPrice / mentorshipPrice keys in sync for useSiteConfig reads
-                saveSystem({ vipPrice: pricingConfig.vip_signal, mentorshipPrice: pricingConfig.mentorship_1 })
-                setPricingSaving(false)
-              }}
+              placeholder="e.g. ₹2,000"
               className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
             />
           </div>
         ))}
+        <button
+          onClick={async () => {
+            // Capture current state snapshot — avoids async stale-closure bug
+            const snapshot = { ...pricingConfig }
+            setPricingSaving(true)
+            setPricingSaved(false)
+            await savePricing(snapshot)
+            // Bust frontend cache: write merged config to localStorage and fire event
+            const merged = { ...systemSettings, ...snapshot }
+            localStorage.setItem("og_site_config", JSON.stringify(merged))
+            window.dispatchEvent(new Event("og_site_config_change"))
+            setPricingSaving(false)
+            setPricingSaved(true)
+            setTimeout(() => setPricingSaved(false), 3000)
+          }}
+          disabled={pricingSaving}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {pricingSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {pricingSaving ? "Saving..." : "Save Prices"}
+        </button>
       </div>
       <div className="rounded-xl bg-card border border-border p-5 space-y-3">
         <h3 className="font-semibold text-foreground text-sm">Payment Instructions</h3>
@@ -2017,7 +2221,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Memberships Manager ───────────────────────────────────────────────────────
+  // ── Memberships Manager ───────────────────���───────────────────────────────────
   const renderMemberships = () => {
     const filtered = membershipsData.filter(m =>
       !membershipSearch ||
@@ -2203,7 +2407,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Indicators Manager ───────────────────────────────────────────────────────
+  // ── Indicators Manager ──────────────────────────���────────────────────────────
   const INDICATOR_CATEGORIES_ADMIN: IndicatorCategory[] = ["SMC", "ICT", "Liquidity", "Sessions", "Tools", "Price Action"]
 
   const resetIndicatorForm = () => {
@@ -2425,6 +2629,19 @@ export default function AdminPanel() {
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center">{unreadCount}</span>}
             </button>
+            {/* Session countdown badge */}
+            {sessionSecsLeft !== null && (
+              <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold transition-colors ${
+                sessionSecsLeft <= 300
+                  ? "bg-red-500/10 border-red-500/30 text-red-400"
+                  : "bg-primary/10 border-primary/20 text-primary"
+              }`}>
+                <Clock className="w-3 h-3" />
+                {sessionSecsLeft >= 60
+                  ? `${Math.floor(sessionSecsLeft / 60)}m ${String(sessionSecsLeft % 60).padStart(2, "0")}s`
+                  : `${sessionSecsLeft}s`}
+              </div>
+            )}
             <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors font-medium">
               <LogOut className="w-4 h-4" /> Logout
             </button>

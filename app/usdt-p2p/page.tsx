@@ -73,8 +73,8 @@ export default function UsdtP2PPage() {
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
-  // Sell flow state
-  const [sellStep, setSellStep] = useState(0) // 0 = method selection, 1 = kaal form, 2 = success
+  // Sell flow state: -1 = info/CTA, 0 = method selection, 1 = kaal form, 2 = success
+  const [sellStep, setSellStep] = useState(-1)
   const [sellFormData, setSellFormData] = useState({
     // Payment method selection (where user wants to receive payment)
     paymentMethodType: "" as "upi" | "imps" | "gpay" | "",
@@ -95,7 +95,23 @@ export default function UsdtP2PPage() {
   const sellScreenshotRef = useRef<HTMLInputElement>(null)
 
   const BINANCE_P2P_LINK = "https://www.binance.com/en/p2p"
-  const KAAL_WALLET_ADDRESS = "TRC20: TYourWalletAddressHere"
+
+  // Network-specific KAAL P2P destinations
+  const KAAL_WALLETS = {
+    bep20:    { label: "BSC (BEP-20)",    address: "0xa1540bccbe530fcc92a2b31db5795394053fdad7", copyLabel: "Copy Address" },
+    trc20:    { label: "TRON (TRC-20)",   address: "TF7gytsAtFPM9f2RQPyiFphd8pasiZ1WQF",        copyLabel: "Copy Address" },
+    binance:  { label: "Binance ID",      address: "1125271626",                                  copyLabel: "Copy ID"      },
+  } as const
+
+  const [sellNetwork, setSellNetwork] = useState<"bep20" | "trc20" | "binance" | "">("")
+  const [copiedNetwork, setCopiedNetwork] = useState(false)
+
+  const handleCopyNetworkAddress = () => {
+    if (!sellNetwork) return
+    navigator.clipboard.writeText(KAAL_WALLETS[sellNetwork].address)
+    setCopiedNetwork(true)
+    setTimeout(() => setCopiedNetwork(false), 2000)
+  }
 
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
@@ -419,7 +435,27 @@ export default function UsdtP2PPage() {
                     </p>
                   </div>
 
-                  {/* Method Selection - Only show if no method selected and not in form/success */}
+                  {/* Sell USDT Now CTA — initial state */}
+                  {sellStep === -1 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <Button
+                        onClick={() => setSellStep(0)}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
+                      >
+                        Sell USDT Now
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                      <button
+                        onClick={() => { setHelpMode("sell"); setHelpOpen(true) }}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                        Help / Support
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Method Selection */}
                   {sellStep === 0 && (
                     <div>
                       <h4 className="text-center text-sm font-medium text-foreground mb-4">Choose Sell Method</h4>
@@ -437,6 +473,7 @@ export default function UsdtP2PPage() {
                             </div>
                           </a>
                         </Button>
+
                         <Button
                           variant="outline"
                           onClick={() => setSellStep(1)}
@@ -466,16 +503,51 @@ export default function UsdtP2PPage() {
 
                       <h4 className="text-lg font-semibold text-foreground mb-6">KAAL P2P - Sell USDT</h4>
 
-                      {/* Step 1 */}
+                      {/* Step 1 — Network selection */}
                       <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-border">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-3 mb-4">
                           <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">1</div>
-                          <h5 className="font-semibold text-foreground">Send USDT to this wallet address</h5>
+                          <h5 className="font-semibold text-foreground">Select network and send USDT</h5>
                         </div>
-                        <div className="p-3 rounded-lg bg-background border border-border">
-                          <p className="text-sm font-mono text-foreground break-all">{KAAL_WALLET_ADDRESS}</p>
+
+                        {/* Network picker */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          {(["bep20", "trc20", "binance"] as const).map(net => (
+                            <button
+                              key={net}
+                              type="button"
+                              onClick={() => setSellNetwork(net)}
+                              className={`p-3 rounded-xl border text-sm font-medium transition-colors ${
+                                sellNetwork === net
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border text-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {KAAL_WALLETS[net].label}
+                            </button>
+                          ))}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">Network: TRC20</p>
+
+                        {/* Address display */}
+                        {sellNetwork ? (
+                          <div className="space-y-2">
+                            <div className="p-3 rounded-lg bg-background border border-border flex items-start justify-between gap-3">
+                              <p className="text-sm font-mono text-foreground break-all">{KAAL_WALLETS[sellNetwork].address}</p>
+                              <button
+                                onClick={handleCopyNetworkAddress}
+                                className="shrink-0 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+                              >
+                                {copiedNetwork ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedNetwork ? "Copied!" : KAAL_WALLETS[sellNetwork].copyLabel}
+                              </button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Only send via <span className="text-foreground font-medium">{KAAL_WALLETS[sellNetwork].label}</span>. Sending on wrong network will result in permanent loss.
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-2">Select a network above to see the destination address.</p>
+                        )}
                       </div>
 
                       {/* Step 2 */}
@@ -666,12 +738,14 @@ export default function UsdtP2PPage() {
                               action: "sell",
                               amount: `${sellAmount} USDT`,
                               rate: `₹${sellRateRange.min}-₹${sellRateRange.max}`,
+                              network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
                               paymentMethod: paymentDetails
                             }
                           })
                           setSellStep(2)
                         }}
                         disabled={
+                          !sellNetwork ||
                           !sellFormData.screenshot || 
                           !sellFormData.phone || 
                           !sellFormData.telegram ||
@@ -722,7 +796,8 @@ export default function UsdtP2PPage() {
                       <Button
                         variant="ghost"
                         onClick={() => {
-                          setSellStep(0)
+                          setSellStep(-1)
+                          setSellNetwork("")
                           setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", phone: "", telegram: "", screenshot: null })
                           setSellUsdtAmount("")
                         }}

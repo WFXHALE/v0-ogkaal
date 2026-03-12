@@ -5,10 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   User, Mail, Phone, AtSign, Camera, Save, CheckCircle, AlertCircle,
   Loader2, BadgeCheck, Clock, XCircle, ChevronRight, Upload, FileCheck, Lock, AtSign as IdIcon,
+  Users, LogIn, UserPlus, LogOut,
 } from "lucide-react"
 import { getSession, setSession } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
+import { getSession as getCommunitySession, setSession as setCommunitySession } from "@/lib/community-utils"
+import type { CommunityUser } from "@/lib/community-utils"
 import { Header } from "@/components/header"
+import { AuthModal } from "@/components/auth-modal"
 
 // ── Avatar circle with initials fallback ─────────────────────────────────────
 
@@ -374,14 +378,21 @@ export default function ProfileClient() {
   const [error,   setError]   = useState("")
   const [booting, setBooting] = useState(true)
 
+  // Community auth state (shown when dashboard session is absent)
+  const [communityUser, setCommunityUser]   = useState<CommunityUser | null>(null)
+  const [showAuthModal, setShowAuthModal]   = useState(false)
+
   useEffect(() => {
     const tab = searchParams.get("tab")
     if (tab === "verify") setActiveTab("verify")
   }, [searchParams])
 
   useEffect(() => {
+    // Load community session regardless of dashboard session
+    setCommunityUser(getCommunitySession())
+
     const s = getSession()
-    if (!s) { router.replace("/dashboard"); return }
+    if (!s) { setBooting(false); return }  // no dashboard session — show community auth section
     setSessionState(s)
     fetch(`/api/dashboard/profile?id=${s.id}`)
       .then(r => r.json())
@@ -426,6 +437,112 @@ export default function ProfileClient() {
         <main className="min-h-screen bg-background flex items-center justify-center pt-16">
           <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </main>
+      </>
+    )
+  }
+
+  // No dashboard session — show community account section
+  if (!session) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen bg-background pt-24 pb-16">
+          <div className="max-w-xl mx-auto px-4 space-y-5">
+
+            {/* Community account card */}
+            {communityUser ? (
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div className="h-1 bg-primary w-full" />
+                <div className="p-6">
+                  <div className="flex items-center gap-4 mb-5">
+                    <img
+                      src={communityUser.avatar}
+                      alt={communityUser.fullName}
+                      className="w-14 h-14 rounded-full border-2 border-primary/30 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground truncate">{communityUser.fullName}</p>
+                      <p className="text-sm text-muted-foreground truncate">{communityUser.email}</p>
+                      <span className="inline-block mt-1 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
+                        {communityUser.level}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 mb-5">
+                    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border/50 bg-secondary/30">
+                      <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">{communityUser.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border/50 bg-secondary/30">
+                      <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground">{communityUser.phone}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <a
+                      href="/community"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                      Go to Community
+                    </a>
+                    <button
+                      onClick={() => { setCommunitySession(null); setCommunityUser(null) }}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-muted-foreground text-sm hover:text-foreground hover:border-foreground/30 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div className="h-1 bg-primary w-full" />
+                <div className="p-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-7 h-7 text-primary" />
+                  </div>
+                  <h2 className="text-lg font-bold text-foreground mb-1">Community Account</h2>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Join the trading community to post ideas, like and comment on trades, and connect with other traders.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setShowAuthModal(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Create Account / Sign In
+                    </button>
+                    <a
+                      href="/dashboard"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Dashboard Login
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </main>
+
+        {showAuthModal && (
+          <AuthModal
+            onClose={() => setShowAuthModal(false)}
+            onAuth={(user) => {
+              setCommunitySession(user)
+              setCommunityUser(user)
+              setShowAuthModal(false)
+            }}
+            subtitle="Join the community to post, like, and connect with other traders."
+          />
+        )}
       </>
     )
   }
