@@ -6,6 +6,7 @@ import { FirebaseProvider } from '@/components/firebase-provider'
 import { PageLoader } from '@/components/page-loader'
 import { LanguageProvider } from '@/contexts/language-context'
 import { MaintenanceGuard } from '@/components/maintenance-guard'
+import { FirstVisitPopup } from '@/components/first-visit-popup'
 import './globals.css'
 
 const _inter = Inter({
@@ -80,6 +81,7 @@ export default function RootLayout({
           <FirebaseProvider>
             <ThemeProvider>
               <PageLoader />
+              <FirstVisitPopup />
               <MaintenanceGuard>
                 {children}
               </MaintenanceGuard>
