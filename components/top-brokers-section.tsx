@@ -5,9 +5,9 @@ import { ExternalLink, Copy, Check, X, Shield, ChevronRight } from "lucide-react
 import { Button } from "@/components/ui/button"
 
 const XM_AFFILIATE_LINK   = "https://clicks.pipaffiliates.com/c?c=1090940&l=en&p=1"
-const XM_PARTNER_CODE     = "XV3F9"
-const EXNESS_LINK         = "https://one.exnesstrack.org/a/og_kaal"
-const JUSTMARKETS_LINK    = "https://one.justmarkets.link/a/kaaltrading"
+const XM_PARTNER_CODE     = "xv3f9"
+const EXNESS_LINK         = "https://one.exnessonelink.com/a/wzl4a4r2lw"
+const JUSTMARKETS_LINK    = "https://one.justmarkets.link/a/fry4p0uhj5/register/trader"
 
 interface Broker {
   id:          string
@@ -163,7 +163,7 @@ export function TopBrokersSection() {
                         : "bg-secondary text-foreground hover:bg-secondary/80"
                     }`}
                   >
-                    Open Account
+                    Create Account
                     <ExternalLink className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
