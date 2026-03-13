@@ -1038,7 +1038,7 @@ export default function AdminPanel() {
       {/* Live DB stats — row 1: users */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Users",       value: dbStats?.totalUsers       ?? usdtBuy.length + usdtSell.length + submissions.length || "—", icon: Users,       color: "text-blue-400"   },
+          { label: "Total Users",       value: (dbStats?.totalUsers ?? (usdtBuy.length + usdtSell.length + submissions.length || "—")), icon: Users,       color: "text-blue-400"   },
           { label: "Total VIP Members", value: dbStats?.totalVipMembers  ?? vipSubs.length,    icon: Crown,       color: "text-primary"    },
           { label: "Total Mentorship",  value: dbStats?.totalMentorship  ?? mentorSubs.length, icon: FileText,    color: "text-blue-400"   },
           { label: "Signups Today",     value: dbStats?.todaySignups     ?? "—",               icon: UserPlus,    color: "text-green-400"  },
