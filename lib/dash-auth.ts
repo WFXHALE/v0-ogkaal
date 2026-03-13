@@ -104,96 +104,101 @@ export function logout(): void {
 export async function login(
   identifier: string,   // accepts either user_id OR email
   password: string
-): Promise<{ success: true; user: DashboardUser } | { success: false; error: string }> {
-  const supabase = createClient()
-  const hash     = await hashPassword(password)
-  const cleaned  = identifier.trim().toLowerCase()
+): Promise<{ success: true; user: DashboardUser } | { success: false; error: string; code?: string; userId?: string; email?: string }> {
+  const hash = await hashPassword(password)
 
-  // Try user_id first; if nothing found, fall back to email lookup
-  let { data, error } = await supabase
-    .from("dashboard_users")
-    .select("*")
-    .eq("user_id", cleaned)
-    .maybeSingle()
+  try {
+    const res  = await fetch("/api/dashboard/login", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ identifier: identifier.trim().toLowerCase(), passwordHash: hash }),
+    })
+    const json = await res.json()
 
-  if (!data) {
-    const byEmail = await supabase
-      .from("dashboard_users")
-      .select("*")
-      .eq("email", cleaned)
-      .maybeSingle()
-    data  = byEmail.data
-    error = byEmail.error
+    if (!res.ok) {
+      return { success: false, error: json.error ?? "Login failed.", code: json.code, userId: json.userId, email: json.email }
+    }
+
+    const data = json.data as Record<string, unknown>
+
+    const user: DashboardUser = {
+      id:              String(data.id),
+      userId:          String(data.user_id),
+      email:           String(data.email),
+      fullName:        String(data.full_name),
+      createdAt:       String(data.created_at),
+      numericUid:      data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
+      tradingLevel:    data.trading_level    ? String(data.trading_level)    : undefined,
+      marketType:      data.market_type      ? String(data.market_type)      : undefined,
+      tradingType:     data.trading_type     ? String(data.trading_type)     : undefined,
+      yearsExperience: data.years_experience ? String(data.years_experience) : undefined,
+      isVerified:      Boolean(data.is_verified),
+      kycStatus:       (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
+    }
+
+    const session: DashboardSession = {
+      ...user,
+      loggedInAt: Date.now(),
+      backupCode: data.backup_code ? String(data.backup_code) : undefined,
+      avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
+    }
+    setSession(session)
+
+    if (typeof window !== "undefined") {
+      import("./analytics").then(({ Analytics, identifyUser }) => {
+        identifyUser(user.id)
+        Analytics.login("email")
+      }).catch(() => {})
+    }
+    return { success: true, user }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
   }
-
-  if (error || !data) return { success: false, error: "No account found. Check your User ID or email." }
-
-  if (data.password_hash !== hash) {
-    return { success: false, error: "Incorrect password. Please try again." }
-  }
-
-  const user: DashboardUser = {
-    id:               String(data.id),
-    userId:           String(data.user_id),
-    email:            String(data.email),
-    fullName:         String(data.full_name),
-    createdAt:        String(data.created_at),
-    numericUid:       data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
-    tradingLevel:     data.trading_level    ? String(data.trading_level)    : undefined,
-    marketType:       data.market_type      ? String(data.market_type)      : undefined,
-    tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
-    yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
-    isVerified:       Boolean(data.is_verified),
-    kycStatus:        (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
-  }
-
-  const session: DashboardSession = {
-    ...user,
-    loggedInAt: Date.now(),
-    backupCode: data.backup_code ? String(data.backup_code) : undefined,
-    avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
-  }
-  setSession(session)
-  // analytics — non-blocking, client-only
-  if (typeof window !== "undefined") {
-    import("./analytics").then(({ Analytics, identifyUser }) => {
-      identifyUser(user.id)
-      Analytics.login("email")
-    }).catch(() => {})
-  }
-  return { success: true, user }
 }
 
 export async function loginWithBackupCode(
   email: string,
   backupCode: string
 ): Promise<{ success: true; user: DashboardUser } | { success: false; error: string }> {
-  const supabase = createClient()
-  const hash = await hashPassword(backupCode.replace(/-/g, ""))
+  const backupCodeHash = await hashPassword(backupCode.replace(/-/g, ""))
 
-  const { data, error } = await supabase
-    .from("dashboard_users")
-    .select("*")
-    .eq("email", email.trim().toLowerCase())
-    .single()
+  try {
+    const res  = await fetch("/api/dashboard/login-backup", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ email: email.trim().toLowerCase(), backupCodeHash }),
+    })
+    const json = await res.json()
 
-  if (error || !data) return { success: false, error: "No account found with that email." }
-  if (data.backup_code_hash !== hash) return { success: false, error: "Invalid backup code." }
+    if (!res.ok) return { success: false, error: json.error ?? "Login failed." }
 
-  const user: DashboardUser = {
-    id:               String(data.id),
-    userId:           String(data.user_id),
-    email:            String(data.email),
-    fullName:         String(data.full_name),
-    createdAt:        String(data.created_at),
-    numericUid:       data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
-    tradingLevel:     data.trading_level    ? String(data.trading_level)    : undefined,
-    marketType:       data.market_type      ? String(data.market_type)      : undefined,
-    tradingType:      data.trading_type     ? String(data.trading_type)     : undefined,
-    yearsExperience:  data.years_experience ? String(data.years_experience) : undefined,
-    isVerified:       Boolean(data.is_verified),
-    kycStatus:        (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
+    const data = json.data as Record<string, unknown>
+    const user: DashboardUser = {
+      id:              String(data.id),
+      userId:          String(data.user_id),
+      email:           String(data.email),
+      fullName:        String(data.full_name),
+      createdAt:       String(data.created_at),
+      numericUid:      data.numeric_uid      ? Number(data.numeric_uid)      : undefined,
+      tradingLevel:    data.trading_level    ? String(data.trading_level)    : undefined,
+      marketType:      data.market_type      ? String(data.market_type)      : undefined,
+      tradingType:     data.trading_type     ? String(data.trading_type)     : undefined,
+      yearsExperience: data.years_experience ? String(data.years_experience) : undefined,
+      isVerified:      Boolean(data.is_verified),
+      kycStatus:       (data.kyc_status as DashboardUser["kycStatus"]) ?? "none",
+    }
+    const session: DashboardSession = {
+      ...user,
+      loggedInAt: Date.now(),
+      backupCode: data.backup_code ? String(data.backup_code) : undefined,
+      avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
+    }
+    setSession(session)
+    return { success: true, user }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
   }
+}
 
   const session: DashboardSession = {
     ...user,

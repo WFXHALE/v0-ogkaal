@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { query, queryOne } from "@/lib/db"
 
 async function hashToken(token: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token))
@@ -8,7 +8,6 @@ async function hashToken(token: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
     const { email, userId, otp } = await req.json() as {
       email?: string
       userId?: string
@@ -20,18 +19,22 @@ export async function POST(req: NextRequest) {
     }
 
     const normalised = email.trim().toLowerCase()
+    const normUserId = userId.trim().toLowerCase()
     const inputHash  = await hashToken(otp.trim())
 
-    // Find the most recent unused, unexpired token for this user
-    const { data: token } = await supabase
-      .from("email_verification_tokens")
-      .select("id, token_hash, expires_at, used_at")
-      .eq("user_id", userId)
-      .eq("email", normalised)
-      .is("used_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const token = await queryOne<{
+      id: string
+      token_hash: string
+      expires_at: string
+      used_at: string | null
+    }>(
+      `SELECT id, token_hash, expires_at, used_at
+       FROM email_verification_tokens
+       WHERE user_id = $1 AND email = $2 AND used_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [normUserId, normalised]
+    )
 
     if (!token) {
       return NextResponse.json(
@@ -52,25 +55,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Mark token as used
-    await supabase
-      .from("email_verification_tokens")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", token.id)
+    await query(
+      "UPDATE email_verification_tokens SET used_at = NOW() WHERE id = $1",
+      [token.id]
+    )
 
     // Mark user as verified
-    const { error: updateErr } = await supabase
-      .from("dashboard_users")
-      .update({ is_verified: true })
-      .eq("user_id", userId)
-
-    if (updateErr) {
-      console.error("[verify-email] Failed to update user:", updateErr)
-      return NextResponse.json({ error: "Verification failed. Please try again." }, { status: 500 })
-    }
+    await query(
+      "UPDATE dashboard_users SET is_verified = TRUE WHERE user_id = $1",
+      [normUserId]
+    )
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error("[verify-email] Unexpected error:", err)
+    console.error("[verify-email] error:", err)
     return NextResponse.json({ error: "Server error." }, { status: 500 })
   }
 }

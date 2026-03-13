@@ -29,6 +29,8 @@ import {
   storeBackupCode,
   sendPasswordResetOtp,
   verifyOtpAndResetPassword,
+  sendVerificationEmail,
+  verifyEmailOtp,
 } from "@/lib/dash-auth"
 import { signInWithGoogle } from "@/lib/google-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
@@ -111,7 +113,16 @@ function LoggedOutPopup({
   const [error, setError]     = useState("")
   const [info, setInfo]       = useState("")
 
+  // Email verification step — used after registration and when login detects unverified
+  const [verifyMode, setVerifyMode]   = useState(false)
+  const [verifyEmail, setVerifyEmail] = useState("")
+  const [verifyUserId, setVerifyId]   = useState("")
+  const [verifyOtp, setVerifyOtp]     = useState("")
+  // Pending credentials to auto-login after verification
+  const [pendingLogin, setPendingLogin] = useState<{ id: string; pw: string } | null>(null)
+
   const resetForgot = () => { setFM(null); setFgEmail(""); setFgOtp(""); setFgPw(""); setFgPw2(""); setError(""); setInfo("") }
+  const resetVerify = () => { setVerifyMode(false); setVerifyEmail(""); setVerifyId(""); setVerifyOtp(""); setPendingLogin(null); setError(""); setInfo("") }
 
   const handleForgotSend = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoad(true)
@@ -149,7 +160,20 @@ function LoggedOutPopup({
     setLoad(true)
     const res = await login(identifier, password)
     setLoad(false)
-    if (!res.success) { setError(res.error); return }
+    if (!res.success) {
+      if (res.code === "EMAIL_NOT_VERIFIED" && res.userId && res.email) {
+        // Surface verification step and send a fresh OTP
+        setPendingLogin({ id: identifier, pw: password })
+        setVerifyId(res.userId as string)
+        setVerifyEmail(res.email as string)
+        setVerifyMode(true)
+        setInfo("Your email is not verified. A verification code has been sent.")
+        await sendVerificationEmail(res.email as string, res.userId as string)
+        return
+      }
+      setError(res.error)
+      return
+    }
     const s = getSession()
     if (s) onAuth(s)
   }
@@ -166,14 +190,44 @@ function LoggedOutPopup({
       fullName: regName.trim(),
       password: regPw,
     })
-    setLoad(false)
-    if (!res.success) { setError(res.error); return }
+    if (!res.success) { setLoad(false); setError(res.error); return }
     storeBackupCode(res.backupCode)
-    const loginRes = await login(regId.trim().toLowerCase(), regPw)
-    if (loginRes.success) {
-      const s = getSession()
-      if (s) onAuth(s)
+    // Send verification email, then show OTP entry
+    await sendVerificationEmail(regEmail.trim().toLowerCase(), regId.trim().toLowerCase())
+    setLoad(false)
+    setPendingLogin({ id: regId.trim().toLowerCase(), pw: regPw })
+    setVerifyId(regId.trim().toLowerCase())
+    setVerifyEmail(regEmail.trim().toLowerCase())
+    setVerifyMode(true)
+    setInfo("Account created! Check your email for the verification code.")
+  }
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoad(true)
+    const res = await verifyEmailOtp(verifyEmail, verifyUserId, verifyOtp)
+    setLoad(false)
+    if (!res.success) { setError(res.error ?? "Verification failed."); return }
+    setInfo("Email verified! Signing you in...")
+    if (pendingLogin) {
+      const loginRes = await login(pendingLogin.id, pendingLogin.pw)
+      if (loginRes.success) {
+        const s = getSession()
+        if (s) { onAuth(s); resetVerify(); return }
+      }
     }
+    // Fallback: ask user to sign in manually
+    resetVerify()
+    setTab("login")
+    setInfo("Email verified successfully. Please sign in.")
+  }
+
+  const handleResendOtp = async () => {
+    setError(""); setInfo("")
+    const res = await sendVerificationEmail(verifyEmail, verifyUserId)
+    if (!res.success) { setError(res.error ?? "Failed to resend code."); return }
+    setInfo("A new code has been sent to your email.")
   }
 
   return (
@@ -198,7 +252,7 @@ function LoggedOutPopup({
             </div>
           </div>
 
-          <div className="flex rounded-xl border border-border bg-secondary/30 p-1 gap-1 mx-3 mt-3">
+          {!verifyMode && <div className="flex rounded-xl border border-border bg-secondary/30 p-1 gap-1 mx-3 mt-3">
             {(["login", "register"] as const).map((t) => (
               <button
                 key={t}
@@ -210,7 +264,7 @@ function LoggedOutPopup({
                 {t === "login" ? "Sign In" : "Register"}
               </button>
             ))}
-          </div>
+          </div>}
 
           <div className="px-3 pb-4 pt-2 space-y-2">
             {error && (
@@ -224,8 +278,45 @@ function LoggedOutPopup({
               </div>
             )}
 
+            {/* Email verification step */}
+            {verifyMode && (
+              <form onSubmit={handleVerifyOtp} className="space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <button type="button" onClick={resetVerify} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <p className="text-xs font-semibold text-foreground">Verify Your Email</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Enter the 6-digit code sent to <span className="text-foreground font-medium">{verifyEmail}</span>.
+                </p>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
+                  <KeyRound className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={verifyOtp}
+                    onChange={e => setVerifyOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code"
+                    required
+                    autoComplete="one-time-code"
+                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none font-mono tracking-widest"
+                  />
+                </div>
+                <button type="submit" disabled={loading || verifyOtp.length < 6}
+                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {loading ? "Verifying..." : "Verify Email"}
+                </button>
+                <button type="button" onClick={handleResendOtp} disabled={loading}
+                  className="w-full text-center text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50">
+                  Resend code
+                </button>
+              </form>
+            )}
+
             {/* Forgot — step 1: email */}
-            {forgotMode === "email" && (
+            {!verifyMode && forgotMode === "email" && (
               <form onSubmit={handleForgotSend} className="space-y-2">
                 <div className="flex items-center gap-2 mb-1">
                   <button type="button" onClick={resetForgot} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -248,7 +339,7 @@ function LoggedOutPopup({
             )}
 
             {/* Forgot — step 2: OTP + new password */}
-            {forgotMode === "otp" && (
+            {!verifyMode && forgotMode === "otp" && (
               <form onSubmit={handleForgotReset} className="space-y-2">
                 <div className="flex items-center gap-2 mb-1">
                   <button type="button" onClick={() => { setFM("email"); setError(""); setInfo("") }} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -287,7 +378,7 @@ function LoggedOutPopup({
             )}
 
             {/* Forgot — done */}
-            {forgotMode === "done" && (
+            {!verifyMode && forgotMode === "done" && (
               <div className="space-y-2 text-center">
                 <p className="text-xs text-emerald-400 font-medium">Password updated successfully!</p>
                 <button onClick={resetForgot}
@@ -297,7 +388,7 @@ function LoggedOutPopup({
               </div>
             )}
 
-            {!forgotMode && tab === "login" && (
+            {!verifyMode && !forgotMode && tab === "login" && (
               <form onSubmit={handleLogin} className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -339,7 +430,7 @@ function LoggedOutPopup({
               </form>
             )}
 
-            {!forgotMode && tab === "register" && (
+            {!verifyMode && !forgotMode && tab === "register" && (
               <form onSubmit={handleRegister} className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/20 focus-within:border-primary transition-colors">
                   <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
