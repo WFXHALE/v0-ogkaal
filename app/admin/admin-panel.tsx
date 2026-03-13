@@ -198,13 +198,13 @@ const DEFAULT_SYSTEM = {
 export default function AdminPanel() {
   const router = useRouter()
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [adminEmail, setAdminEmail]           = useState("")
-  const [isLoading, setIsLoading]             = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(true)
+  const [adminEmail, setAdminEmail]           = useState("sheikhahmed2724@gmail.com")
+  const [isLoading, setIsLoading]             = useState(false)
   const [activeSection, setActiveSection]     = useState<Section>("dashboard")
   const [sidebarOpen, setSidebarOpen]         = useState(false)
   const [usdtOpen, setUsdtOpen]               = useState(false)
-  const [mounted, setMounted]                 = useState(false)
+  const [mounted, setMounted]                 = useState(true)
 
   const [submissions, setSubmissions]         = useState<Submission[]>([])
   const [usdtBuy, setUsdtBuy]                 = useState<USDTBuyRequest[]>([])
@@ -674,13 +674,7 @@ export default function AdminPanel() {
     ...usdtSell.filter(r => r.screenshotUrl).map(r => ({ id: r.id, userId: r.userId, name: r.name, type: "USDT Sell Proof", url: r.screenshotUrl!, createdAt: r.createdAt })),
   ]
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    )
-  }
+  // Auth removed — render immediately.
 
   // ── Sub-components ───────────────────────────────────────────────────────────
 
