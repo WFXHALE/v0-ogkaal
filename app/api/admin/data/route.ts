@@ -10,8 +10,10 @@ function sb() {
 }
 
 const TABLE_MAP: Record<string, string> = {
-  "usdt-buy":    "usdt_buy_requests",
-  "usdt-sell":   "usdt_sell_requests",
+  // USDT buy/sell submissions are stored in admin_submissions (filtered by type)
+  // usdt_buy_requests / usdt_sell_requests are legacy tables not used by current forms
+  "usdt-buy":    "admin_submissions",
+  "usdt-sell":   "admin_submissions",
   "mentorship":  "admin_submissions",
   "vip":         "admin_submissions",
   "users":       "dashboard_users",
@@ -31,7 +33,9 @@ export async function GET(req: NextRequest) {
   const client = sb()
   let query = client.from(table).select("*").order("created_at", { ascending: false }).limit(500)
 
-  // Filter mentorship/vip by type column in admin_submissions
+  // Filter by type column in admin_submissions
+  if (dataset === "usdt-buy")   query = (query as ReturnType<typeof client.from>).or("type.eq.usdt_p2p,type.ilike.%usdt%buy%")
+  if (dataset === "usdt-sell")  query = (query as ReturnType<typeof client.from>).or("type.eq.usdt_sell,type.ilike.%usdt%sell%")
   if (dataset === "mentorship") query = (query as ReturnType<typeof client.from>).eq("type", "mentorship")
   if (dataset === "vip")        query = (query as ReturnType<typeof client.from>).ilike("type", "%vip%")
 
@@ -42,7 +46,7 @@ export async function GET(req: NextRequest) {
   // Search — broad ilike across common text fields
   if (search) {
     const s = `%${search}%`
-    if (["usdt-buy", "usdt-sell"].includes(dataset)) {
+    if (["usdt-buy", "usdt-sell", "mentorship", "vip"].includes(dataset)) {
       query = (query as ReturnType<typeof client.from>).or(
         `user_id.ilike.${s},email.ilike.${s},name.ilike.${s},phone.ilike.${s}`,
       )
