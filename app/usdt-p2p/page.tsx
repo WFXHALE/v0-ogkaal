@@ -455,23 +455,29 @@ export default function UsdtP2PPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
                         <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
-                        <p
-                          className="text-2xl font-bold text-foreground transition-all duration-500"
-                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
-                          suppressHydrationWarning
-                        >
-                          {mounted ? `₹${exchangeRate}` : "—"}
-                        </p>
+                        {mounted ? (
+                          <p
+                            className="text-2xl font-bold text-foreground transition-all duration-500"
+                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          >
+                            ₹{exchangeRate}
+                          </p>
+                        ) : (
+                          <div className="h-8 w-16 mx-auto rounded bg-secondary animate-pulse" />
+                        )}
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
                         <p className="text-sm text-primary mb-1">Your P2P Rate</p>
-                        <p
-                          className="text-2xl font-bold text-primary transition-all duration-500"
-                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
-                          suppressHydrationWarning
-                        >
-                          {mounted ? `₹${exchangeRate - 5}` : "—"}
-                        </p>
+                        {mounted ? (
+                          <p
+                            className="text-2xl font-bold text-primary transition-all duration-500"
+                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          >
+                            ₹{p2pRate}
+                          </p>
+                        ) : (
+                          <div className="h-8 w-16 mx-auto rounded bg-primary/20 animate-pulse" />
+                        )}
                       </div>
                     </div>
 
