@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
     const account = accountRows[0] ?? null
 
     const openTrades = await query(
-      `SELECT * FROM trades WHERE user_id = $1 AND result = 'open' ORDER BY date DESC`,
+      `SELECT * FROM trades WHERE user_id = $1 AND status = 'open' ORDER BY opened_at DESC`,
       [userId]
     )
     const history = await query(
-      `SELECT * FROM trades WHERE user_id = $1 AND result != 'open' ORDER BY date DESC`,
+      `SELECT * FROM trades WHERE user_id = $1 AND status = 'closed' ORDER BY closed_at DESC`,
       [userId]
     )
 

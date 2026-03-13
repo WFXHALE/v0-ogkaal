@@ -363,21 +363,29 @@ export default function TradeDashboardPage() {
         }
 
         if (tradesJson.ok && tradesJson.data?.length > 0) {
-          const all: Trade[] = (tradesJson.data as Record<string, unknown>[]).map(r => ({
-            id:           String(r.id),
-            date:         String(r.date ?? r.created_at),
-            pair:         String(r.pair),
-            type:         (r.type as "buy" | "sell"),
-            entryPrice:   Number(r.entry_price),
-            exitPrice:    r.exit_price   != null ? Number(r.exit_price)   : undefined,
-            stopLoss:     Number(r.stop_loss),
-            takeProfit:   Number(r.take_profit),
-            currentPrice: r.current_price != null ? Number(r.current_price) : undefined,
-            profitLoss:   r.profit_loss   != null ? Number(r.profit_loss)   : undefined,
-            result:       (r.result as "win" | "loss" | "open") ?? "open",
-            lotSize:      Number(r.lot_size),
-            notes:        r.notes ? String(r.notes) : undefined,
-          }))
+          // DB columns: status ('open'|'closed'), opened_at, closed_at
+          // Trade interface: result ('open'|'win'|'loss'), date
+          const all: Trade[] = (tradesJson.data as Record<string, unknown>[]).map(r => {
+            const isOpen = String(r.status ?? "open") === "open"
+            const result: "open" | "win" | "loss" = isOpen
+              ? "open"
+              : (Number(r.profit_loss ?? 0) >= 0 ? "win" : "loss")
+            return {
+              id:           String(r.id),
+              date:         String(r.opened_at ?? new Date().toISOString()),
+              pair:         String(r.pair),
+              type:         r.type as "buy" | "sell",
+              entryPrice:   Number(r.entry_price),
+              exitPrice:    r.exit_price    != null ? Number(r.exit_price)    : undefined,
+              stopLoss:     Number(r.stop_loss),
+              takeProfit:   Number(r.take_profit),
+              currentPrice: r.current_price != null ? Number(r.current_price) : undefined,
+              profitLoss:   r.profit_loss   != null ? Number(r.profit_loss)   : undefined,
+              result,
+              lotSize:      Number(r.lot_size),
+              notes:        r.notes ? String(r.notes) : undefined,
+            }
+          })
           setOpenTrades(all.filter(t => t.result === "open"))
           setTradeHistory(all.filter(t => t.result !== "open"))
         } else {

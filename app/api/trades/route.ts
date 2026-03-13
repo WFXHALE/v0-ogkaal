@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ ok: false, error: "userId required" }, { status: 400 })
   try {
     const rows = await query(
-      `SELECT * FROM trades WHERE user_id = $1 ORDER BY date DESC`,
+      `SELECT * FROM trades WHERE user_id = $1 ORDER BY opened_at DESC`,
       [userId]
     )
     return NextResponse.json({ ok: true, data: rows })
@@ -26,22 +26,24 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       userId, pair, type, entryPrice, exitPrice, stopLoss, takeProfit,
-      currentPrice, lotSize, result, profitLoss, notes, date,
+      currentPrice, lotSize, result, profitLoss, notes,
     } = body
     if (!userId) return NextResponse.json({ ok: false, error: "userId required" }, { status: 400 })
+
+    const status    = result === "open" ? "open" : "closed"
+    const closedAt  = status === "closed" ? new Date().toISOString() : null
 
     const rows = await query(
       `INSERT INTO trades
          (user_id, pair, type, entry_price, exit_price, stop_loss, take_profit,
-          current_price, lot_size, result, profit_loss, notes, date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          current_price, lot_size, status, profit_loss, opened_at, closed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12)
        RETURNING *`,
       [
         userId, pair, type,
         entryPrice, exitPrice ?? null, stopLoss ?? null, takeProfit ?? null,
         currentPrice ?? null, lotSize ?? 0.01,
-        result ?? "open", profitLoss ?? null, notes ?? null,
-        date ?? new Date().toISOString(),
+        status, profitLoss ?? null, closedAt,
       ]
     )
     return NextResponse.json({ ok: true, data: rows[0] })
@@ -57,15 +59,17 @@ export async function PATCH(req: NextRequest) {
     const { id, userId, exitPrice, profitLoss, result, currentPrice } = body
     if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })
 
+    const newStatus = result && result !== "open" ? "closed" : null
     const rows = await query(
       `UPDATE trades SET
          exit_price    = COALESCE($3, exit_price),
          profit_loss   = COALESCE($4, profit_loss),
-         result        = COALESCE($5, result),
-         current_price = COALESCE($6, current_price)
+         status        = COALESCE($5, status),
+         current_price = COALESCE($6, current_price),
+         closed_at     = CASE WHEN $5 = 'closed' THEN now() ELSE closed_at END
        WHERE id = $1 AND user_id = $2
        RETURNING *`,
-      [id, userId, exitPrice ?? null, profitLoss ?? null, result ?? null, currentPrice ?? null]
+      [id, userId, exitPrice ?? null, profitLoss ?? null, newStatus, currentPrice ?? null]
     )
     return NextResponse.json({ ok: true, data: rows[0] })
   } catch (e) {
