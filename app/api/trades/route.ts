@@ -30,17 +30,30 @@ export async function POST(req: NextRequest) {
     } = body
     if (!userId) return NextResponse.json({ ok: false, error: "userId required" }, { status: 400 })
 
-    const status    = result === "open" ? "open" : "closed"
-    const closedAt  = status === "closed" ? new Date().toISOString() : null
+    const status   = result === "open" ? "open" : "closed"
+    const closedAt = status === "closed" ? new Date().toISOString() : null
+
+    // Resolve account_id — upsert a trade_accounts row if none exists yet
+    const acctRows = await query<{ id: string }>(
+      `INSERT INTO trade_accounts (user_id, broker, platform, balance)
+       VALUES ($1, '', 'MT5', 0)
+       ON CONFLICT (user_id) DO UPDATE SET updated_at = now()
+       RETURNING id`,
+      [userId]
+    )
+    const accountId = acctRows[0]?.id
+    if (!accountId) {
+      return NextResponse.json({ ok: false, error: "Could not resolve account" }, { status: 500 })
+    }
 
     const rows = await query(
       `INSERT INTO trades
-         (user_id, pair, type, entry_price, exit_price, stop_loss, take_profit,
+         (account_id, user_id, pair, type, entry_price, exit_price, stop_loss, take_profit,
           current_price, lot_size, status, profit_loss, opened_at, closed_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),$13)
        RETURNING *`,
       [
-        userId, pair, type,
+        accountId, userId, pair, type,
         entryPrice, exitPrice ?? null, stopLoss ?? null, takeProfit ?? null,
         currentPrice ?? null, lotSize ?? 0.01,
         status, profitLoss ?? null, closedAt,
