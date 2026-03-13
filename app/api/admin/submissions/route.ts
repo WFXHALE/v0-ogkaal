@@ -32,9 +32,10 @@ function normalize(r: Record<string, unknown>) {
     upiId:         r.upi_id        ?? "",
     inrEquivalent: r.inr_equivalent ?? "",
     amountPaid:    r.amount_paid   ?? "",
-    details:       r.details       ?? {},
-    status:        r.status        ?? "pending",
-    createdAt:     r.created_at,
+    details:            r.details             ?? {},
+    status:             r.status              ?? "pending",
+    notificationStatus: r.notification_status ?? "READ",
+    createdAt:          r.created_at,
   }
 }
 
@@ -105,14 +106,28 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, status } = await req.json()
-    if (!id || !status) return NextResponse.json({ ok: false, error: "Missing id or status" }, { status: 400 })
-    const validStatuses = ["pending", "approved", "rejected", "completed", "dismissed", "deleted"]
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ ok: false, error: `Invalid status: ${status}` }, { status: 400 })
+    const body = await req.json()
+    const { id, status, notification_status } = body
+    if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
+
+    // Build update payload — only include fields that were provided
+    const update: Record<string, unknown> = {}
+    if (status) {
+      const validStatuses = ["pending", "approved", "rejected", "completed", "dismissed", "deleted"]
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json({ ok: false, error: `Invalid status: ${status}` }, { status: 400 })
+      }
+      update.status = status
     }
+    if (notification_status) {
+      update.notification_status = notification_status
+    }
+    if (!Object.keys(update).length) {
+      return NextResponse.json({ ok: false, error: "Nothing to update" }, { status: 400 })
+    }
+
     const supabase = createServiceClient()
-    const { error } = await supabase.from("admin_submissions").update({ status }).eq("id", id)
+    const { error } = await supabase.from("admin_submissions").update(update).eq("id", id)
     if (error) return NextResponse.json({ ok: false, error: error.message ?? JSON.stringify(error) }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {

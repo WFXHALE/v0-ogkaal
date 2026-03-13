@@ -9,16 +9,21 @@ function sb() {
   )
 }
 
-const TABLE_MAP: Record<string, string> = {
-  // USDT buy/sell submissions are stored in admin_submissions (filtered by type)
-  // usdt_buy_requests / usdt_sell_requests are legacy tables not used by current forms
-  "usdt-buy":    "admin_submissions",
-  "usdt-sell":   "admin_submissions",
-  "mentorship":  "admin_submissions",
-  "vip":         "admin_submissions",
-  "users":       "dashboard_users",
-  "community":   "community_posts",
-  "journal":     "trading_journal",
+// Each dataset maps to a table + optional type filter on admin_submissions
+type DatasetConfig = {
+  table: string
+  typeFilter?: string   // exact match on `type` column
+  searchCols: string[]  // columns to ilike-search
+}
+
+const DATASETS: Record<string, DatasetConfig> = {
+  "usdt-buy":   { table: "usdt_buy_requests",  searchCols: ["email", "name", "phone", "user_id"] },
+  "usdt-sell":  { table: "usdt_sell_requests",  searchCols: ["email", "name", "phone", "user_id"] },
+  "mentorship": { table: "admin_submissions",   typeFilter: "mentorship",    searchCols: ["email", "name", "phone", "user_id"] },
+  "vip":        { table: "admin_submissions",   typeFilter: "vip_membership", searchCols: ["email", "name", "phone", "user_id"] },
+  "users":      { table: "dashboard_users",     searchCols: ["user_id", "email", "full_name", "username"] },
+  "community":  { table: "community_posts",     searchCols: ["author_id", "author_name", "content"] },
+  "journal":    { table: "trading_journal",     searchCols: ["user_id", "user_email", "pair"] },
 }
 
 export async function GET(req: NextRequest) {
@@ -27,46 +32,29 @@ export async function GET(req: NextRequest) {
   const from    = req.nextUrl.searchParams.get("from") ?? ""
   const to      = req.nextUrl.searchParams.get("to") ?? ""
 
-  const table = TABLE_MAP[dataset]
-  if (!table) return NextResponse.json({ ok: false, error: "Unknown dataset" }, { status: 400 })
+  const cfg = DATASETS[dataset]
+  if (!cfg) return NextResponse.json({ ok: false, error: "Unknown dataset" }, { status: 400 })
 
   const client = sb()
-  let query = client.from(table).select("*").order("created_at", { ascending: false }).limit(500)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = client.from(cfg.table).select("*").order("created_at", { ascending: false }).limit(500)
 
-  // Filter by type column in admin_submissions
-  if (dataset === "usdt-buy")   query = (query as ReturnType<typeof client.from>).or("type.eq.usdt_p2p,type.ilike.%usdt%buy%")
-  if (dataset === "usdt-sell")  query = (query as ReturnType<typeof client.from>).or("type.eq.usdt_sell,type.ilike.%usdt%sell%")
-  if (dataset === "mentorship") query = (query as ReturnType<typeof client.from>).eq("type", "mentorship")
-  if (dataset === "vip")        query = (query as ReturnType<typeof client.from>).ilike("type", "%vip%")
+  // Type filter (for admin_submissions multi-type table)
+  if (cfg.typeFilter) {
+    query = query.eq("type", cfg.typeFilter)
+  }
 
   // Date range
-  if (from) query = (query as ReturnType<typeof client.from>).gte("created_at", from)
-  if (to)   query = (query as ReturnType<typeof client.from>).lte("created_at", to + "T23:59:59Z")
+  if (from) query = query.gte("created_at", from)
+  if (to)   query = query.lte("created_at", to + "T23:59:59Z")
 
-  // Search — broad ilike across common text fields
+  // Search across relevant columns
   if (search) {
-    const s = `%${search}%`
-    if (["usdt-buy", "usdt-sell", "mentorship", "vip"].includes(dataset)) {
-      query = (query as ReturnType<typeof client.from>).or(
-        `user_id.ilike.${s},email.ilike.${s},name.ilike.${s},phone.ilike.${s}`,
-      )
-    } else if (dataset === "users") {
-      query = (query as ReturnType<typeof client.from>).or(
-        `user_id.ilike.${s},email.ilike.${s},full_name.ilike.${s},username.ilike.${s}`,
-      )
-    } else if (dataset === "community") {
-      query = (query as ReturnType<typeof client.from>).or(
-        `author_id.ilike.${s},author_name.ilike.${s},content.ilike.${s}`,
-      )
-    } else if (dataset === "journal") {
-      query = (query as ReturnType<typeof client.from>).or(
-        `user_id.ilike.${s},user_email.ilike.${s},pair.ilike.${s}`,
-      )
-    } else {
-      query = (query as ReturnType<typeof client.from>).or(
-        `email.ilike.${s},name.ilike.${s},phone.ilike.${s}`,
-      )
-    }
+    const orFilter = cfg.searchCols
+      .map(col => `${col}.ilike.%25${encodeURIComponent(search)}%25`)
+      .join(",")
+    query = query.or(cfg.searchCols.map(col => `${col}.ilike.%${search}%`).join(","))
+    void orFilter // avoid unused var
   }
 
   const { data, error } = await query
@@ -78,15 +66,15 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, data: data ?? [] })
 }
 
-// PATCH — update status on usdt_buy_requests / usdt_sell_requests / admin_submissions
+// PATCH — update status on any dataset table
 export async function PATCH(req: NextRequest) {
   const { id, dataset, status } = await req.json()
-  const table = TABLE_MAP[dataset]
-  if (!table || !id || !status) {
+  const cfg = DATASETS[dataset]
+  if (!cfg || !id || !status) {
     return NextResponse.json({ ok: false, error: "Missing params" }, { status: 400 })
   }
 
-  const { error } = await sb().from(table).update({ status }).eq("id", id)
+  const { error } = await sb().from(cfg.table).update({ status }).eq("id", id)
   if (error) {
     console.error("[api/admin/data] patch error:", error)
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -98,12 +86,12 @@ export async function PATCH(req: NextRequest) {
 // DELETE — remove a record
 export async function DELETE(req: NextRequest) {
   const { id, dataset } = await req.json()
-  const table = TABLE_MAP[dataset]
-  if (!table || !id) {
+  const cfg = DATASETS[dataset]
+  if (!cfg || !id) {
     return NextResponse.json({ ok: false, error: "Missing params" }, { status: 400 })
   }
 
-  const { error } = await sb().from(table).delete().eq("id", id)
+  const { error } = await sb().from(cfg.table).delete().eq("id", id)
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

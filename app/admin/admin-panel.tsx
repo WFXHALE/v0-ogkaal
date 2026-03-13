@@ -73,6 +73,7 @@ interface Submission {
   ipAddress: string
   location: string
   createdAt: string
+  notificationStatus?: "UNREAD" | "READ"
 }
 
 interface USDTBuyRequest {
@@ -644,37 +645,39 @@ export default function AdminPanel() {
 
   // Mark all unread notifications of a given type as read.
   // Called when admin opens a section or views a specific record.
-  const markSectionNotifsRead = (types: string[]) => {
-    const unreadIds = notifications
-      .filter(n => !n.read && types.includes(n.type))
-      .map(n => n.id)
-    if (!unreadIds.length) return
-    setNotifications(prev =>
-      prev.map(n => (unreadIds.includes(n.id) ? { ...n, read: true } : n))
+  // Mark a single submission as READ in local state and persist to Supabase
+  const markSubmissionNotifRead = (sub: Submission) => {
+    if (sub.notificationStatus !== "UNREAD") return
+    // Optimistic update
+    setSubmissions(prev =>
+      prev.map(s => s.id === sub.id ? { ...s, notificationStatus: "READ" as const } : s)
     )
-    // Persist each to Supabase (fire-and-forget batch)
-    unreadIds.forEach(id => {
-      fetch("/api/admin/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      }).catch(() => {})
-    })
+    // Persist via submissions PATCH — add notification_status to update body
+    fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sub.id, status: sub.status, notification_status: "READ" }),
+    }).catch(() => {})
   }
 
-  // Called when admin views an individual submission row — marks matching unread notifs read
-  const markSubmissionNotifRead = (sub: Submission) => {
-    const typeMap: Record<string, string[]> = {
-      mentorship:     ["mentorship"],
-      vip:            ["vip_membership", "vip_group"],
-      vip_group:      ["vip_membership", "vip_group"],
-      usdt_p2p:       ["usdt_buy", "usdt_sell"],
-      funded_account: ["funded_account"],
-      member:         ["profile_update"],
-      other:          ["other", "payment"],
-    }
-    const types = typeMap[sub.type] ?? ["other"]
-    markSectionNotifsRead(types)
+  // Mark all UNREAD submissions of given types as READ (called on section open)
+  const markSectionNotifsRead = (types: string[]) => {
+    setSubmissions(prev => {
+      const toMark = prev.filter(s => types.includes(s.type) && s.notificationStatus === "UNREAD")
+      if (!toMark.length) return prev
+      toMark.forEach(s => {
+        fetch("/api/admin/submissions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: s.id, status: s.status, notification_status: "READ" }),
+        }).catch(() => {})
+      })
+      return prev.map(s =>
+        types.includes(s.type) && s.notificationStatus === "UNREAD"
+          ? { ...s, notificationStatus: "READ" as const }
+          : s
+      )
+    })
   }
 
   const saveSystem = (patch: Partial<typeof DEFAULT_SYSTEM>) => {
@@ -726,14 +729,15 @@ export default function AdminPanel() {
   )
   const unreadCount    = notifications.filter(n => !n.read).length
 
-  // Per-section unread badge counts (derived from admin_notifications type field)
+  // Per-section unread badge counts — derived from notification_status column on each row
+  const isUnread = (s: { notificationStatus?: string }) => s.notificationStatus === "UNREAD"
   const unreadBySection: Record<string, number> = {
-    "usdt-buy":            notifications.filter(n => !n.read && n.type === "usdt_buy").length,
-    "usdt-sell":           notifications.filter(n => !n.read && n.type === "usdt_sell").length,
-    "mentorship-requests": notifications.filter(n => !n.read && n.type === "mentorship").length,
-    "vip-requests":        notifications.filter(n => !n.read && (n.type === "vip_membership" || n.type === "vip_group")).length,
-    "user-profiles":       notifications.filter(n => !n.read && n.type === "profile_update").length,
-    "payment-verification":notifications.filter(n => !n.read && (n.type === "payment" || n.type === "other")).length,
+    "usdt-buy":            usdtBuy.filter(s  => isUnread(s as { notificationStatus?: string })).length,
+    "usdt-sell":           usdtSell.filter(s => isUnread(s as { notificationStatus?: string })).length,
+    "mentorship-requests": submissions.filter(s => s.type === "mentorship"    && isUnread(s)).length,
+    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group") && isUnread(s)).length,
+    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other") && isUnread(s)).length,
+    "payment-verification":submissions.filter(s => (s.type === "usdt_p2p" || s.type === "support") && isUnread(s)).length,
   }
 
   const userList = submissions.reduce<Submission[]>((acc, s) => {
