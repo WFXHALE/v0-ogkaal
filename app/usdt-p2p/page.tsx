@@ -84,16 +84,20 @@ export default function UsdtP2PPage() {
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
 
   // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
-  const [exchangeRate, setExchangeRate] = useState<number>(() => {
-    const base = Math.floor(Math.random() * 16) + 105 // 105–120
-    return base
-  })
+  // Start with a fixed value (0 = not yet mounted) to avoid SSR/client mismatch
+  // from Math.random(), then set the real value after first mount.
+  const [exchangeRate, setExchangeRate] = useState<number>(0)
   const [rateFlash, setRateFlash] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
   const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
 
   useEffect(() => {
+    // Set initial random rate only on client after mount
+    setExchangeRate(Math.floor(Math.random() * 16) + 105)
+    setMounted(true)
+
     const FIFTEEN_MINUTES = 15 * 60 * 1000
     const id = setInterval(() => {
       setExchangeRate(prev => {
@@ -454,8 +458,9 @@ export default function UsdtP2PPage() {
                         <p
                           className="text-2xl font-bold text-foreground transition-all duration-500"
                           style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          suppressHydrationWarning
                         >
-                          ₹{exchangeRate}
+                          {mounted ? `₹${exchangeRate}` : "—"}
                         </p>
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
@@ -463,8 +468,9 @@ export default function UsdtP2PPage() {
                         <p
                           className="text-2xl font-bold text-primary transition-all duration-500"
                           style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          suppressHydrationWarning
                         >
-                          ₹{exchangeRate - 5}
+                          {mounted ? `₹${exchangeRate - 5}` : "—"}
                         </p>
                       </div>
                     </div>
