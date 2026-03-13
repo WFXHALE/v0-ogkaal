@@ -143,116 +143,29 @@ const PLATFORMS: { id: TradePlatform; label: string; hasBrokerServer: boolean }[
   { id: "Other",        label: "Other",                         hasBrokerServer: false },
 ]
 
-// Sample data
-const SAMPLE_OPEN_TRADES: Trade[] = [
-  {
-    id: "1",
-    date: new Date().toISOString(),
-    pair: "EURUSD",
-    type: "buy",
-    entryPrice: 1.0850,
-    stopLoss: 1.0800,
-    takeProfit: 1.0950,
-    currentPrice: 1.0875,
-    profitLoss: 25,
-    result: "open",
-    lotSize: 0.5,
-  },
-  {
-    id: "2",
-    date: new Date().toISOString(),
-    pair: "XAUUSD",
-    type: "sell",
-    entryPrice: 2650.00,
-    stopLoss: 2680.00,
-    takeProfit: 2600.00,
-    currentPrice: 2640.00,
-    profitLoss: 100,
-    result: "open",
-    lotSize: 0.2,
-  },
+const PAIRS = [
+  // Forex
+  "EURUSD", "GBPUSD", "USDJPY", "GBPJPY", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF", "EURGBP",
+  // Metals
+  "XAUUSD", "XAGUSD",
+  // Crypto
+  "BTCUSD", "ETHUSD",
+  // Indices
+  "NASDAQ", "US100", "US30",
+  // Custom
+  "CUSTOM",
 ]
-
-const SAMPLE_HISTORY: Trade[] = [
-  {
-    id: "h1",
-    date: "2024-03-07",
-    pair: "GBPUSD",
-    type: "buy",
-    entryPrice: 1.2700,
-    exitPrice: 1.2780,
-    stopLoss: 1.2650,
-    takeProfit: 1.2800,
-    profitLoss: 80,
-    result: "win",
-    lotSize: 0.5,
-  },
-  {
-    id: "h2",
-    date: "2024-03-06",
-    pair: "EURUSD",
-    type: "sell",
-    entryPrice: 1.0900,
-    exitPrice: 1.0850,
-    stopLoss: 1.0950,
-    takeProfit: 1.0800,
-    profitLoss: 50,
-    result: "win",
-    lotSize: 0.3,
-  },
-  {
-    id: "h3",
-    date: "2024-03-05",
-    pair: "XAUUSD",
-    type: "buy",
-    entryPrice: 2620.00,
-    exitPrice: 2600.00,
-    stopLoss: 2600.00,
-    takeProfit: 2680.00,
-    profitLoss: -40,
-    result: "loss",
-    lotSize: 0.1,
-  },
-  {
-    id: "h4",
-    date: "2024-03-04",
-    pair: "USDJPY",
-    type: "sell",
-    entryPrice: 150.50,
-    exitPrice: 149.80,
-    stopLoss: 151.00,
-    takeProfit: 149.50,
-    profitLoss: 70,
-    result: "win",
-    lotSize: 0.4,
-  },
-  {
-    id: "h5",
-    date: "2024-03-03",
-    pair: "GBPJPY",
-    type: "buy",
-    entryPrice: 191.00,
-    exitPrice: 190.50,
-    stopLoss: 190.00,
-    takeProfit: 192.00,
-    profitLoss: -50,
-    result: "loss",
-    lotSize: 0.2,
-  },
-]
-
-const PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "GBPJPY", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF"]
 
 export default function TradeDashboardPage() {
   const [openTrades, setOpenTrades] = useState<Trade[]>([])
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([])
   const [accountInfo, setAccountInfo] = useState<AccountInfo>({
-    balance: 10000,
-    equity: 10125,
-    floatingPL: 125,
-    marginLevel: 5000,
-    freeMargin: 9500,
-    broker: "XM",
+    balance: 0,
+    equity: 0,
+    floatingPL: 0,
+    marginLevel: 0,
+    freeMargin: 0,
+    broker: "",
     platform: "MT5",
     accountType: "Funded",
     accountId: "",
@@ -285,6 +198,8 @@ export default function TradeDashboardPage() {
   const [filterResult, setFilterResult] = useState<"" | "win" | "loss">("")
   const [sortBy, setSortBy] = useState<"date" | "profitLoss">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+
+  const [customPair, setCustomPair] = useState("")
 
   // New trade form state
   const [newTrade, setNewTrade] = useState({
@@ -389,13 +304,13 @@ export default function TradeDashboardPage() {
           setOpenTrades(all.filter(t => t.result === "open"))
           setTradeHistory(all.filter(t => t.result !== "open"))
         } else {
-          setOpenTrades(SAMPLE_OPEN_TRADES)
-          setTradeHistory(SAMPLE_HISTORY)
+          setOpenTrades([])
+          setTradeHistory([])
         }
       } catch {
         setShowConnectionPopup(true)
-        setOpenTrades(SAMPLE_OPEN_TRADES)
-        setTradeHistory(SAMPLE_HISTORY)
+        setOpenTrades([])
+        setTradeHistory([])
       } finally {
         setDbLoading(false)
       }
@@ -603,10 +518,14 @@ export default function TradeDashboardPage() {
 
   // Add new trade
   const handleAddTrade = async () => {
+    const resolvedPair = newTrade.pair === "CUSTOM"
+      ? customPair.trim().toUpperCase()
+      : newTrade.pair
+    if (!resolvedPair) return
     const trade: Trade = {
       id: Date.now().toString(),
       date: new Date().toISOString(),
-      pair: newTrade.pair,
+      pair: resolvedPair,
       type: newTrade.type,
       entryPrice: parseFloat(newTrade.entryPrice),
       stopLoss: parseFloat(newTrade.stopLoss),
@@ -644,6 +563,7 @@ export default function TradeDashboardPage() {
       result: "open",
       notes: "",
     })
+    setCustomPair("")
     setShowAddTrade(false)
   }
 
@@ -1245,7 +1165,7 @@ export default function TradeDashboardPage() {
                   className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm"
                 >
                   <option value="">All Pairs</option>
-                  {PAIRS.map((pair) => (
+                  {PAIRS.filter(p => p !== "CUSTOM").map((pair) => (
                     <option key={pair} value={pair}>{pair}</option>
                   ))}
                 </select>
@@ -1441,10 +1361,21 @@ export default function TradeDashboardPage() {
                   onChange={(e) => setNewTrade({ ...newTrade, pair: e.target.value })}
                   className="w-full px-4 py-3 rounded-lg bg-secondary border border-border text-foreground"
                 >
-                  {PAIRS.map((pair) => (
+                  {PAIRS.filter(p => p !== "CUSTOM").map((pair) => (
                     <option key={pair} value={pair}>{pair}</option>
                   ))}
+                  <option value="CUSTOM">Custom Pair...</option>
                 </select>
+                {newTrade.pair === "CUSTOM" && (
+                  <input
+                    type="text"
+                    value={customPair}
+                    onChange={(e) => setCustomPair(e.target.value.toUpperCase())}
+                    placeholder="Enter pair (e.g. DOGEUSD)"
+                    className="w-full mt-2 px-4 py-3 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    maxLength={20}
+                  />
+                )}
               </div>
 
               {/* Trade Type */}
