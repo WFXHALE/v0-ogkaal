@@ -215,6 +215,8 @@ export default function AdminPanel() {
   const [submissions, setSubmissions]         = useState<Submission[]>([])
   const [usdtBuy, setUsdtBuy]                 = useState<USDTBuyRequest[]>([])
   const [usdtSell, setUsdtSell]               = useState<USDTSellRequest[]>([])
+  const [kycUsers, setKycUsers]               = useState<Array<{ userId: string; name: string; email: string; createdAt: string; kycDocPan: string | null; kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null }>>([])
+  const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar">("payment-mentorship")
   const [notifications, setNotifications]     = useState<AdminNotification[]>([])
   const [securityLogs, setSecurityLogs]       = useState<SecurityLog[]>([])
   const [systemSettings, setSystemSettings]   = useState(DEFAULT_SYSTEM)
@@ -356,6 +358,35 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
+    } else if (activeSection === "files") {
+      // Load submissions (for payment proofs) + USDT requests + KYC users in parallel
+      Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()),
+        fetch("/api/admin/usdt-buy").then(r => r.json()),
+        fetch("/api/admin/usdt-sell").then(r => r.json()),
+        import("@/lib/supabase/client").then(({ createClient }) =>
+          createClient()
+            .from("dashboard_users")
+            .select("user_id, full_name, email, created_at, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+            .order("created_at", { ascending: false })
+            .limit(500)
+        ),
+      ]).then(([sub, buy, sell, kyc]) => {
+        if (sub.ok)      setSubmissions(sub.data ?? [])
+        if (buy.ok)      setUsdtBuy(buy.data ?? [])
+        if (sell.ok)     setUsdtSell(sell.data ?? [])
+        if (!kyc.error && kyc.data) {
+          setKycUsers(kyc.data.map((u: Record<string, unknown>) => ({
+            userId:             String(u.user_id  ?? ""),
+            name:               String(u.full_name ?? "—"),
+            email:              String(u.email     ?? ""),
+            createdAt:          String(u.created_at ?? ""),
+            kycDocPan:          u.kyc_doc_pan            as string | null,
+            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
+            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
+          })))
+        }
+      }).catch(() => {})
     } else if (activeSection === "usdt-buy") {
       fetch("/api/admin/usdt-buy")
         .then(r => r.json())
@@ -1817,50 +1848,147 @@ export default function AdminPanel() {
     )
   }
 
-  const renderFiles = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">File Manager</h2>
-      <p className="text-sm text-muted-foreground">
-        All uploaded payment screenshots and verification files from user submissions.
-        Files appear here automatically once users upload payment proof.
-      </p>
-      {allFiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center">
-          <Folder className="w-10 h-10 text-muted-foreground mb-3" />
-          <p className="font-semibold text-foreground mb-1">No files uploaded yet</p>
-          <p className="text-sm text-muted-foreground">Payment screenshots appear here once users complete form submissions with file uploads.</p>
+  const renderFiles = () => {
+    type FileEntry = { id: string; userId: string; name: string; email: string; url: string; label: string; createdAt: string }
+
+    const CATEGORIES: { key: typeof fileCategory; label: string; icon: React.ReactNode; desc: string }[] = [
+      { key: "payment-mentorship", label: "Payment Proof — Mentorship",  icon: <FileText className="w-4 h-4" />,  desc: "Screenshots from mentorship payment submissions" },
+      { key: "payment-vip",        label: "Payment Proof — VIP Group",   icon: <Crown className="w-4 h-4" />,     desc: "Screenshots from VIP group payment submissions" },
+      { key: "usdt-buy",           label: "USDT Proof — Buy",            icon: <ArrowDownLeft className="w-4 h-4" />, desc: "Payment screenshots from USDT buy transactions" },
+      { key: "usdt-sell",          label: "USDT Proof — Sell",           icon: <ArrowUpRight className="w-4 h-4" />,  desc: "Payment screenshots from USDT sell transactions" },
+      { key: "pan",                label: "PAN Card",                    icon: <Shield className="w-4 h-4" />,    desc: "PAN card images uploaded during KYC verification" },
+      { key: "aadhaar",            label: "Aadhaar Card",                icon: <UserCheck className="w-4 h-4" />, desc: "Aadhaar card images uploaded during KYC verification" },
+    ]
+
+    const filesByCategory: Record<typeof fileCategory, FileEntry[]> = {
+      "payment-mentorship": submissions
+        .filter(s => s.screenshotUrl && s.type === "mentorship")
+        .map(s => ({ id: s.id, userId: s.userId || "—", name: s.name, email: s.email || "—", url: s.screenshotUrl!, label: "Mentorship Payment", createdAt: s.createdAt })),
+      "payment-vip": submissions
+        .filter(s => s.screenshotUrl && (s.type === "vip_membership" || s.type === "vip_group"))
+        .map(s => ({ id: s.id, userId: s.userId || "—", name: s.name, email: s.email || "—", url: s.screenshotUrl!, label: "VIP Payment", createdAt: s.createdAt })),
+      "usdt-buy": usdtBuy
+        .filter(r => r.screenshotUrl)
+        .map(r => ({ id: r.id, userId: r.userId, name: r.name, email: r.email || "—", url: r.screenshotUrl!, label: "USDT Buy Proof", createdAt: r.createdAt })),
+      "usdt-sell": usdtSell
+        .filter(r => r.screenshotUrl)
+        .map(r => ({ id: r.id, userId: r.userId, name: r.name, email: r.email || "—", url: r.screenshotUrl!, label: "USDT Sell Proof", createdAt: r.createdAt })),
+      "pan": kycUsers
+        .filter(u => u.kycDocPan)
+        .map(u => ({ id: u.userId + "-pan", userId: u.userId, name: u.name, email: u.email, url: u.kycDocPan!, label: "PAN Card", createdAt: u.createdAt })),
+      "aadhaar": kycUsers
+        .flatMap(u => [
+          u.kycDocAadhaarFront ? { id: u.userId + "-aadhar-front", userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarFront, label: "Aadhaar (Front)", createdAt: u.createdAt } : null,
+          u.kycDocAadhaarBack  ? { id: u.userId + "-aadhar-back",  userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarBack,  label: "Aadhaar (Back)",  createdAt: u.createdAt } : null,
+        ].filter(Boolean) as FileEntry[]),
+    }
+
+    const activeFiles = filesByCategory[fileCategory]
+    const activeCat   = CATEGORIES.find(c => c.key === fileCategory)!
+
+    return (
+      <div className="space-y-5">
+        {/* Header */}
+        <div>
+          <h2 className="text-xl font-bold text-foreground">File Manager</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Browse uploaded proof files organized by category. Click any file to preview.
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allFiles.map(f => (
-            <div key={`${f.id}-${f.type}`} className="rounded-xl bg-card border border-border overflow-hidden">
-              <div className="h-40 bg-secondary/50 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity relative" onClick={() => setScreenshotModal(f.url)}>
-                <img
-                  src={f.url} alt={f.type}
-                  className="h-full w-full object-cover absolute inset-0"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
-                />
-                <ImageIcon className="w-10 h-10 text-muted-foreground" />
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-foreground truncate">{f.name}</p>
-                <p className="text-xs text-muted-foreground">{f.type} · {f.userId}</p>
-                <p className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <button onClick={() => setScreenshotModal(f.url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Eye className="w-3 h-3" /> View
-                  </button>
-                  <a href={f.url} download target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Download className="w-3 h-3" /> Download
-                  </a>
+
+        {/* Category tabs */}
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map(cat => {
+            const count = filesByCategory[cat.key].length
+            const active = fileCategory === cat.key
+            return (
+              <button
+                key={cat.key}
+                onClick={() => setFileCategory(cat.key)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-border/80"
+                }`}
+              >
+                {cat.icon}
+                <span>{cat.label}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Active category info */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {activeCat.icon}
+          <span>{activeCat.desc}</span>
+          <span className="ml-auto font-mono text-foreground">{activeFiles.length} file{activeFiles.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {/* File grid */}
+        {activeFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <Folder className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No files in this category</p>
+            <p className="text-sm text-muted-foreground max-w-sm">{activeCat.desc}. Files appear here automatically once users submit forms with uploads.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {activeFiles.map(f => (
+              <div key={f.id} className="rounded-xl bg-card border border-border overflow-hidden flex flex-col">
+                {/* Thumbnail */}
+                <div
+                  className="h-44 bg-secondary/50 relative flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity group"
+                  onClick={() => setScreenshotModal(f.url)}
+                >
+                  <img
+                    src={f.url}
+                    alt={f.label}
+                    className="h-full w-full object-cover absolute inset-0"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
+                  />
+                  <ImageIcon className="w-10 h-10 text-muted-foreground relative z-10" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-20">
+                    <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-foreground truncate">{f.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{f.email}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{f.userId}</p>
+                    <p className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+                    <button
+                      onClick={() => setScreenshotModal(f.url)}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Eye className="w-3 h-3" /> Preview
+                    </button>
+                    <a
+                      href={f.url}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Download className="w-3 h-3" /> Download
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const renderExport = () => {
     const exports = [
@@ -2282,7 +2410,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Analytics ─────────��───────────────────────────────────────────────────────
+  // ── Analytics ─────────��──────────────────────────────────────────────���────────
   const renderAnalytics = () => {
     const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
     const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined
