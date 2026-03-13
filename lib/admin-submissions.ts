@@ -184,4 +184,44 @@ export async function saveSubmission(data: SubmissionData): Promise<void> {
 
   // Fire Telegram admin alert in parallel (fire-and-forget)
   notifyAdmin(data)
+
+  // Insert a notification row in admin_notifications so the admin panel badge
+  // shows the new submission. Fires after the submission is saved.
+  insertAdminNotification(data, baseUrl)
+}
+
+async function insertAdminNotification(data: SubmissionData, baseUrl: string): Promise<void> {
+  try {
+    const typeLabels: Record<string, string> = {
+      usdt_p2p:       "USDT P2P",
+      mentorship:     "Mentorship",
+      vip_membership: "VIP Group",
+      funded_account: "Funded Account",
+      support:        "Support",
+      other:          "Submission",
+    }
+    const label = typeLabels[data.type] ?? "Submission"
+    const action = data.type === "usdt_p2p"
+      ? ` — ${String(data.details.action ?? "order").toUpperCase()} ${String(data.details.amount ?? "")}`
+      : ""
+
+    // Map submission type to notification type expected by the admin panel
+    const notifType = data.type === "usdt_p2p"
+      ? (String(data.details.action ?? "buy") === "sell" ? "usdt_sell" : "usdt_buy")
+      : data.type
+
+    await fetch(`${baseUrl}/api/admin/notifications`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type:    notifType,
+        title:   `New ${label} Request`,
+        message: `${data.name} submitted a new ${label} request${action}`,
+        is_read: false,
+        ref_id:  null,
+      }),
+    })
+  } catch {
+    // Silent — never block user flow
+  }
 }

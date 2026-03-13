@@ -6,8 +6,17 @@ const g = globalThis as typeof globalThis & { _supabaseBrowserClient?: SupabaseC
 
 export function createClient(): SupabaseClient {
   if (!g._supabaseBrowserClient) {
-    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL  || process.env.SUPABASE_URL!
-    const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!
+    // Only use NEXT_PUBLIC_ prefixed vars — non-public vars are never
+    // exposed to the browser and would resolve to undefined on the client,
+    // causing "Invalid API key" errors.
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    if (!url || !key) {
+      throw new Error(
+        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
+        "Check your environment variables."
+      )
+    }
     g._supabaseBrowserClient = _createClient(url, key)
   }
   return g._supabaseBrowserClient

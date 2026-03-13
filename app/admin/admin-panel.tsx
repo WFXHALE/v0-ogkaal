@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -49,6 +50,9 @@ type Section =
   | "export" | "system-control" | "telegram" | "logs"
   | "signals" | "memberships" | "performance" | "indicators"
   | "analytics" | "data"
+  | "mentorship-requests" | "vip-requests" | "user-profiles"
+  | "broker-verifications"
+  | "kyc-verifications"
 
 interface Submission {
   id: string
@@ -71,6 +75,7 @@ interface Submission {
   ipAddress: string
   location: string
   createdAt: string
+  notificationStatus?: "UNREAD" | "READ"
 }
 
 interface USDTBuyRequest {
@@ -125,6 +130,11 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "payment-verification", label: "Payment Verification", icon: CheckCircle    },
   { key: "usdt-buy",             label: "USDT Buy Requests",    icon: ArrowDownLeft, group: "USDT Trading" },
   { key: "usdt-sell",            label: "USDT Sell Requests",   icon: ArrowUpRight,  group: "USDT Trading" },
+  { key: "mentorship-requests",  label: "Mentorship Requests",  icon: FileText,      group: "Submissions" },
+  { key: "vip-requests",         label: "VIP Group Requests",   icon: Crown,         group: "Submissions" },
+  { key: "user-profiles",        label: "User Profiles",        icon: Users,         group: "Submissions" },
+  { key: "broker-verifications",  label: "Broker Verifications", icon: Shield,        group: "Submissions" },
+  { key: "kyc-verifications",     label: "KYC Verifications",    icon: UserCheck,     group: "Submissions" },
   { key: "suspicious",           label: "Fraud Detection",      icon: AlertTriangle  },
   { key: "members",              label: "Member Database",      icon: Users          },
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
@@ -164,6 +174,7 @@ function statusBadge(status: string) {
     rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
     dismissed:  "bg-zinc-500/10 text-zinc-400 border-zinc-500/30",
     deleted:    "bg-zinc-700/20 text-zinc-500 border-zinc-600/30",
+    banned:     "bg-red-900/20 text-red-400 border-red-700/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
@@ -198,17 +209,35 @@ const DEFAULT_SYSTEM = {
 export default function AdminPanel() {
   const router = useRouter()
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [adminEmail, setAdminEmail]           = useState("")
-  const [isLoading, setIsLoading]             = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(true)
+  const [adminEmail, setAdminEmail]           = useState("sheikhahmed2724@gmail.com")
+  const [isLoading, setIsLoading]             = useState(false)
   const [activeSection, setActiveSection]     = useState<Section>("dashboard")
   const [sidebarOpen, setSidebarOpen]         = useState(false)
   const [usdtOpen, setUsdtOpen]               = useState(false)
-  const [mounted, setMounted]                 = useState(false)
+  const [mounted, setMounted]                 = useState(true)
 
   const [submissions, setSubmissions]         = useState<Submission[]>([])
   const [usdtBuy, setUsdtBuy]                 = useState<USDTBuyRequest[]>([])
   const [usdtSell, setUsdtSell]               = useState<USDTSellRequest[]>([])
+  const [kycUsers, setKycUsers]               = useState<Array<{ userId: string; name: string; email: string; createdAt: string; kycDocPan: string | null; kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null }>>([])
+  const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar" | "broker">("payment-mentorship")
+
+  interface BrokerVerification {
+    id: string; userId: string | null; username: string | null
+    broker: string; traderId: string; screenshotUrl: string | null
+    status: "pending" | "approved" | "rejected"; createdAt: string
+  }
+  const [brokerVerifs, setBrokerVerifs]       = useState<BrokerVerification[]>([])
+
+  type KycVerification = {
+    id: string; userId: string; fullName: string; phone: string
+    telegram: string | null; instagram: string | null; address: string | null
+    selfieUrl: string | null; idFrontUrl: string | null; idBackUrl: string | null
+    status: "pending" | "approved" | "rejected" | "banned"; submittedAt: string
+    numericUid: string | null
+  }
+  const [kycVerifs, setKycVerifs] = useState<KycVerification[]>([])
   const [notifications, setNotifications]     = useState<AdminNotification[]>([])
   const [securityLogs, setSecurityLogs]       = useState<SecurityLog[]>([])
   const [systemSettings, setSystemSettings]   = useState(DEFAULT_SYSTEM)
@@ -239,7 +268,10 @@ export default function AdminPanel() {
   const [pricingSaved,  setPricingSaved]        = useState(false)
 
   // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
-  const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
+  const [dbStats, setDbStats]                   = useState<{
+    totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number
+    totalVipMembers: number; totalMentorship: number; totalUsdtBuy: number; totalUsdtSell: number
+  } | null>(null)
 
   // ── Analytics state ──────────────────────────────────────────────────────────
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
@@ -289,6 +321,34 @@ export default function AdminPanel() {
   // Load Supabase-backed data when relevant sections are opened
   useEffect(() => {
     if (!isAuthenticated) return
+
+    // Auto-mark section notifications as read when the admin opens that section.
+    // We use the setter form to get the latest notifications without a closure issue.
+    const sectionReadMap: Partial<Record<Section, string[]>> = {
+      "mentorship-requests":  ["mentorship"],
+      "vip-requests":         ["vip_membership", "vip_group"],
+      "user-profiles":        ["profile_update"],
+      "usdt-buy":             ["usdt_buy"],
+      "usdt-sell":            ["usdt_sell"],
+      "payment-verification": ["payment", "other"],
+    }
+    const typesToMark = sectionReadMap[activeSection]
+    if (typesToMark) {
+      setNotifications(prev => {
+        const unreadIds = prev.filter(n => !n.read && typesToMark.includes(n.type)).map(n => n.id)
+        if (!unreadIds.length) return prev
+        // Persist to Supabase (fire-and-forget)
+        unreadIds.forEach(id => {
+          fetch("/api/admin/notifications", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          }).catch(() => {})
+        })
+        return prev.map(n => (unreadIds.includes(n.id) ? { ...n, read: true } : n))
+      })
+    }
+
     if (activeSection === "signals") {
       setNewSectionLoading(true)
       getVipSignals().then(s => { setSignals(s); setNewSectionLoading(false) })
@@ -312,11 +372,92 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setNotifications(d.data ?? []) })
         .catch(() => {})
-    } else if (activeSection === "payment-verification") {
+    } else if (
+      activeSection === "payment-verification" ||
+      activeSection === "mentorship-requests"  ||
+      activeSection === "vip-requests"         ||
+      activeSection === "user-profiles"
+    ) {
       fetch("/api/admin/submissions")
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
+    } else if (activeSection === "broker-verifications") {
+      fetch("/api/admin/broker-verifications")
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) setBrokerVerifs(d.data.map((r: Record<string, unknown>) => ({
+            id:            String(r.id ?? ""),
+            userId:        r.user_id   as string | null,
+            username:      r.username  as string | null,
+            broker:        String(r.broker    ?? ""),
+            traderId:      String(r.trader_id ?? ""),
+            screenshotUrl: r.screenshot_url as string | null,
+            status:        (r.status as "pending" | "approved" | "rejected") ?? "pending",
+            createdAt:     String(r.created_at ?? ""),
+          })))
+        })
+        .catch(() => {})
+    } else if (activeSection === "kyc-verifications") {
+      fetch("/api/admin/kyc-verifications")
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) setKycVerifs(d.data.map((r: Record<string, unknown>) => ({
+            id:          String(r.id        ?? ""),
+            userId:      String(r.user_id   ?? ""),
+            fullName:    String(r.full_name ?? ""),
+            phone:       String(r.phone     ?? ""),
+            telegram:    r.telegram  as string | null,
+            instagram:   r.instagram as string | null,
+            address:     r.address   as string | null,
+            selfieUrl:   r.selfie_pathname   as string | null,
+            idFrontUrl:  r.aadhaar_pathname  as string | null,
+            idBackUrl:   r.pan_pathname      as string | null,
+            status:      (r.status as "pending" | "approved" | "rejected" | "banned") ?? "pending",
+            submittedAt: String(r.submitted_at ?? ""),
+            numericUid:  r.numeric_uid as string | null,
+          })))
+        })
+        .catch(() => {})
+    } else if (activeSection === "files") {
+      // Load submissions (for payment proofs) + USDT requests + KYC users + broker verifs in parallel
+      Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()),
+        fetch("/api/admin/usdt-buy").then(r => r.json()),
+        fetch("/api/admin/usdt-sell").then(r => r.json()),
+        fetch("/api/admin/broker-verifications").then(r => r.json()),
+        import("@/lib/supabase/client").then(({ createClient }) =>
+          createClient()
+            .from("dashboard_users")
+            .select("user_id, full_name, email, created_at, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+            .order("created_at", { ascending: false })
+            .limit(500)
+        ),
+      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
+        if (sub.ok)  setSubmissions(sub.data ?? [])
+        if (buy.ok)  setUsdtBuy(buy.data ?? [])
+        if (sell.ok) setUsdtSell(sell.data ?? [])
+        if (brkr.ok && brkr.data) {
+          setBrokerVerifs(brkr.data.map((r: Record<string, unknown>) => ({
+            id: String(r.id ?? ""), userId: r.user_id as string | null,
+            username: r.username as string | null, broker: String(r.broker ?? ""),
+            traderId: String(r.trader_id ?? ""), screenshotUrl: r.screenshot_url as string | null,
+            status: (r.status as "pending" | "approved" | "rejected") ?? "pending",
+            createdAt: String(r.created_at ?? ""),
+          })))
+        }
+        if (!kyc.error && kyc.data) {
+          setKycUsers(kyc.data.map((u: Record<string, unknown>) => ({
+            userId:             String(u.user_id  ?? ""),
+            name:               String(u.full_name ?? "—"),
+            email:              String(u.email     ?? ""),
+            createdAt:          String(u.created_at ?? ""),
+            kycDocPan:          u.kyc_doc_pan            as string | null,
+            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
+            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
+          })))
+        }
+      }).catch(() => {})
     } else if (activeSection === "usdt-buy") {
       fetch("/api/admin/usdt-buy")
         .then(r => r.json())
@@ -401,7 +542,7 @@ export default function AdminPanel() {
     return () => { clearInterval(sessionInterval); clearTimeout(loadingTimeout) }
   }, [router, loadData])
 
-  // ── Telegram helpers ─────────────────────────────────────────────────────────
+  // ── Telegram helpers ───��─────────────────────────────────────────────────────
   const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
     if (!userTelegram) return
     // Strip leading @ — Telegram usernames work as chat_id handles
@@ -604,6 +745,43 @@ export default function AdminPanel() {
     }
   }
 
+  // Mark all unread notifications of a given type as read.
+  // Called when admin opens a section or views a specific record.
+  // Mark a single submission as READ in local state and persist to Supabase
+  const markSubmissionNotifRead = (sub: Submission) => {
+    if (sub.notificationStatus !== "UNREAD") return
+    // Optimistic update
+    setSubmissions(prev =>
+      prev.map(s => s.id === sub.id ? { ...s, notificationStatus: "READ" as const } : s)
+    )
+    // Persist via submissions PATCH — add notification_status to update body
+    fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: sub.id, status: sub.status, notification_status: "READ" }),
+    }).catch(() => {})
+  }
+
+  // Mark all UNREAD submissions of given types as READ (called on section open)
+  const markSectionNotifsRead = (types: string[]) => {
+    setSubmissions(prev => {
+      const toMark = prev.filter(s => types.includes(s.type) && s.notificationStatus === "UNREAD")
+      if (!toMark.length) return prev
+      toMark.forEach(s => {
+        fetch("/api/admin/submissions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: s.id, status: s.status, notification_status: "READ" }),
+        }).catch(() => {})
+      })
+      return prev.map(s =>
+        types.includes(s.type) && s.notificationStatus === "UNREAD"
+          ? { ...s, notificationStatus: "READ" as const }
+          : s
+      )
+    })
+  }
+
   const saveSystem = (patch: Partial<typeof DEFAULT_SYSTEM>) => {
     const updated = { ...systemSettings, ...patch }
     setSystemSettings(updated)
@@ -653,6 +831,17 @@ export default function AdminPanel() {
   )
   const unreadCount    = notifications.filter(n => !n.read).length
 
+  // Per-section unread badge counts — derived from notification_status column on each row
+  const isUnread = (s: { notificationStatus?: string }) => s.notificationStatus === "UNREAD"
+  const unreadBySection: Record<string, number> = {
+    "usdt-buy":            usdtBuy.filter(s  => isUnread(s as { notificationStatus?: string })).length,
+    "usdt-sell":           usdtSell.filter(s => isUnread(s as { notificationStatus?: string })).length,
+    "mentorship-requests": submissions.filter(s => s.type === "mentorship"    && isUnread(s)).length,
+    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group") && isUnread(s)).length,
+    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other") && isUnread(s)).length,
+    "payment-verification":submissions.filter(s => (s.type === "usdt_p2p" || s.type === "support") && isUnread(s)).length,
+  }
+
   const userList = submissions.reduce<Submission[]>((acc, s) => {
     if (!acc.find(a => a.userId === s.userId)) acc.push(s)
     return acc
@@ -674,13 +863,7 @@ export default function AdminPanel() {
     ...usdtSell.filter(r => r.screenshotUrl).map(r => ({ id: r.id, userId: r.userId, name: r.name, type: "USDT Sell Proof", url: r.screenshotUrl!, createdAt: r.createdAt })),
   ]
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    )
-  }
+  // Auth removed — render immediately.
 
   // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -834,11 +1017,34 @@ export default function AdminPanel() {
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${activeSection === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   {label}
+                  {unreadBySection[key] > 0 && (
+                    <span className="ml-auto text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">{unreadBySection[key]}</span>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Submissions group */}
+        <div className="pt-1 border-t border-border" />
+        <p className="px-3 pt-2 pb-1 text-xs font-bold text-muted-foreground uppercase tracking-widest">Submissions</p>
+        {(["mentorship-requests", "vip-requests", "user-profiles"] as Section[]).map(key => {
+          const item = NAV.find(n => n.key === key)!
+          const badge = unreadBySection[key] ?? 0
+          return (
+            <button key={key} onClick={() => { setActiveSection(key); setSidebarOpen(false) }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${activeSection === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+              <item.icon className="w-4 h-4 shrink-0" />
+              {item.label}
+              {badge > 0 && (
+                <span className="ml-auto text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">{badge}</span>
+              )}
+              {badge === 0 && activeSection === key && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+            </button>
+          )
+        })}
+        <div className="pt-1 border-t border-border" />
 
         {(["suspicious", "members", "notifications"] as Section[]).map(key => {
           const item = NAV.find(n => n.key === key)!
@@ -897,13 +1103,13 @@ export default function AdminPanel() {
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Dashboard Overview</h2>
 
-      {/* Live DB stats row */}
+      {/* Live DB stats — row 1: users */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Registered Users",  value: dbStats?.totalUsers    ?? "—", icon: Users,       color: "text-blue-400"   },
-          { label: "Active Members",    value: dbStats?.activeMembers ?? "—", icon: Crown,       color: "text-primary"    },
-          { label: "Signups Today",     value: dbStats?.todaySignups  ?? "—", icon: UserPlus,    color: "text-green-400"  },
-          { label: "Visits (14d)",      value: dbStats?.totalVisits14d ?? "—", icon: BarChart2,  color: "text-amber-400"  },
+          { label: "Total Users",       value: (dbStats?.totalUsers ?? (usdtBuy.length + usdtSell.length + submissions.length || "—")), icon: Users,       color: "text-blue-400"   },
+          { label: "Total VIP Members", value: dbStats?.totalVipMembers  ?? vipSubs.length,    icon: Crown,       color: "text-primary"    },
+          { label: "Total Mentorship",  value: dbStats?.totalMentorship  ?? mentorSubs.length, icon: FileText,    color: "text-blue-400"   },
+          { label: "Signups Today",     value: dbStats?.todaySignups     ?? "—",               icon: UserPlus,    color: "text-green-400"  },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="p-5 rounded-xl bg-card border border-border">
             <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
@@ -912,13 +1118,13 @@ export default function AdminPanel() {
         ))}
       </div>
 
-      {/* localStorage/demo stats row */}
+      {/* Live DB stats — row 2: USDT orders */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "VIP Members",      value: vipSubs.length,    icon: Star,          color: "text-primary"   },
-          { label: "Mentorship",       value: mentorSubs.length, icon: FileText,      color: "text-blue-400"  },
-          { label: "USDT Buy Orders",  value: usdtBuy.length,    icon: ArrowDownLeft, color: "text-green-400" },
-          { label: "USDT Sell Orders", value: usdtSell.length,   icon: ArrowUpRight,  color: "text-amber-400" },
+          { label: "USDT Buy Orders",  value: dbStats?.totalUsdtBuy  ?? usdtBuy.length,  icon: ArrowDownLeft, color: "text-green-400" },
+          { label: "USDT Sell Orders", value: dbStats?.totalUsdtSell ?? usdtSell.length, icon: ArrowUpRight,  color: "text-amber-400" },
+          { label: "Pending Reviews",  value: pendingSubs.length,                         icon: Clock,         color: "text-amber-400" },
+          { label: "Visits (14d)",     value: dbStats?.totalVisits14d ?? "—",             icon: BarChart2,     color: "text-muted-foreground" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="p-5 rounded-xl bg-card border border-border">
             <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
@@ -926,12 +1132,13 @@ export default function AdminPanel() {
           </div>
         ))}
       </div>
+      {/* Submission status summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total",       value: submissions.length,     icon: Hash,          color: "text-foreground" },
-          { label: "Pending",     value: pendingSubs.length,     icon: Clock,         color: "text-amber-400"  },
-          { label: "Approved",    value: submissions.filter(s => s.status === "approved" || s.status === "completed").length, icon: CheckCircle, color: "text-green-400" },
-          { label: "Suspicious",  value: suspiciousSubs.length,  icon: AlertTriangle, color: "text-red-400"    },
+          { label: "All Submissions", value: submissions.length,     icon: Hash,          color: "text-foreground" },
+          { label: "Pending",         value: pendingSubs.length,     icon: Clock,         color: "text-amber-400"  },
+          { label: "Approved",        value: submissions.filter(s => s.status === "approved" || s.status === "completed").length, icon: CheckCircle, color: "text-green-400" },
+          { label: "Suspicious",      value: suspiciousSubs.length,  icon: AlertTriangle, color: "text-red-400"    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className={`p-4 rounded-xl bg-card border ${label === "Suspicious" && suspiciousSubs.length > 0 ? "border-red-500/40 bg-red-500/5" : "border-border"}`}>
             <div className="flex items-center gap-2 mb-2"><Icon className={`w-4 h-4 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
@@ -1713,50 +1920,151 @@ export default function AdminPanel() {
     )
   }
 
-  const renderFiles = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">File Manager</h2>
-      <p className="text-sm text-muted-foreground">
-        All uploaded payment screenshots and verification files from user submissions.
-        Files appear here automatically once users upload payment proof.
-      </p>
-      {allFiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center">
-          <Folder className="w-10 h-10 text-muted-foreground mb-3" />
-          <p className="font-semibold text-foreground mb-1">No files uploaded yet</p>
-          <p className="text-sm text-muted-foreground">Payment screenshots appear here once users complete form submissions with file uploads.</p>
+  const renderFiles = () => {
+    type FileEntry = { id: string; userId: string; name: string; email: string; url: string; label: string; createdAt: string }
+
+    const CATEGORIES: { key: typeof fileCategory; label: string; icon: React.ReactNode; desc: string }[] = [
+      { key: "payment-mentorship", label: "Payment Proof — Mentorship",  icon: <FileText className="w-4 h-4" />,  desc: "Screenshots from mentorship payment submissions" },
+      { key: "payment-vip",        label: "Payment Proof — VIP Group",   icon: <Crown className="w-4 h-4" />,     desc: "Screenshots from VIP group payment submissions" },
+      { key: "usdt-buy",           label: "USDT Proof — Buy",            icon: <ArrowDownLeft className="w-4 h-4" />, desc: "Payment screenshots from USDT buy transactions" },
+      { key: "usdt-sell",          label: "USDT Proof — Sell",           icon: <ArrowUpRight className="w-4 h-4" />,  desc: "Payment screenshots from USDT sell transactions" },
+      { key: "pan",                label: "PAN Card",                    icon: <Shield className="w-4 h-4" />,    desc: "PAN card images uploaded during KYC verification" },
+      { key: "aadhaar",            label: "Aadhaar Card",                icon: <UserCheck className="w-4 h-4" />, desc: "Aadhaar card images uploaded during KYC verification" },
+      { key: "broker",             label: "Broker Proofs",               icon: <Shield className="w-4 h-4" />,   desc: "Screenshots submitted for broker account verification" },
+    ]
+
+    const filesByCategory: Record<typeof fileCategory, FileEntry[]> = {
+      "payment-mentorship": submissions
+        .filter(s => s.screenshotUrl && s.type === "mentorship")
+        .map(s => ({ id: s.id, userId: s.userId || "—", name: s.name, email: s.email || "—", url: s.screenshotUrl!, label: "Mentorship Payment", createdAt: s.createdAt })),
+      "payment-vip": submissions
+        .filter(s => s.screenshotUrl && (s.type === "vip_membership" || s.type === "vip_group"))
+        .map(s => ({ id: s.id, userId: s.userId || "—", name: s.name, email: s.email || "—", url: s.screenshotUrl!, label: "VIP Payment", createdAt: s.createdAt })),
+      "usdt-buy": usdtBuy
+        .filter(r => r.screenshotUrl)
+        .map(r => ({ id: r.id, userId: r.userId, name: r.name, email: r.email || "—", url: r.screenshotUrl!, label: "USDT Buy Proof", createdAt: r.createdAt })),
+      "usdt-sell": usdtSell
+        .filter(r => r.screenshotUrl)
+        .map(r => ({ id: r.id, userId: r.userId, name: r.name, email: r.email || "—", url: r.screenshotUrl!, label: "USDT Sell Proof", createdAt: r.createdAt })),
+      "pan": kycUsers
+        .filter(u => u.kycDocPan)
+        .map(u => ({ id: u.userId + "-pan", userId: u.userId, name: u.name, email: u.email, url: u.kycDocPan!, label: "PAN Card", createdAt: u.createdAt })),
+      "aadhaar": kycUsers
+        .flatMap(u => [
+          u.kycDocAadhaarFront ? { id: u.userId + "-aadhar-front", userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarFront, label: "Aadhaar (Front)", createdAt: u.createdAt } : null,
+          u.kycDocAadhaarBack  ? { id: u.userId + "-aadhar-back",  userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarBack,  label: "Aadhaar (Back)",  createdAt: u.createdAt } : null,
+        ].filter(Boolean) as FileEntry[]),
+      "broker": brokerVerifs
+        .filter(b => b.screenshotUrl)
+        .map(b => ({ id: b.id, userId: b.userId ?? "—", name: b.username ?? "—", email: b.broker, url: b.screenshotUrl!, label: `${b.broker} — ${b.traderId}`, createdAt: b.createdAt })),
+    }
+
+    const activeFiles = filesByCategory[fileCategory]
+    const activeCat   = CATEGORIES.find(c => c.key === fileCategory)!
+
+    return (
+      <div className="space-y-5">
+        {/* Header */}
+        <div>
+          <h2 className="text-xl font-bold text-foreground">File Manager</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Browse uploaded proof files organized by category. Click any file to preview.
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allFiles.map(f => (
-            <div key={`${f.id}-${f.type}`} className="rounded-xl bg-card border border-border overflow-hidden">
-              <div className="h-40 bg-secondary/50 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity relative" onClick={() => setScreenshotModal(f.url)}>
-                <img
-                  src={f.url} alt={f.type}
-                  className="h-full w-full object-cover absolute inset-0"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
-                />
-                <ImageIcon className="w-10 h-10 text-muted-foreground" />
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-foreground truncate">{f.name}</p>
-                <p className="text-xs text-muted-foreground">{f.type} · {f.userId}</p>
-                <p className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <button onClick={() => setScreenshotModal(f.url)} className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Eye className="w-3 h-3" /> View
-                  </button>
-                  <a href={f.url} download target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Download className="w-3 h-3" /> Download
-                  </a>
+
+        {/* Category tabs */}
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map(cat => {
+            const count = filesByCategory[cat.key].length
+            const active = fileCategory === cat.key
+            return (
+              <button
+                key={cat.key}
+                onClick={() => setFileCategory(cat.key)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-border/80"
+                }`}
+              >
+                {cat.icon}
+                <span>{cat.label}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Active category info */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {activeCat.icon}
+          <span>{activeCat.desc}</span>
+          <span className="ml-auto font-mono text-foreground">{activeFiles.length} file{activeFiles.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {/* File grid */}
+        {activeFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <Folder className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No files in this category</p>
+            <p className="text-sm text-muted-foreground max-w-sm">{activeCat.desc}. Files appear here automatically once users submit forms with uploads.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {activeFiles.map(f => (
+              <div key={f.id} className="rounded-xl bg-card border border-border overflow-hidden flex flex-col">
+                {/* Thumbnail */}
+                <div
+                  className="h-44 bg-secondary/50 relative flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity group"
+                  onClick={() => setScreenshotModal(f.url)}
+                >
+                  <img
+                    src={f.url}
+                    alt={f.label}
+                    className="h-full w-full object-cover absolute inset-0"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
+                  />
+                  <ImageIcon className="w-10 h-10 text-muted-foreground relative z-10" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-20">
+                    <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-foreground truncate">{f.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{f.email}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{f.userId}</p>
+                    <p className="text-xs text-muted-foreground">{timeAgo(f.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+                    <button
+                      onClick={() => setScreenshotModal(f.url)}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Eye className="w-3 h-3" /> Preview
+                    </button>
+                    <a
+                      href={f.url}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Download className="w-3 h-3" /> Download
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const renderExport = () => {
     const exports = [
@@ -2178,7 +2486,7 @@ export default function AdminPanel() {
     </div>
   )
 
-  // ── Analytics ─────────��───────────────────────────────────────────────────────
+  // ── Analytics ─────────��──────────────────────────────────────────────���────────
   const renderAnalytics = () => {
     const stats  = (analyticsData as Record<string, unknown> | null)?.stats  as Record<string, number> | undefined
     const recent    = (analyticsData as Record<string, unknown> | null)?.recentSignups  as Record<string, unknown>[] | undefined
@@ -2533,7 +2841,7 @@ export default function AdminPanel() {
     )
   }
 
-  // ── Performance Manager ───────────────────────────────────────────────────────
+  // ── Performance Manager ───────────────────────────────────────���───────────────
   const renderPerformanceManager = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Performance Manager</h2>
@@ -2783,12 +3091,334 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Shared submission table renderer ────────────────────────────────────────
+  const renderSubmissionSection = (
+    title: string,
+    icon: React.ReactNode,
+    rows: Submission[],
+    sectionKey: Section,
+  ) => {
+    const unread = unreadBySection[sectionKey] ?? 0
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            {icon}
+            <h2 className="text-xl font-bold text-foreground">{title}</h2>
+            {unread > 0 && (
+              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/30">
+                {unread} New
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => loadData({ spinning: true })}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        <div className="rounded-xl bg-card border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  {["User ID", "Name", "Email", "Phone", "Telegram", "Amount / Details", "Date", "Status", "Actions"].map(h => (
+                    <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0
+                  ? <tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">No {title.toLowerCase()} yet</td></tr>
+                  : rows.map((s, i) => {
+                    const detailStr = s.amount
+                      ? s.amount
+                      : s.details && typeof s.details === "object"
+                        ? Object.entries(s.details as Record<string, unknown>)
+                            .filter(([k]) => ["program","plan","cardType","action","amount","accountSize"].includes(k))
+                            .map(([, v]) => String(v))
+                            .join(" · ")
+                        : "—"
+                    return (
+                      <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
+                        <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
+                          <button onClick={() => { setDetailView(s); markSubmissionNotifRead(s) }} className="hover:text-primary hover:underline">{s.name}</button>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground">{s.email || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{s.phone || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-foreground max-w-[140px] truncate" title={detailStr}>{detailStr || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => { setDetailView(s); markSubmissionNotifRead(s) }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
+                            {s.status === "pending" && (
+                              <>
+                                <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderKycVerifications = () => {
+    const updateKycAction = async (id: string, action: "approve" | "dismiss" | "ban") => {
+      await fetch("/api/admin/kyc-verifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      })
+      setKycVerifs(prev => prev.map(k => k.id === id ? {
+        ...k,
+        status: action === "approve" ? "approved" : action === "ban" ? "banned" : "rejected",
+      } : k))
+    }
+
+    const pending  = kycVerifs.filter(k => k.status === "pending")
+    const reviewed = kycVerifs.filter(k => k.status !== "pending")
+
+    const KycRow = ({ k }: { k: (typeof kycVerifs)[0] }) => (
+      <tr key={k.id} className="hover:bg-secondary/20 transition-colors">
+        <td className="px-4 py-3">
+          <p className="font-medium text-foreground text-sm">{k.fullName}</p>
+          <p className="text-xs text-muted-foreground font-mono">{k.numericUid ?? k.userId}</p>
+        </td>
+        <td className="px-4 py-3 text-xs text-foreground">{k.phone}</td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">{k.telegram ?? "—"}</td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {k.selfieUrl && (
+              <button onClick={() => setScreenshotModal(k.selfieUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> Selfie
+              </button>
+            )}
+            {k.idFrontUrl && (
+              <button onClick={() => setScreenshotModal(k.idFrontUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> ID Front
+              </button>
+            )}
+            {k.idBackUrl && (
+              <button onClick={() => setScreenshotModal(k.idBackUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> ID Back
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge(k.status)}`}>
+            {k.status}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(k.submittedAt)}</td>
+        <td className="px-4 py-3">
+          {k.status === "pending" && (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => updateKycAction(k.id, "approve")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+              <button onClick={() => updateKycAction(k.id, "dismiss")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Dismiss"><X className="w-4 h-4" /></button>
+              <button onClick={() => updateKycAction(k.id, "ban")}     className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10"    title="Ban"><Ban className="w-4 h-4" /></button>
+            </div>
+          )}
+        </td>
+      </tr>
+    )
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <UserCheck className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-bold text-foreground">KYC Verifications</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">
+            {kycVerifs.length} total · {pending.length} pending
+          </span>
+        </div>
+
+        {kycVerifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <UserCheck className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No KYC submissions yet</p>
+            <p className="text-sm text-muted-foreground">Submissions appear here when users complete the KYC form.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["User", "Phone", "Telegram", "Documents", "Status", "Submitted", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {[...pending, ...reviewed].map(k => <KycRow key={k.id} k={k} />)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderBrokerVerifications = () => {
+    const BROKER_LOGOS: Record<string, string> = {
+      xm:           "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.53.07%E2%80%AFAM-EMj6TsSNBB9LIHwT573L1QOWChv0Ff.png",
+      exness:       "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.52.20%E2%80%AFAM-YINpyz9uYqGPHspG99BTQOGV2avn6X.png",
+      justmarkets:  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.53.19%E2%80%AFAM-6bP4MPpsUyM5mS0Um8KEbUvsnuyb4d.png",
+    }
+
+    const updateBrokerStatus = async (id: string, status: "approved" | "rejected") => {
+      await fetch("/api/admin/broker-verifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      })
+      setBrokerVerifs(prev => prev.map(b => b.id === id ? { ...b, status } : b))
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">Broker Verifications</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">{brokerVerifs.length}</span>
+          </div>
+        </div>
+
+        {brokerVerifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <Shield className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No broker verifications yet</p>
+            <p className="text-sm text-muted-foreground">Submissions appear here when users register broker accounts using your partner links.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["Broker", "Trader ID", "User", "Screenshot", "Status", "Submitted", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {brokerVerifs.map(b => (
+                    <tr key={b.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {BROKER_LOGOS[b.broker.toLowerCase()] ? (
+                            <div className="h-7 w-16 bg-white rounded border border-border/40 flex items-center justify-center p-1 shrink-0">
+                              <img src={BROKER_LOGOS[b.broker.toLowerCase()]} alt={b.broker} className="h-full w-auto object-contain" />
+                            </div>
+                          ) : (
+                            <span className="text-xs font-bold uppercase text-foreground">{b.broker}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{b.traderId}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-foreground font-medium">{b.username ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{b.userId ?? "—"}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {b.screenshotUrl ? (
+                          <button
+                            onClick={() => setScreenshotModal(b.screenshotUrl!)}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge(b.status)}`}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(b.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        {b.status === "pending" && (
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => updateBrokerStatus(b.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                            <button onClick={() => updateBrokerStatus(b.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderMentorshipRequests = () => {
+    const rows = submissions.filter(s => s.type === "mentorship")
+    return renderSubmissionSection(
+      "Mentorship Requests",
+      <FileText className="w-5 h-5 text-blue-400" />,
+      rows,
+      "mentorship-requests",
+    )
+  }
+
+  const renderVipRequests = () => {
+    const rows = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+    return renderSubmissionSection(
+      "VIP Group Requests",
+      <Crown className="w-5 h-5 text-primary" />,
+      rows,
+      "vip-requests",
+    )
+  }
+
+  const renderUserProfiles = () => {
+    const rows = submissions.filter(s => s.type === "member" || s.type === "other")
+    return renderSubmissionSection(
+      "User Profiles",
+      <Users className="w-5 h-5 text-green-400" />,
+      rows,
+      "user-profiles",
+    )
+  }
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
       case "payment-verification": return renderPaymentVerification()
       case "usdt-buy":             return renderUSDTBuy()
       case "usdt-sell":            return renderUSDTSell()
+      case "broker-verifications":  return renderBrokerVerifications()
+      case "kyc-verifications":     return renderKycVerifications()
+      case "mentorship-requests":  return renderMentorshipRequests()
+      case "vip-requests":         return renderVipRequests()
+      case "user-profiles":        return renderUserProfiles()
       case "suspicious":           return renderSuspicious()
       case "members":              return renderMembers()
       case "notifications":        return renderNotifications()

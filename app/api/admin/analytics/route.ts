@@ -1,104 +1,98 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { query } from "@/lib/db"
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    const todayStart      = new Date(); todayStart.setHours(0, 0, 0, 0)
     const todayIso        = todayStart.toISOString()
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    // Run all queries in parallel — only against tables confirmed to exist in the DB
-    const [
-      { count: totalUsers },
-      { count: verifiedUsers },
-      { count: totalMembers },
-      { count: activeMembers },
-      { count: todaySignups },
-      { data: recentSignups },
-      { data: visitorRows },
-      { data: membershipBreakdown },
-    ] = await Promise.all([
-      supabase.from("dashboard_users").select("*", { count: "exact", head: true }),
-      supabase.from("dashboard_users").select("*", { count: "exact", head: true }).eq("is_verified", true),
-      supabase.from("memberships").select("*", { count: "exact", head: true }),
-      supabase.from("memberships").select("*", { count: "exact", head: true }).eq("status", "active"),
-      supabase.from("dashboard_users").select("*", { count: "exact", head: true }).gte("created_at", todayIso),
-      supabase.from("dashboard_users")
-        .select("user_id, full_name, email, created_at, is_verified")
-        .order("created_at", { ascending: false })
-        .limit(10),
-      // site_visitors has created_at — group by date in JS
-      supabase.from("site_visitors")
-        .select("created_at")
-        .gte("created_at", fourteenDaysAgo)
-        .order("created_at", { ascending: true }),
-      supabase.from("memberships")
-        .select("plan, status")
-        .limit(500),
-    ])
+    // All counts in a single round-trip using a multi-column aggregate query
+    const [counts] = await query<{
+      total_users:       string
+      verified_users:    string
+      today_signups:     string
+      total_vip:         string
+      total_mentorship:  string
+      total_usdt_buy:    string
+      total_usdt_sell:   string
+    }>(`
+      SELECT
+        (SELECT COUNT(*) FROM dashboard_users)                                               AS total_users,
+        (SELECT COUNT(*) FROM dashboard_users WHERE is_verified = true)                      AS verified_users,
+        (SELECT COUNT(*) FROM dashboard_users WHERE created_at >= $1)                        AS today_signups,
+        (SELECT COUNT(*) FROM admin_submissions WHERE type ILIKE '%vip%')                    AS total_vip,
+        (SELECT COUNT(*) FROM admin_submissions WHERE type = 'mentorship')                   AS total_mentorship,
+        (SELECT COUNT(*) FROM usdt_buy_requests)                                             AS total_usdt_buy,
+        (SELECT COUNT(*) FROM usdt_sell_requests)                                            AS total_usdt_sell
+    `, [todayIso])
 
-    // Aggregate visitor page-views by calendar date
+    // Recent signups
+    const recentSignups = await query(
+      `SELECT user_id, full_name, email, created_at, is_verified
+         FROM dashboard_users ORDER BY created_at DESC LIMIT 10`,
+    )
+
+    // Site visits in 14-day window
+    const visitorRows = await query<{ created_at: string }>(
+      `SELECT created_at FROM site_visitors WHERE created_at >= $1 ORDER BY created_at ASC`,
+      [fourteenDaysAgo],
+    )
+
+    // Signup trend in 14-day window
+    const signupRows = await query<{ created_at: string }>(
+      `SELECT created_at FROM dashboard_users WHERE created_at >= $1 ORDER BY created_at ASC`,
+      [fourteenDaysAgo],
+    )
+
+    // Build 14-day date series
+    const visitors14d: { date: string; count: number }[] = []
     const visitorsByDate: Record<string, number> = {}
-    for (const row of (visitorRows ?? [])) {
-      const date = String(row.created_at ?? "").slice(0, 10)
+    for (const row of visitorRows) {
+      const date = String(row.created_at).slice(0, 10)
       if (date) visitorsByDate[date] = (visitorsByDate[date] ?? 0) + 1
     }
-
-    // Build a full 14-day window filling in zeroes for missing days
-    const visitors14d: { date: string; count: number }[] = []
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
-      const key = d.toISOString().slice(0, 10)
-      visitors14d.push({ date: key, count: visitorsByDate[key] ?? 0 })
-    }
-
-    // Total site visits in window
-    const totalVisits14d = visitors14d.reduce((s, v) => s + v.count, 0)
-
-    // Membership plan breakdown (active only)
-    const planCounts: Record<string, number> = {}
-    for (const m of (membershipBreakdown ?? [])) {
-      if (m.status === "active") {
-        planCounts[m.plan] = (planCounts[m.plan] ?? 0) + 1
-      }
-    }
-
-    // Signups trend — last 14 days from dashboard_users
-    const { data: signupRows } = await supabase
-      .from("dashboard_users")
-      .select("created_at")
-      .gte("created_at", fourteenDaysAgo)
-      .order("created_at", { ascending: true })
-
     const signupsByDate: Record<string, number> = {}
-    for (const row of (signupRows ?? [])) {
-      const date = String(row.created_at ?? "").slice(0, 10)
+    for (const row of signupRows) {
+      const date = String(row.created_at).slice(0, 10)
       if (date) signupsByDate[date] = (signupsByDate[date] ?? 0) + 1
     }
-    const signups14d = visitors14d.map(v => ({
-      date: v.date,
-      count: signupsByDate[v.date] ?? 0,
-    }))
+    for (let i = 13; i >= 0; i--) {
+      const key = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
+      visitors14d.push({ date: key, count: visitorsByDate[key] ?? 0 })
+    }
+    const signups14d = visitors14d.map(v => ({ date: v.date, count: signupsByDate[v.date] ?? 0 }))
+    const totalVisits14d = visitors14d.reduce((s, v) => s + v.count, 0)
+
+    // Membership plan breakdown
+    const planRows = await query<{ plan: string; status: string }>(
+      `SELECT plan, status FROM memberships LIMIT 500`,
+    )
+    const planCounts: Record<string, number> = {}
+    for (const m of planRows) {
+      if (m.status === "active") planCounts[m.plan] = (planCounts[m.plan] ?? 0) + 1
+    }
 
     return NextResponse.json({
       ok: true,
       stats: {
-        totalUsers:     totalUsers     ?? 0,
-        verifiedUsers:  verifiedUsers  ?? 0,
-        totalMembers:   totalMembers   ?? 0,
-        activeMembers:  activeMembers  ?? 0,
-        todaySignups:   todaySignups   ?? 0,
+        totalUsers:      Number(counts?.total_users      ?? 0),
+        verifiedUsers:   Number(counts?.verified_users   ?? 0),
+        todaySignups:    Number(counts?.today_signups    ?? 0),
         totalVisits14d,
+        totalVipMembers:   Number(counts?.total_vip        ?? 0),
+        totalMentorship:   Number(counts?.total_mentorship ?? 0),
+        totalUsdtBuy:      Number(counts?.total_usdt_buy   ?? 0),
+        totalUsdtSell:     Number(counts?.total_usdt_sell  ?? 0),
+        activeMembers:     Number(counts?.total_vip        ?? 0), // keep for backwards compat
       },
-      recentSignups:  recentSignups ?? [],
+      recentSignups,
       visitors14d,
       signups14d,
       planBreakdown: Object.entries(planCounts).map(([plan, count]) => ({ plan, count })),
     })
   } catch (err) {
+    console.error("[analytics] error:", err)
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
 }

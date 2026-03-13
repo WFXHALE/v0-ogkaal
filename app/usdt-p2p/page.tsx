@@ -84,16 +84,20 @@ export default function UsdtP2PPage() {
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
 
   // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
-  const [exchangeRate, setExchangeRate] = useState<number>(() => {
-    const base = Math.floor(Math.random() * 16) + 105 // 105–120
-    return base
-  })
+  // Start with a fixed value (0 = not yet mounted) to avoid SSR/client mismatch
+  // from Math.random(), then set the real value after first mount.
+  const [exchangeRate, setExchangeRate] = useState<number>(0)
   const [rateFlash, setRateFlash] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
   const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
 
   useEffect(() => {
+    // Set initial random rate only on client after mount
+    setExchangeRate(Math.floor(Math.random() * 16) + 105)
+    setMounted(true)
+
     const FIFTEEN_MINUTES = 15 * 60 * 1000
     const id = setInterval(() => {
       setExchangeRate(prev => {
@@ -238,9 +242,12 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT — uses live p2pRate
-  const sellAmount      = Number(sellUsdtAmount) || 0
-  const sellTotalINR    = sellAmount * p2pRate
+  // Sell USDT — fixed pricing: ₹90 below 50 USDT, ₹93–₹95 for 50+ USDT (max ₹95)
+  const sellAmount   = Number(sellUsdtAmount) || 0
+  const SELL_RATE_SMALL = 90                                    // below 50 USDT
+  const SELL_RATE_LARGE = Math.min(95, Math.max(93, p2pRate - 20)) // 50+ USDT: ₹93–₹95
+  const sellRate     = sellAmount > 0 && sellAmount < 50 ? SELL_RATE_SMALL : SELL_RATE_LARGE
+  const sellTotalINR = sellAmount * sellRate
 
   // Step labels for progress indicator
   const stepLabels = [
@@ -448,21 +455,29 @@ export default function UsdtP2PPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
                         <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
-                        <p
-                          className="text-2xl font-bold text-foreground transition-all duration-500"
-                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
-                        >
-                          ₹{exchangeRate}
-                        </p>
+                        {mounted ? (
+                          <p
+                            className="text-2xl font-bold text-foreground transition-all duration-500"
+                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          >
+                            ₹{exchangeRate}
+                          </p>
+                        ) : (
+                          <div className="h-8 w-16 mx-auto rounded bg-secondary animate-pulse" />
+                        )}
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
                         <p className="text-sm text-primary mb-1">Your P2P Rate</p>
-                        <p
-                          className="text-2xl font-bold text-primary transition-all duration-500"
-                          style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
-                        >
-                          ₹{exchangeRate - 5}
-                        </p>
+                        {mounted ? (
+                          <p
+                            className="text-2xl font-bold text-primary transition-all duration-500"
+                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                          >
+                            ₹{p2pRate}
+                          </p>
+                        ) : (
+                          <div className="h-8 w-16 mx-auto rounded bg-primary/20 animate-pulse" />
+                        )}
                       </div>
                     </div>
 
@@ -547,7 +562,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹{p2pRate} <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹93 – ₹95 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -600,8 +615,8 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">{sellAmount} USDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">P2P Rate:</span>
-                          <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
+                          <span className="text-muted-foreground">Sell Rate:</span>
+                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
@@ -919,8 +934,8 @@ export default function UsdtP2PPage() {
                             phone: sellFormData.phone,
                             details: {
                               action: "sell",
-                              amount: `${sellAmount} USDT`,
-                              rate: `₹${p2pRate} per USDT`,
+          amount: `${sellAmount} USDT`,
+          rate: `₹${sellRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
                               paymentMethod: paymentDetails
                             }

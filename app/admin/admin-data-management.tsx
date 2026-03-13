@@ -2,31 +2,32 @@
 
 import { useState, useEffect, useCallback } from "react"
 import {
-  Search, RefreshCw, ChevronDown, ChevronUp, ExternalLink,
+  Search, RefreshCw, ChevronDown, ChevronUp,
   CheckCircle, XCircle, Clock, Download, Trash2, Image as ImageIcon,
-  ArrowDownLeft, ArrowUpRight, Users, FileText, BookOpen,
-  MessageSquare, UserCheck, Filter, X,
+  ArrowDownLeft, ArrowUpRight, Users, FileText,
+  UserCheck, Filter, X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type Dataset = "usdt-buy" | "usdt-sell" | "mentorship" | "vip" | "users" | "community" | "journal"
+type Dataset = "usdt-buy" | "usdt-sell" | "mentorship-1" | "mentorship-2" | "mentorship-crypto" | "vip" | "users"
 
 interface DataTab {
   key:   Dataset
   label: string
   icon:  typeof Search
+  group?: string
 }
 
 const TABS: DataTab[] = [
-  { key: "usdt-buy",   label: "USDT Buy",    icon: ArrowDownLeft  },
-  { key: "usdt-sell",  label: "USDT Sell",   icon: ArrowUpRight   },
-  { key: "mentorship", label: "Mentorship",  icon: UserCheck      },
-  { key: "vip",        label: "VIP Group",   icon: FileText       },
-  { key: "users",      label: "Users",       icon: Users          },
-  { key: "community",  label: "Community",   icon: MessageSquare  },
-  { key: "journal",    label: "Journal",     icon: BookOpen       },
+  { key: "users",             label: "Users",              icon: Users,        group: "Users"       },
+  { key: "vip",               label: "VIP Group",          icon: FileText,     group: "VIP"         },
+  { key: "mentorship-1",      label: "Mentorship 1.0",     icon: UserCheck,    group: "Mentorship"  },
+  { key: "mentorship-2",      label: "Mentorship 2.0",     icon: UserCheck,    group: "Mentorship"  },
+  { key: "mentorship-crypto", label: "Crypto Mentorship",  icon: UserCheck,    group: "Mentorship"  },
+  { key: "usdt-buy",          label: "USDT Buy",           icon: ArrowDownLeft, group: "USDT"       },
+  { key: "usdt-sell",         label: "USDT Sell",          icon: ArrowUpRight,  group: "USDT"       },
 ]
 
 type RecordRow = Record<string, unknown>
@@ -79,6 +80,19 @@ function downloadCSV(rows: RecordRow[], filename: string) {
 
 // ─── Column configs per dataset ────────────────────────────────────────────────
 
+const MENTORSHIP_COLS: { key: string; label: string }[] = [
+  { key: "created_at",    label: "Date / Time"  },
+  { key: "user_id",       label: "User ID"       },
+  { key: "name",          label: "Name"          },
+  { key: "email",         label: "Email"         },
+  { key: "phone",         label: "Phone"         },
+  { key: "telegram",      label: "Telegram"      },
+  { key: "amount_paid",   label: "Amount Paid"   },
+  { key: "payment_method",label: "Payment"       },
+  { key: "status",        label: "Status"        },
+  { key: "screenshot_url",label: "Screenshot"    },
+]
+
 const COLUMNS: Record<Dataset, { key: string; label: string }[]> = {
   "usdt-buy": [
     { key: "created_at",    label: "Date / Time"  },
@@ -87,8 +101,8 @@ const COLUMNS: Record<Dataset, { key: string; label: string }[]> = {
     { key: "email",         label: "Email"         },
     { key: "phone",         label: "Phone"         },
     { key: "amount_usdt",   label: "USDT Amount"   },
-    { key: "inr_equivalent",label: "INR"           },
-    { key: "amount_paid",   label: "Paid"          },
+    { key: "inr_equivalent",label: "INR Equivalent"},
+    { key: "amount_paid",   label: "Amount Paid"   },
     { key: "wallet_address",label: "Wallet"        },
     { key: "transaction_id",label: "Tx ID"         },
     { key: "status",        label: "Status"        },
@@ -107,29 +121,20 @@ const COLUMNS: Record<Dataset, { key: string; label: string }[]> = {
     { key: "status",        label: "Status"        },
     { key: "screenshot_url",label: "Screenshot"    },
   ],
-  "mentorship": [
-    { key: "created_at",   label: "Date / Time" },
-    { key: "user_id",      label: "User ID"      },
-    { key: "name",         label: "Name"         },
-    { key: "email",        label: "Email"        },
-    { key: "phone",        label: "Phone"        },
-    { key: "telegram",     label: "Telegram"     },
-    { key: "amount_paid",  label: "Amount Paid"  },
-    { key: "payment_method",label: "Payment"     },
-    { key: "status",       label: "Status"       },
-    { key: "screenshot_url",label: "Screenshot"  },
-  ],
+  "mentorship-1":      MENTORSHIP_COLS,
+  "mentorship-2":      MENTORSHIP_COLS,
+  "mentorship-crypto": MENTORSHIP_COLS,
   "vip": [
-    { key: "created_at",   label: "Date / Time" },
-    { key: "user_id",      label: "User ID"      },
-    { key: "name",         label: "Name"         },
-    { key: "email",        label: "Email"        },
-    { key: "phone",        label: "Phone"        },
-    { key: "telegram",     label: "Telegram"     },
-    { key: "amount_paid",  label: "Amount Paid"  },
-    { key: "payment_method",label: "Payment"     },
-    { key: "status",       label: "Status"       },
-    { key: "screenshot_url",label: "Screenshot"  },
+    { key: "created_at",    label: "Date / Time"  },
+    { key: "user_id",       label: "User ID"       },
+    { key: "name",          label: "Name"          },
+    { key: "email",         label: "Email"         },
+    { key: "phone",         label: "Phone"         },
+    { key: "telegram",      label: "Telegram"      },
+    { key: "amount_paid",   label: "Amount Paid"   },
+    { key: "payment_method",label: "Payment"       },
+    { key: "status",        label: "Status"        },
+    { key: "screenshot_url",label: "Screenshot"    },
   ],
   "users": [
     { key: "created_at",   label: "Joined"       },
@@ -141,35 +146,10 @@ const COLUMNS: Record<Dataset, { key: string; label: string }[]> = {
     { key: "trading_level",label: "Level"        },
     { key: "kyc_status",   label: "KYC"          },
     { key: "is_verified",  label: "Verified"     },
-    { key: "kyc_doc_pan",  label: "PAN"          },
-    { key: "kyc_doc_aadhaar_front", label: "Aadhaar Front" },
-    { key: "kyc_doc_aadhaar_back",  label: "Aadhaar Back"  },
-  ],
-  "community": [
-    { key: "created_at",   label: "Date / Time" },
-    { key: "author_id",    label: "Author ID"    },
-    { key: "author_name",  label: "Author"       },
-    { key: "type",         label: "Type"         },
-    { key: "content",      label: "Content"      },
-    { key: "title",        label: "Title"        },
-    { key: "hashtags",     label: "Hashtags"     },
-    { key: "image_url",    label: "Image"        },
-  ],
-  "journal": [
-    { key: "created_at",   label: "Date / Time" },
-    { key: "user_id",      label: "User ID"      },
-    { key: "user_email",   label: "Email"        },
-    { key: "trade_date",   label: "Trade Date"   },
-    { key: "pair",         label: "Pair"         },
-    { key: "entry_price",  label: "Entry"        },
-    { key: "exit_price",   label: "Exit"         },
-    { key: "profit_loss",  label: "P&L"          },
-    { key: "trade_notes",  label: "Notes"        },
-    { key: "screenshot_url",label: "Screenshot"  },
   ],
 }
 
-const ACTION_DATASETS: Dataset[] = ["usdt-buy", "usdt-sell", "mentorship", "vip"]
+const ACTION_DATASETS: Dataset[] = ["usdt-buy", "usdt-sell", "mentorship-1", "mentorship-2", "mentorship-crypto", "vip"]
 
 // ─── Cell renderer ─────────────────────────────────────────────────────────────
 
@@ -362,22 +342,30 @@ export function AdminDataManagement() {
         </div>
       </div>
 
-      {/* Dataset tabs */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-              activeTab === key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
-            }`}
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            {label}
-          </button>
-        ))}
+      {/* Dataset tabs — grouped */}
+      <div className="space-y-2">
+        {["Users", "VIP", "Mentorship", "USDT"].map(group => {
+          const groupTabs = TABS.filter(t => t.group === group)
+          return (
+            <div key={group} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest w-20 shrink-0">{group}</span>
+              {groupTabs.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                    activeTab === key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )
+        })}
       </div>
 
       {/* Search & filter bar */}

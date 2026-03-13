@@ -691,13 +691,11 @@ export default function ClientDashboard() {
         return
       }
       setSessionState(s)
-      // Check email verification status
-      createClient()
-        .from("dashboard_users")
-        .select("is_verified")
-        .eq("user_id", s.userId)
-        .maybeSingle()
-        .then(({ data }) => setIsVerified(data?.is_verified === true))
+      // Check email verification status via server-side API
+      fetch(`/api/dashboard/profile?userId=${encodeURIComponent(s.userId)}`)
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.data) setIsVerified(Boolean(d.data.is_verified)) })
+        .catch(() => {})
       // Always fetch backup code fresh from DB so it is always available
       fetchBackupCode(s.id).then(code => {
         if (code) { setStoredBackup(code); storeBackupCode(code) }
