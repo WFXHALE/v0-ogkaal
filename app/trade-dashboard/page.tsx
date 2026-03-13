@@ -3,7 +3,8 @@
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { getSession } from "@/lib/dash-auth"
 import {
   TrendingUp,
   TrendingDown,
@@ -275,6 +276,8 @@ export default function TradeDashboardPage() {
   const [serverDropdownOpen, setServerDropdownOpen] = useState(false)
   const [connectionError, setConnectionError] = useState("")
   const [mounted, setMounted] = useState(false)
+  const [dbLoading, setDbLoading] = useState(true)
+  const [dbUserId, setDbUserId] = useState<string | null>(null)
   
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
@@ -296,10 +299,7 @@ export default function TradeDashboardPage() {
     notes: "",
   })
 
-  // Set mounted state for client-side rendering
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+
 
   // Helper function to format date consistently
   const formatDate = (dateString: string) => {
@@ -321,51 +321,107 @@ export default function TradeDashboardPage() {
     })
   }
 
-  // Check if account is connected on load
+  // Load account + trades from DB on mount
   useEffect(() => {
-    const savedAccount = localStorage.getItem("og_account_info")
-    const savedOpenTrades = localStorage.getItem("og_open_trades")
-    const savedHistory = localStorage.getItem("og_trade_history")
-    
-    if (savedAccount) {
-      const account = JSON.parse(savedAccount)
-      setAccountInfo(account)
-      if (!account.isConnected && !account.isManualMode) {
+    const session = getSession()
+    const uid = session?.id ?? null
+    setDbUserId(uid)
+    setMounted(true)
+
+    const load = async () => {
+      setDbLoading(true)
+      try {
+        // Load account info
+        const [acctRes, tradesRes] = await Promise.all([
+          fetch("/api/trade-account" + (uid ? `?userId=${uid}` : "")),
+          fetch("/api/trades" + (uid ? `?userId=${uid}` : "")),
+        ])
+        const acctJson   = acctRes.ok   ? await acctRes.json()   : { ok: false }
+        const tradesJson = tradesRes.ok ? await tradesRes.json() : { ok: false }
+
+        if (acctJson.ok && acctJson.data) {
+          const a = acctJson.data as Record<string, unknown>
+          setAccountInfo({
+            balance:       Number(a.balance      ?? 10000),
+            equity:        Number(a.balance      ?? 10000),
+            floatingPL:    0,
+            marginLevel:   0,
+            freeMargin:    Number(a.balance      ?? 10000),
+            broker:        String(a.broker       ?? ""),
+            platform:      String(a.platform     ?? "MT5"),
+            accountType:   String(a.account_type ?? "Funded"),
+            accountId:     String(a.account_id   ?? ""),
+            serverName:    String(a.server_name  ?? ""),
+            isConnected:   Boolean(a.is_connected),
+            isManualMode:  Boolean(a.is_manual_mode),
+          })
+          if (!acctJson.data.is_connected && !acctJson.data.is_manual_mode) {
+            setShowConnectionPopup(true)
+          }
+        } else {
+          setShowConnectionPopup(true)
+        }
+
+        if (tradesJson.ok && tradesJson.data?.length > 0) {
+          const all: Trade[] = (tradesJson.data as Record<string, unknown>[]).map(r => ({
+            id:           String(r.id),
+            date:         String(r.date ?? r.created_at),
+            pair:         String(r.pair),
+            type:         (r.type as "buy" | "sell"),
+            entryPrice:   Number(r.entry_price),
+            exitPrice:    r.exit_price   != null ? Number(r.exit_price)   : undefined,
+            stopLoss:     Number(r.stop_loss),
+            takeProfit:   Number(r.take_profit),
+            currentPrice: r.current_price != null ? Number(r.current_price) : undefined,
+            profitLoss:   r.profit_loss   != null ? Number(r.profit_loss)   : undefined,
+            result:       (r.result as "win" | "loss" | "open") ?? "open",
+            lotSize:      Number(r.lot_size),
+            notes:        r.notes ? String(r.notes) : undefined,
+          }))
+          setOpenTrades(all.filter(t => t.result === "open"))
+          setTradeHistory(all.filter(t => t.result !== "open"))
+        } else {
+          setOpenTrades(SAMPLE_OPEN_TRADES)
+          setTradeHistory(SAMPLE_HISTORY)
+        }
+      } catch {
         setShowConnectionPopup(true)
+        setOpenTrades(SAMPLE_OPEN_TRADES)
+        setTradeHistory(SAMPLE_HISTORY)
+      } finally {
+        setDbLoading(false)
       }
-    } else {
-      setShowConnectionPopup(true)
     }
-
-    if (savedOpenTrades) {
-      setOpenTrades(JSON.parse(savedOpenTrades))
-    } else {
-      setOpenTrades(SAMPLE_OPEN_TRADES)
-    }
-
-    if (savedHistory) {
-      setTradeHistory(JSON.parse(savedHistory))
-    } else {
-      setTradeHistory(SAMPLE_HISTORY)
-    }
+    load()
   }, [])
 
-  // Save to localStorage
-  useEffect(() => {
-    if (openTrades.length > 0 || tradeHistory.length > 0) {
-      localStorage.setItem("og_open_trades", JSON.stringify(openTrades))
-      localStorage.setItem("og_trade_history", JSON.stringify(tradeHistory))
-    }
-    localStorage.setItem("og_account_info", JSON.stringify(accountInfo))
-  }, [openTrades, tradeHistory, accountInfo])
+  // Persist account info to DB
+  const saveAccount = useCallback(async (info: AccountInfo) => {
+    if (!dbUserId) return
+    await fetch("/api/trade-account", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId:       dbUserId,
+        broker:       info.broker,
+        platform:     info.platform,
+        accountType:  info.accountType,
+        accountId:    info.accountId,
+        serverName:   info.serverName,
+        balance:      info.balance,
+        isConnected:  info.isConnected,
+        isManualMode: info.isManualMode,
+        dailyProfitTarget: null,
+        dailyMaxLoss:      null,
+      }),
+    }).catch(() => {})
+  }, [dbUserId])
 
   // Handle manual mode selection
   const handleManualMode = () => {
-    setAccountInfo({
-      ...accountInfo,
-      isManualMode: true,
-      isConnected: false,
-    })
+    const updated = { ...accountInfo, isManualMode: true, isConnected: false }
+    setAccountInfo(updated)
+    saveAccount(updated)
     setShowConnectionPopup(false)
   }
 
@@ -389,20 +445,21 @@ export default function TradeDashboardPage() {
 
     // For demo, we'll show success but note that real MT4/MT5 connection requires a backend
     setConnectionStep("success")
-    setAccountInfo({
+    const updated: AccountInfo = {
       ...accountInfo,
-      platform: connectionSettings.platform,
-      accountId: connectionSettings.accountId,
-      serverName: connectionSettings.serverName,
-      isConnected: true,
+      platform:     connectionSettings.platform,
+      accountId:    connectionSettings.accountId,
+      serverName:   connectionSettings.serverName,
+      isConnected:  true,
       isManualMode: false,
-      // Simulated account data
-      balance: 25000,
-      equity: 25350,
-      floatingPL: 350,
-      marginLevel: 8500,
-      freeMargin: 24000,
-    })
+      balance:      25000,
+      equity:       25350,
+      floatingPL:   350,
+      marginLevel:  8500,
+      freeMargin:   24000,
+    }
+    setAccountInfo(updated)
+    saveAccount(updated)
 
     setTimeout(() => {
       setShowConnectionPopup(false)
@@ -507,8 +564,37 @@ export default function TradeDashboardPage() {
     return `${hours}h ${minutes}m`
   }
 
+  // Persist a trade to DB
+  const saveTrade = useCallback(async (trade: Trade) => {
+    if (!dbUserId) return trade.id
+    const res = await fetch("/api/trades", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId:       dbUserId,
+        pair:         trade.pair,
+        type:         trade.type,
+        entryPrice:   trade.entryPrice,
+        exitPrice:    trade.exitPrice   ?? null,
+        stopLoss:     trade.stopLoss,
+        takeProfit:   trade.takeProfit,
+        currentPrice: trade.currentPrice ?? null,
+        profitLoss:   trade.profitLoss   ?? null,
+        result:       trade.result       ?? "open",
+        lotSize:      trade.lotSize,
+        notes:        trade.notes        ?? null,
+        date:         trade.date,
+      }),
+    }).catch(() => null)
+    if (res?.ok) {
+      const json = await res.json()
+      return String(json.data?.id ?? trade.id)
+    }
+    return trade.id
+  }, [dbUserId])
+
   // Add new trade
-  const handleAddTrade = () => {
+  const handleAddTrade = async () => {
     const trade: Trade = {
       id: Date.now().toString(),
       date: new Date().toISOString(),
@@ -525,7 +611,8 @@ export default function TradeDashboardPage() {
     if (newTrade.result === "open") {
       trade.currentPrice = trade.entryPrice
       trade.profitLoss = 0
-      setOpenTrades([...openTrades, trade])
+      const id = await saveTrade(trade)
+      setOpenTrades([...openTrades, { ...trade, id }])
     } else {
       trade.exitPrice = parseFloat(newTrade.exitPrice)
       const pips =
@@ -534,7 +621,8 @@ export default function TradeDashboardPage() {
           : trade.entryPrice - trade.exitPrice!
       trade.profitLoss = Math.round(pips * 10000 * trade.lotSize)
       trade.result = trade.profitLoss >= 0 ? "win" : "loss"
-      setTradeHistory([trade, ...tradeHistory])
+      const id = await saveTrade(trade)
+      setTradeHistory([{ ...trade, id }, ...tradeHistory])
     }
 
     setNewTrade({
@@ -552,7 +640,7 @@ export default function TradeDashboardPage() {
   }
 
   // Close open trade
-  const handleCloseTrade = (trade: Trade, exitPrice: number) => {
+  const handleCloseTrade = async (trade: Trade, exitPrice: number) => {
     const pips =
       trade.type === "buy" ? exitPrice - trade.entryPrice : trade.entryPrice - exitPrice
     const profitLoss = Math.round(pips * 10000 * trade.lotSize)
@@ -564,12 +652,30 @@ export default function TradeDashboardPage() {
       result: profitLoss >= 0 ? "win" : "loss",
     }
 
+    // Update in DB
+    if (dbUserId) {
+      await fetch("/api/trades", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id:          trade.id,
+          userId:      dbUserId,
+          exitPrice:   closedTrade.exitPrice,
+          profitLoss:  closedTrade.profitLoss,
+          result:      closedTrade.result,
+        }),
+      }).catch(() => {})
+    }
+
     setOpenTrades(openTrades.filter((t) => t.id !== trade.id))
     setTradeHistory([closedTrade, ...tradeHistory])
   }
 
   // Delete trade
-  const handleDeleteTrade = (id: string, isOpen: boolean) => {
+  const handleDeleteTrade = async (id: string, isOpen: boolean) => {
+    if (dbUserId) {
+      await fetch(`/api/trades?id=${id}&userId=${dbUserId}`, { method: "DELETE" }).catch(() => {})
+    }
     if (isOpen) {
       setOpenTrades(openTrades.filter((t) => t.id !== id))
     } else {
