@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -293,6 +294,20 @@ export default function AdminPanel() {
   // Load Supabase-backed data when relevant sections are opened
   useEffect(() => {
     if (!isAuthenticated) return
+
+    // Auto-mark section notifications as read when the admin opens that section
+    const sectionReadMap: Partial<Record<Section, string[]>> = {
+      "mentorship-requests":  ["mentorship"],
+      "vip-requests":         ["vip_membership", "vip_group"],
+      "user-profiles":        ["profile_update"],
+      "usdt-buy":             ["usdt_buy"],
+      "usdt-sell":            ["usdt_sell"],
+      "payment-verification": ["payment", "other"],
+    }
+    if (sectionReadMap[activeSection]) {
+      markSectionNotifsRead(sectionReadMap[activeSection]!)
+    }
+
     if (activeSection === "signals") {
       setNewSectionLoading(true)
       getVipSignals().then(s => { setSignals(s); setNewSectionLoading(false) })
@@ -608,6 +623,41 @@ export default function AdminPanel() {
     }
   }
 
+  // Mark all unread notifications of a given type as read.
+  // Called when admin opens a section or views a specific record.
+  const markSectionNotifsRead = (types: string[]) => {
+    const unreadIds = notifications
+      .filter(n => !n.read && types.includes(n.type))
+      .map(n => n.id)
+    if (!unreadIds.length) return
+    setNotifications(prev =>
+      prev.map(n => (unreadIds.includes(n.id) ? { ...n, read: true } : n))
+    )
+    // Persist each to Supabase (fire-and-forget batch)
+    unreadIds.forEach(id => {
+      fetch("/api/admin/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      }).catch(() => {})
+    })
+  }
+
+  // Called when admin views an individual submission row — marks matching unread notifs read
+  const markSubmissionNotifRead = (sub: Submission) => {
+    const typeMap: Record<string, string[]> = {
+      mentorship:     ["mentorship"],
+      vip:            ["vip_membership", "vip_group"],
+      vip_group:      ["vip_membership", "vip_group"],
+      usdt_p2p:       ["usdt_buy", "usdt_sell"],
+      funded_account: ["funded_account"],
+      member:         ["profile_update"],
+      other:          ["other", "payment"],
+    }
+    const types = typeMap[sub.type] ?? ["other"]
+    markSectionNotifsRead(types)
+  }
+
   const saveSystem = (patch: Partial<typeof DEFAULT_SYSTEM>) => {
     const updated = { ...systemSettings, ...patch }
     setSystemSettings(updated)
@@ -656,6 +706,16 @@ export default function AdminPanel() {
     s.status !== "dismissed" && s.status !== "deleted"
   )
   const unreadCount    = notifications.filter(n => !n.read).length
+
+  // Per-section unread badge counts (derived from admin_notifications type field)
+  const unreadBySection: Record<string, number> = {
+    "usdt-buy":            notifications.filter(n => !n.read && n.type === "usdt_buy").length,
+    "usdt-sell":           notifications.filter(n => !n.read && n.type === "usdt_sell").length,
+    "mentorship-requests": notifications.filter(n => !n.read && n.type === "mentorship").length,
+    "vip-requests":        notifications.filter(n => !n.read && (n.type === "vip_membership" || n.type === "vip_group")).length,
+    "user-profiles":       notifications.filter(n => !n.read && n.type === "profile_update").length,
+    "payment-verification":notifications.filter(n => !n.read && (n.type === "payment" || n.type === "other")).length,
+  }
 
   const userList = submissions.reduce<Submission[]>((acc, s) => {
     if (!acc.find(a => a.userId === s.userId)) acc.push(s)
@@ -832,11 +892,34 @@ export default function AdminPanel() {
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${activeSection === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   {label}
+                  {unreadBySection[key] > 0 && (
+                    <span className="ml-auto text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">{unreadBySection[key]}</span>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Submissions group */}
+        <div className="pt-1 border-t border-border" />
+        <p className="px-3 pt-2 pb-1 text-xs font-bold text-muted-foreground uppercase tracking-widest">Submissions</p>
+        {(["mentorship-requests", "vip-requests", "user-profiles"] as Section[]).map(key => {
+          const item = NAV.find(n => n.key === key)!
+          const badge = unreadBySection[key] ?? 0
+          return (
+            <button key={key} onClick={() => { setActiveSection(key); setSidebarOpen(false) }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${activeSection === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+              <item.icon className="w-4 h-4 shrink-0" />
+              {item.label}
+              {badge > 0 && (
+                <span className="ml-auto text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">{badge}</span>
+              )}
+              {badge === 0 && activeSection === key && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+            </button>
+          )
+        })}
+        <div className="pt-1 border-t border-border" />
 
         {(["suspicious", "members", "notifications"] as Section[]).map(key => {
           const item = NAV.find(n => n.key === key)!
@@ -2781,12 +2864,134 @@ export default function AdminPanel() {
     </div>
   )
 
+  // ── Shared submission table renderer ────────────────────────────────────────
+  const renderSubmissionSection = (
+    title: string,
+    icon: React.ReactNode,
+    rows: Submission[],
+    sectionKey: Section,
+  ) => {
+    const unread = unreadBySection[sectionKey] ?? 0
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            {icon}
+            <h2 className="text-xl font-bold text-foreground">{title}</h2>
+            {unread > 0 && (
+              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/30">
+                {unread} New
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => loadData({ spinning: true })}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        <div className="rounded-xl bg-card border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  {["User ID", "Name", "Email", "Phone", "Telegram", "Amount / Details", "Date", "Status", "Actions"].map(h => (
+                    <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0
+                  ? <tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">No {title.toLowerCase()} yet</td></tr>
+                  : rows.map((s, i) => {
+                    const detailStr = s.amount
+                      ? s.amount
+                      : s.details && typeof s.details === "object"
+                        ? Object.entries(s.details as Record<string, unknown>)
+                            .filter(([k]) => ["program","plan","cardType","action","amount","accountSize"].includes(k))
+                            .map(([, v]) => String(v))
+                            .join(" · ")
+                        : "—"
+                    return (
+                      <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{s.userId || uid(i)}</td>
+                        <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">
+                          <button onClick={() => { setDetailView(s); markSubmissionNotifRead(s) }} className="hover:text-primary hover:underline">{s.name}</button>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground">{s.email || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{s.phone || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-foreground">{s.telegram || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-foreground max-w-[140px] truncate" title={detailStr}>{detailStr || "—"}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(s.createdAt)}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${statusBadge(s.status)}`}>{s.status}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => { setDetailView(s); markSubmissionNotifRead(s) }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="View"><Eye className="w-4 h-4" /></button>
+                            {s.status === "pending" && (
+                              <>
+                                <button onClick={() => updateStatus(s.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => updateStatus(s.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderMentorshipRequests = () => {
+    const rows = submissions.filter(s => s.type === "mentorship")
+    return renderSubmissionSection(
+      "Mentorship Requests",
+      <FileText className="w-5 h-5 text-blue-400" />,
+      rows,
+      "mentorship-requests",
+    )
+  }
+
+  const renderVipRequests = () => {
+    const rows = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+    return renderSubmissionSection(
+      "VIP Group Requests",
+      <Crown className="w-5 h-5 text-primary" />,
+      rows,
+      "vip-requests",
+    )
+  }
+
+  const renderUserProfiles = () => {
+    const rows = submissions.filter(s => s.type === "member" || s.type === "other")
+    return renderSubmissionSection(
+      "User Profiles",
+      <Users className="w-5 h-5 text-green-400" />,
+      rows,
+      "user-profiles",
+    )
+  }
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
       case "payment-verification": return renderPaymentVerification()
       case "usdt-buy":             return renderUSDTBuy()
       case "usdt-sell":            return renderUSDTSell()
+      case "mentorship-requests":  return renderMentorshipRequests()
+      case "vip-requests":         return renderVipRequests()
+      case "user-profiles":        return renderUserProfiles()
       case "suspicious":           return renderSuspicious()
       case "members":              return renderMembers()
       case "notifications":        return renderNotifications()
