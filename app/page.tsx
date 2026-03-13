@@ -16,11 +16,11 @@ export default function Home() {
       <Header />
       <main className="flex-1">
         <HeroSection />
+        <TopBrokersSection />
         <WhatYouLearnSection />
         <MentorshipProgramSection />
         <GoldTicker />
         <NavigationCardsSection />
-        <TopBrokersSection />
         <ContactSection />
         <SocialMediaSection />
         <FaqSection />
