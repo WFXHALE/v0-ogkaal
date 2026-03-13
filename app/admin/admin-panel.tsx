@@ -295,7 +295,8 @@ export default function AdminPanel() {
   useEffect(() => {
     if (!isAuthenticated) return
 
-    // Auto-mark section notifications as read when the admin opens that section
+    // Auto-mark section notifications as read when the admin opens that section.
+    // We use the setter form to get the latest notifications without a closure issue.
     const sectionReadMap: Partial<Record<Section, string[]>> = {
       "mentorship-requests":  ["mentorship"],
       "vip-requests":         ["vip_membership", "vip_group"],
@@ -304,8 +305,21 @@ export default function AdminPanel() {
       "usdt-sell":            ["usdt_sell"],
       "payment-verification": ["payment", "other"],
     }
-    if (sectionReadMap[activeSection]) {
-      markSectionNotifsRead(sectionReadMap[activeSection]!)
+    const typesToMark = sectionReadMap[activeSection]
+    if (typesToMark) {
+      setNotifications(prev => {
+        const unreadIds = prev.filter(n => !n.read && typesToMark.includes(n.type)).map(n => n.id)
+        if (!unreadIds.length) return prev
+        // Persist to Supabase (fire-and-forget)
+        unreadIds.forEach(id => {
+          fetch("/api/admin/notifications", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          }).catch(() => {})
+        })
+        return prev.map(n => (unreadIds.includes(n.id) ? { ...n, read: true } : n))
+      })
     }
 
     if (activeSection === "signals") {
@@ -331,7 +345,12 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setNotifications(d.data ?? []) })
         .catch(() => {})
-    } else if (activeSection === "payment-verification") {
+    } else if (
+      activeSection === "payment-verification" ||
+      activeSection === "mentorship-requests"  ||
+      activeSection === "vip-requests"         ||
+      activeSection === "user-profiles"
+    ) {
       fetch("/api/admin/submissions")
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
