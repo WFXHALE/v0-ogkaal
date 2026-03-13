@@ -14,7 +14,14 @@ export function getDb(): Pool {
     if (!connectionString) {
       throw new Error("POSTGRES_URL_NON_POOLING env var is not set")
     }
-    pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false }, max: 5 })
+    // Explicitly use verify-full to silence the pg SSL deprecation warning.
+    // POSTGRES_URL_NON_POOLING already contains sslmode in the query string;
+    // we override it here to be unambiguous.
+    pool = new Pool({
+      connectionString,
+      ssl: { rejectUnauthorized: true },
+      max: 5,
+    })
   }
   return pool
 }
