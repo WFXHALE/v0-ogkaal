@@ -238,9 +238,12 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT — uses live p2pRate
-  const sellAmount      = Number(sellUsdtAmount) || 0
-  const sellTotalINR    = sellAmount * p2pRate
+  // Sell USDT — fixed pricing: ₹90 below 50 USDT, ₹93–₹95 for 50+ USDT (max ₹95)
+  const sellAmount   = Number(sellUsdtAmount) || 0
+  const SELL_RATE_SMALL = 90                                    // below 50 USDT
+  const SELL_RATE_LARGE = Math.min(95, Math.max(93, p2pRate - 20)) // 50+ USDT: ₹93–₹95
+  const sellRate     = sellAmount > 0 && sellAmount < 50 ? SELL_RATE_SMALL : SELL_RATE_LARGE
+  const sellTotalINR = sellAmount * sellRate
 
   // Step labels for progress indicator
   const stepLabels = [
@@ -547,7 +550,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹{p2pRate} <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹93 – ₹95 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -600,8 +603,8 @@ export default function UsdtP2PPage() {
                           <span className="text-foreground font-medium">{sellAmount} USDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">P2P Rate:</span>
-                          <span className="text-foreground font-medium">₹{p2pRate} per USDT</span>
+                          <span className="text-muted-foreground">Sell Rate:</span>
+                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
@@ -919,8 +922,8 @@ export default function UsdtP2PPage() {
                             phone: sellFormData.phone,
                             details: {
                               action: "sell",
-                              amount: `${sellAmount} USDT`,
-                              rate: `₹${p2pRate} per USDT`,
+          amount: `${sellAmount} USDT`,
+          rate: `₹${sellRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
                               paymentMethod: paymentDetails
                             }
