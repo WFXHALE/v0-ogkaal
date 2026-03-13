@@ -52,6 +52,7 @@ type Section =
   | "analytics" | "data"
   | "mentorship-requests" | "vip-requests" | "user-profiles"
   | "broker-verifications"
+  | "kyc-verifications"
 
 interface Submission {
   id: string
@@ -133,6 +134,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "vip-requests",         label: "VIP Group Requests",   icon: Crown,         group: "Submissions" },
   { key: "user-profiles",        label: "User Profiles",        icon: Users,         group: "Submissions" },
   { key: "broker-verifications",  label: "Broker Verifications", icon: Shield,        group: "Submissions" },
+  { key: "kyc-verifications",     label: "KYC Verifications",    icon: UserCheck,     group: "Submissions" },
   { key: "suspicious",           label: "Fraud Detection",      icon: AlertTriangle  },
   { key: "members",              label: "Member Database",      icon: Users          },
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
@@ -226,6 +228,15 @@ export default function AdminPanel() {
     status: "pending" | "approved" | "rejected"; createdAt: string
   }
   const [brokerVerifs, setBrokerVerifs]       = useState<BrokerVerification[]>([])
+
+  type KycVerification = {
+    id: string; userId: string; fullName: string; phone: string
+    telegram: string | null; instagram: string | null; address: string | null
+    selfieUrl: string | null; idFrontUrl: string | null; idBackUrl: string | null
+    status: "pending" | "approved" | "rejected" | "banned"; submittedAt: string
+    numericUid: string | null
+  }
+  const [kycVerifs, setKycVerifs] = useState<KycVerification[]>([])
   const [notifications, setNotifications]     = useState<AdminNotification[]>([])
   const [securityLogs, setSecurityLogs]       = useState<SecurityLog[]>([])
   const [systemSettings, setSystemSettings]   = useState(DEFAULT_SYSTEM)
@@ -386,6 +397,27 @@ export default function AdminPanel() {
           })))
         })
         .catch(() => {})
+    } else if (activeSection === "kyc-verifications") {
+      fetch("/api/admin/kyc-verifications")
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) setKycVerifs(d.data.map((r: Record<string, unknown>) => ({
+            id:          String(r.id        ?? ""),
+            userId:      String(r.user_id   ?? ""),
+            fullName:    String(r.full_name ?? ""),
+            phone:       String(r.phone     ?? ""),
+            telegram:    r.telegram  as string | null,
+            instagram:   r.instagram as string | null,
+            address:     r.address   as string | null,
+            selfieUrl:   r.selfie_pathname   as string | null,
+            idFrontUrl:  r.aadhaar_pathname  as string | null,
+            idBackUrl:   r.pan_pathname      as string | null,
+            status:      (r.status as "pending" | "approved" | "rejected" | "banned") ?? "pending",
+            submittedAt: String(r.submitted_at ?? ""),
+            numericUid:  r.numeric_uid as string | null,
+          })))
+        })
+        .catch(() => {})
     } else if (activeSection === "files") {
       // Load submissions (for payment proofs) + USDT requests + KYC users + broker verifs in parallel
       Promise.all([
@@ -509,7 +541,7 @@ export default function AdminPanel() {
     return () => { clearInterval(sessionInterval); clearTimeout(loadingTimeout) }
   }, [router, loadData])
 
-  // ── Telegram helpers ─────────────────────────────────────────────────────────
+  // ── Telegram helpers ───��─────────────────────────────────────────────────────
   const sendTelegramToUser = async (userTelegram: string | undefined, text: string) => {
     if (!userTelegram) return
     // Strip leading @ — Telegram usernames work as chat_id handles
@@ -3147,6 +3179,105 @@ export default function AdminPanel() {
     )
   }
 
+  const renderKycVerifications = () => {
+    const updateKycAction = async (id: string, action: "approve" | "dismiss" | "ban") => {
+      await fetch("/api/admin/kyc-verifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      })
+      setKycVerifs(prev => prev.map(k => k.id === id ? {
+        ...k,
+        status: action === "approve" ? "approved" : action === "ban" ? "banned" : "rejected",
+      } : k))
+    }
+
+    const pending  = kycVerifs.filter(k => k.status === "pending")
+    const reviewed = kycVerifs.filter(k => k.status !== "pending")
+
+    const KycRow = ({ k }: { k: (typeof kycVerifs)[0] }) => (
+      <tr key={k.id} className="hover:bg-secondary/20 transition-colors">
+        <td className="px-4 py-3">
+          <p className="font-medium text-foreground text-sm">{k.fullName}</p>
+          <p className="text-xs text-muted-foreground font-mono">{k.numericUid ?? k.userId}</p>
+        </td>
+        <td className="px-4 py-3 text-xs text-foreground">{k.phone}</td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">{k.telegram ?? "—"}</td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {k.selfieUrl && (
+              <button onClick={() => setScreenshotModal(k.selfieUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> Selfie
+              </button>
+            )}
+            {k.idFrontUrl && (
+              <button onClick={() => setScreenshotModal(k.idFrontUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> ID Front
+              </button>
+            )}
+            {k.idBackUrl && (
+              <button onClick={() => setScreenshotModal(k.idBackUrl!)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Eye className="w-3 h-3" /> ID Back
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge(k.status)}`}>
+            {k.status}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(k.submittedAt)}</td>
+        <td className="px-4 py-3">
+          {k.status === "pending" && (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => updateKycAction(k.id, "approve")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+              <button onClick={() => updateKycAction(k.id, "dismiss")} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Dismiss"><X className="w-4 h-4" /></button>
+              <button onClick={() => updateKycAction(k.id, "ban")}     className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10"    title="Ban"><Ban className="w-4 h-4" /></button>
+            </div>
+          )}
+        </td>
+      </tr>
+    )
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <UserCheck className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-bold text-foreground">KYC Verifications</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">
+            {kycVerifs.length} total · {pending.length} pending
+          </span>
+        </div>
+
+        {kycVerifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <UserCheck className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No KYC submissions yet</p>
+            <p className="text-sm text-muted-foreground">Submissions appear here when users complete the KYC form.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["User", "Phone", "Telegram", "Documents", "Status", "Submitted", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {[...pending, ...reviewed].map(k => <KycRow key={k.id} k={k} />)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderBrokerVerifications = () => {
     const BROKER_LOGOS: Record<string, string> = {
       xm:           "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.53.07%E2%80%AFAM-EMj6TsSNBB9LIHwT573L1QOWChv0Ff.png",
@@ -3283,6 +3414,7 @@ export default function AdminPanel() {
       case "usdt-buy":             return renderUSDTBuy()
       case "usdt-sell":            return renderUSDTSell()
       case "broker-verifications":  return renderBrokerVerifications()
+      case "kyc-verifications":     return renderKycVerifications()
       case "mentorship-requests":  return renderMentorshipRequests()
       case "vip-requests":         return renderVipRequests()
       case "user-profiles":        return renderUserProfiles()

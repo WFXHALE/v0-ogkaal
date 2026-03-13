@@ -10,7 +10,6 @@ import {
   CheckCircle,
   TrendingUp,
   BookOpen,
-  Users,
   Wrench,
   LayoutDashboard,
   Eye,
@@ -20,7 +19,9 @@ import {
   AlertCircle,
   KeyRound,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react"
+import { KycModal } from "@/components/kyc-modal"
 import {
   getSession,
   logout,
@@ -481,6 +482,13 @@ export function UserAvatar() {
   const [session, setSessionState] = useState<DashboardSession | null>(null)
   const [mounted, setMounted]      = useState(false)
   const [open, setOpen]            = useState(false)
+  const [showKyc, setShowKyc]     = useState(false)
+  const [kycStatus, setKycStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    const s = getSession()
+    if (s?.kycStatus) setKycStatus(s.kycStatus)
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -541,13 +549,22 @@ export function UserAvatar() {
     { href: "/profile",              icon: User,            label: "My Profile"           },
     { href: "/trade-dashboard",      icon: TrendingUp,      label: "Trade Dashboard"      },
     { href: "/material",             icon: BookOpen,        label: "Learning / Materials" },
-    { href: "/community",            icon: Users,           label: "Community"            },
     { href: "/funded-tools",         icon: Wrench,          label: "Funded Tools"         },
     { href: "/profile?tab=settings", icon: Settings,        label: "Settings"             },
   ]
 
   return (
     <div ref={ref} className="relative">
+      {showKyc && session && (
+        <KycModal
+          session={session}
+          onClose={() => setShowKyc(false)}
+          onSubmitted={() => {
+            setKycStatus("pending")
+            setSessionState(prev => prev ? { ...prev, kycStatus: "pending" } : prev)
+          }}
+        />
+      )}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="User menu"
@@ -576,18 +593,24 @@ export function UserAvatar() {
               </span>
               {session.isVerified ? (
                 <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                  <CheckCircle className="w-2.5 h-2.5" />
+                  <ShieldCheck className="w-2.5 h-2.5" />
                   Verified
                 </span>
-              ) : session.kycStatus === "pending" ? (
+              ) : (kycStatus ?? session.kycStatus) === "pending" ? (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">
                   Pending Review
                 </span>
+              ) : (kycStatus ?? session.kycStatus) === "banned" ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400">
+                  Banned
+                </span>
               ) : (
-                <Link href="/profile?tab=verify" onClick={() => setOpen(false)}
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-border bg-secondary/60 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                <button
+                  onClick={() => { setOpen(false); setShowKyc(true) }}
+                  className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-border bg-secondary/60 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                  <ShieldCheck className="w-2.5 h-2.5" />
                   Get Verified
-                </Link>
+                </button>
               )}
             </div>
           </div>
