@@ -51,6 +51,7 @@ type Section =
   | "signals" | "memberships" | "performance" | "indicators"
   | "analytics" | "data"
   | "mentorship-requests" | "vip-requests" | "user-profiles"
+  | "broker-verifications"
 
 interface Submission {
   id: string
@@ -131,6 +132,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "mentorship-requests",  label: "Mentorship Requests",  icon: FileText,      group: "Submissions" },
   { key: "vip-requests",         label: "VIP Group Requests",   icon: Crown,         group: "Submissions" },
   { key: "user-profiles",        label: "User Profiles",        icon: Users,         group: "Submissions" },
+  { key: "broker-verifications",  label: "Broker Verifications", icon: Shield,        group: "Submissions" },
   { key: "suspicious",           label: "Fraud Detection",      icon: AlertTriangle  },
   { key: "members",              label: "Member Database",      icon: Users          },
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
@@ -216,7 +218,14 @@ export default function AdminPanel() {
   const [usdtBuy, setUsdtBuy]                 = useState<USDTBuyRequest[]>([])
   const [usdtSell, setUsdtSell]               = useState<USDTSellRequest[]>([])
   const [kycUsers, setKycUsers]               = useState<Array<{ userId: string; name: string; email: string; createdAt: string; kycDocPan: string | null; kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null }>>([])
-  const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar">("payment-mentorship")
+  const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar" | "broker">("payment-mentorship")
+
+  interface BrokerVerification {
+    id: string; userId: string | null; username: string | null
+    broker: string; traderId: string; screenshotUrl: string | null
+    status: "pending" | "approved" | "rejected"; createdAt: string
+  }
+  const [brokerVerifs, setBrokerVerifs]       = useState<BrokerVerification[]>([])
   const [notifications, setNotifications]     = useState<AdminNotification[]>([])
   const [securityLogs, setSecurityLogs]       = useState<SecurityLog[]>([])
   const [systemSettings, setSystemSettings]   = useState(DEFAULT_SYSTEM)
@@ -361,12 +370,29 @@ export default function AdminPanel() {
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
+    } else if (activeSection === "broker-verifications") {
+      fetch("/api/admin/broker-verifications")
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) setBrokerVerifs(d.data.map((r: Record<string, unknown>) => ({
+            id:            String(r.id ?? ""),
+            userId:        r.user_id   as string | null,
+            username:      r.username  as string | null,
+            broker:        String(r.broker    ?? ""),
+            traderId:      String(r.trader_id ?? ""),
+            screenshotUrl: r.screenshot_url as string | null,
+            status:        (r.status as "pending" | "approved" | "rejected") ?? "pending",
+            createdAt:     String(r.created_at ?? ""),
+          })))
+        })
+        .catch(() => {})
     } else if (activeSection === "files") {
-      // Load submissions (for payment proofs) + USDT requests + KYC users in parallel
+      // Load submissions (for payment proofs) + USDT requests + KYC users + broker verifs in parallel
       Promise.all([
         fetch("/api/admin/submissions").then(r => r.json()),
         fetch("/api/admin/usdt-buy").then(r => r.json()),
         fetch("/api/admin/usdt-sell").then(r => r.json()),
+        fetch("/api/admin/broker-verifications").then(r => r.json()),
         import("@/lib/supabase/client").then(({ createClient }) =>
           createClient()
             .from("dashboard_users")
@@ -374,10 +400,19 @@ export default function AdminPanel() {
             .order("created_at", { ascending: false })
             .limit(500)
         ),
-      ]).then(([sub, buy, sell, kyc]) => {
-        if (sub.ok)      setSubmissions(sub.data ?? [])
-        if (buy.ok)      setUsdtBuy(buy.data ?? [])
-        if (sell.ok)     setUsdtSell(sell.data ?? [])
+      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
+        if (sub.ok)  setSubmissions(sub.data ?? [])
+        if (buy.ok)  setUsdtBuy(buy.data ?? [])
+        if (sell.ok) setUsdtSell(sell.data ?? [])
+        if (brkr.ok && brkr.data) {
+          setBrokerVerifs(brkr.data.map((r: Record<string, unknown>) => ({
+            id: String(r.id ?? ""), userId: r.user_id as string | null,
+            username: r.username as string | null, broker: String(r.broker ?? ""),
+            traderId: String(r.trader_id ?? ""), screenshotUrl: r.screenshot_url as string | null,
+            status: (r.status as "pending" | "approved" | "rejected") ?? "pending",
+            createdAt: String(r.created_at ?? ""),
+          })))
+        }
         if (!kyc.error && kyc.data) {
           setKycUsers(kyc.data.map((u: Record<string, unknown>) => ({
             userId:             String(u.user_id  ?? ""),
@@ -1862,6 +1897,7 @@ export default function AdminPanel() {
       { key: "usdt-sell",          label: "USDT Proof — Sell",           icon: <ArrowUpRight className="w-4 h-4" />,  desc: "Payment screenshots from USDT sell transactions" },
       { key: "pan",                label: "PAN Card",                    icon: <Shield className="w-4 h-4" />,    desc: "PAN card images uploaded during KYC verification" },
       { key: "aadhaar",            label: "Aadhaar Card",                icon: <UserCheck className="w-4 h-4" />, desc: "Aadhaar card images uploaded during KYC verification" },
+      { key: "broker",             label: "Broker Proofs",               icon: <Shield className="w-4 h-4" />,   desc: "Screenshots submitted for broker account verification" },
     ]
 
     const filesByCategory: Record<typeof fileCategory, FileEntry[]> = {
@@ -1885,6 +1921,9 @@ export default function AdminPanel() {
           u.kycDocAadhaarFront ? { id: u.userId + "-aadhar-front", userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarFront, label: "Aadhaar (Front)", createdAt: u.createdAt } : null,
           u.kycDocAadhaarBack  ? { id: u.userId + "-aadhar-back",  userId: u.userId, name: u.name, email: u.email, url: u.kycDocAadhaarBack,  label: "Aadhaar (Back)",  createdAt: u.createdAt } : null,
         ].filter(Boolean) as FileEntry[]),
+      "broker": brokerVerifs
+        .filter(b => b.screenshotUrl)
+        .map(b => ({ id: b.id, userId: b.userId ?? "—", name: b.username ?? "—", email: b.broker, url: b.screenshotUrl!, label: `${b.broker} — ${b.traderId}`, createdAt: b.createdAt })),
     }
 
     const activeFiles = filesByCategory[fileCategory]
@@ -3108,6 +3147,105 @@ export default function AdminPanel() {
     )
   }
 
+  const renderBrokerVerifications = () => {
+    const BROKER_LOGOS: Record<string, string> = {
+      xm:           "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.53.07%E2%80%AFAM-EMj6TsSNBB9LIHwT573L1QOWChv0Ff.png",
+      exness:       "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.52.20%E2%80%AFAM-YINpyz9uYqGPHspG99BTQOGV2avn6X.png",
+      justmarkets:  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202026-03-13%20at%2011.53.19%E2%80%AFAM-6bP4MPpsUyM5mS0Um8KEbUvsnuyb4d.png",
+    }
+
+    const updateBrokerStatus = async (id: string, status: "approved" | "rejected") => {
+      await fetch("/api/admin/broker-verifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      })
+      setBrokerVerifs(prev => prev.map(b => b.id === id ? { ...b, status } : b))
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">Broker Verifications</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">{brokerVerifs.length}</span>
+          </div>
+        </div>
+
+        {brokerVerifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <Shield className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No broker verifications yet</p>
+            <p className="text-sm text-muted-foreground">Submissions appear here when users register broker accounts using your partner links.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["Broker", "Trader ID", "User", "Screenshot", "Status", "Submitted", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {brokerVerifs.map(b => (
+                    <tr key={b.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {BROKER_LOGOS[b.broker.toLowerCase()] ? (
+                            <div className="h-7 w-16 bg-white rounded border border-border/40 flex items-center justify-center p-1 shrink-0">
+                              <img src={BROKER_LOGOS[b.broker.toLowerCase()]} alt={b.broker} className="h-full w-auto object-contain" />
+                            </div>
+                          ) : (
+                            <span className="text-xs font-bold uppercase text-foreground">{b.broker}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{b.traderId}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-foreground font-medium">{b.username ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{b.userId ?? "—"}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {b.screenshotUrl ? (
+                          <button
+                            onClick={() => setScreenshotModal(b.screenshotUrl!)}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge(b.status)}`}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(b.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        {b.status === "pending" && (
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => updateBrokerStatus(b.id, "approved")} className="p-1.5 rounded-lg text-green-400 hover:bg-green-500/10" title="Approve"><CheckCircle className="w-4 h-4" /></button>
+                            <button onClick={() => updateBrokerStatus(b.id, "rejected")} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Reject"><Ban className="w-4 h-4" /></button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderMentorshipRequests = () => {
     const rows = submissions.filter(s => s.type === "mentorship")
     return renderSubmissionSection(
@@ -3144,6 +3282,7 @@ export default function AdminPanel() {
       case "payment-verification": return renderPaymentVerification()
       case "usdt-buy":             return renderUSDTBuy()
       case "usdt-sell":            return renderUSDTSell()
+      case "broker-verifications":  return renderBrokerVerifications()
       case "mentorship-requests":  return renderMentorshipRequests()
       case "vip-requests":         return renderVipRequests()
       case "user-profiles":        return renderUserProfiles()

@@ -4,6 +4,7 @@ import { WhatYouLearnSection } from "@/components/what-you-learn-section"
 import { MentorshipProgramSection } from "@/components/mentorship-program-section"
 import { GoldTicker } from "@/components/gold-ticker"
 import { NavigationCardsSection } from "@/components/navigation-cards-section"
+import { TopBrokersSection } from "@/components/top-brokers-section"
 import { ContactSection } from "@/components/contact-section"
 import { SocialMediaSection } from "@/components/social-media-section"
 import { FaqSection } from "@/components/faq-section"
@@ -19,6 +20,7 @@ export default function Home() {
         <MentorshipProgramSection />
         <GoldTicker />
         <NavigationCardsSection />
+        <TopBrokersSection />
         <ContactSection />
         <SocialMediaSection />
         <FaqSection />
