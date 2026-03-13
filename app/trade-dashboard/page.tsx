@@ -259,24 +259,23 @@ export default function TradeDashboardPage() {
 
         if (acctJson.ok && acctJson.data) {
           const a = acctJson.data as Record<string, unknown>
+          const bal = Number(a.balance ?? 0)
           setAccountInfo({
-            balance:       Number(a.balance      ?? 0),
-            equity:        Number(a.balance      ?? 0),
-            floatingPL:    0,
-            marginLevel:   0,
-            freeMargin:    Number(a.balance      ?? 0),
-            broker:        String(a.broker       ?? ""),
-            platform:      String(a.platform     ?? "MT5"),
-            accountType:   String(a.account_type ?? "Funded"),
-            accountId:     String(a.account_id   ?? ""),
-            serverName:    String(a.server_name  ?? ""),
-            isConnected:   Boolean(a.is_connected),
-            isManualMode:  Boolean(a.is_manual_mode),
+            balance:      bal,
+            equity:       bal,
+            floatingPL:   0,
+            marginLevel:  0,
+            freeMargin:   bal,
+            broker:       String(a.broker   ?? ""),
+            platform:     String(a.platform ?? "MT5"),
+            accountType:  "Funded",
+            accountId:    "",
+            serverName:   "",
+            isConnected:  false,
+            isManualMode: true,   // once they have an account row treat as manual mode
           })
-          if (!acctJson.data.is_connected && !acctJson.data.is_manual_mode) {
-            setShowConnectionPopup(true)
-          }
         } else {
+          // No account row yet — show the connection popup so they can set up
           setShowConnectionPopup(true)
         }
 

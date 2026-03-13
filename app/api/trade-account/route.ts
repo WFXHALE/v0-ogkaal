@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 
-// GET  /api/trade-account?userId=...   — fetch account + open trades + history
+// GET  /api/trade-account?userId=...   — fetch account row
 // POST /api/trade-account              — upsert account settings
+
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId")
-  if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "userId required" }, { status: 400 })
+  }
 
   try {
     const accountRows = await query(
@@ -13,20 +16,10 @@ export async function GET(req: NextRequest) {
       [userId]
     )
     const account = accountRows[0] ?? null
-
-    const openTrades = await query(
-      `SELECT * FROM trades WHERE user_id = $1 AND status = 'open' ORDER BY opened_at DESC`,
-      [userId]
-    )
-    const history = await query(
-      `SELECT * FROM trades WHERE user_id = $1 AND status = 'closed' ORDER BY closed_at DESC`,
-      [userId]
-    )
-
-    return NextResponse.json({ ok: true, data: account, openTrades, history })
+    return NextResponse.json({ ok: true, data: account })
   } catch (e) {
     console.error("[trade-account GET]", e)
-    return NextResponse.json({ error: "DB error" }, { status: 500 })
+    return NextResponse.json({ ok: false, error: "DB error" }, { status: 500 })
   }
 }
 
@@ -34,7 +27,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { userId, broker, platform, balance, dailyProfitTarget, dailyMaxLoss } = body
-    if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+    if (!userId) {
+      return NextResponse.json({ ok: false, error: "userId required" }, { status: 400 })
+    }
 
     const rows = await query(
       `INSERT INTO trade_accounts (user_id, broker, platform, balance, daily_profit_target, daily_max_loss)
@@ -47,11 +42,18 @@ export async function POST(req: NextRequest) {
          daily_max_loss       = EXCLUDED.daily_max_loss,
          updated_at           = now()
        RETURNING *`,
-      [userId, broker ?? "", platform ?? "MT5", balance ?? 0, dailyProfitTarget ?? 0, dailyMaxLoss ?? 0]
+      [
+        userId,
+        broker             ?? "",
+        platform           ?? "MT5",
+        balance            ?? 0,
+        dailyProfitTarget  ?? null,
+        dailyMaxLoss       ?? null,
+      ]
     )
     return NextResponse.json({ ok: true, data: rows[0] })
   } catch (e) {
     console.error("[trade-account POST]", e)
-    return NextResponse.json({ error: "DB error" }, { status: 500 })
+    return NextResponse.json({ ok: false, error: "DB error" }, { status: 500 })
   }
 }
