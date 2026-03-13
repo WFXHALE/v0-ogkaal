@@ -2,19 +2,24 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 
 type DatasetConfig = {
-  table:      string
-  typeFilter?: string        // exact match on `type` column
-  searchCols: string[]       // columns to ILIKE-search
+  table:       string
+  typeFilter?: string        // exact match on `type` column (OR list separated by |)
+  planFilter?: string        // filter on details->>'plan' for mentorship sub-sections
+  searchCols:  string[]      // columns to ILIKE-search
 }
 
 const DATASETS: Record<string, DatasetConfig> = {
-  "usdt-buy":   { table: "usdt_buy_requests",  searchCols: ["email", "name", "phone", "user_id"] },
-  "usdt-sell":  { table: "usdt_sell_requests",  searchCols: ["email", "name", "phone", "user_id"] },
-  "mentorship": { table: "admin_submissions",   typeFilter: "mentorship",     searchCols: ["email", "name", "phone", "user_id"] },
-  "vip":        { table: "admin_submissions",   typeFilter: "vip_membership", searchCols: ["email", "name", "phone", "user_id"] },
-  "users":      { table: "dashboard_users",     searchCols: ["user_id", "email", "full_name", "username"] },
-  "community":  { table: "community_posts",     searchCols: ["author_id", "author_name", "content"] },
-  "journal":    { table: "trading_journal",     searchCols: ["user_id", "user_email", "pair"] },
+  "usdt-buy":          { table: "usdt_buy_requests", searchCols: ["email", "name", "phone", "user_id"] },
+  "usdt-sell":         { table: "usdt_sell_requests", searchCols: ["email", "name", "phone", "user_id"] },
+  // Mentorship sub-sections: filtered by type='mentorship' AND details->>'plan'
+  "mentorship-1":      { table: "admin_submissions", typeFilter: "mentorship", planFilter: "1.0",    searchCols: ["email", "name", "phone", "user_id"] },
+  "mentorship-2":      { table: "admin_submissions", typeFilter: "mentorship", planFilter: "2.0",    searchCols: ["email", "name", "phone", "user_id"] },
+  "mentorship-crypto": { table: "admin_submissions", typeFilter: "mentorship", planFilter: "crypto", searchCols: ["email", "name", "phone", "user_id"] },
+  // Generic mentorship (legacy)
+  "mentorship":        { table: "admin_submissions", typeFilter: "mentorship",                        searchCols: ["email", "name", "phone", "user_id"] },
+  // VIP — covers both vip_membership and vip_group types
+  "vip":               { table: "admin_submissions", typeFilter: "vip",        searchCols: ["email", "name", "phone", "user_id"] },
+  "users":             { table: "dashboard_users",   searchCols: ["user_id", "email", "full_name", "username"] },
 }
 
 export async function GET(req: NextRequest) {
@@ -30,8 +35,12 @@ export async function GET(req: NextRequest) {
   const conditions: string[] = []
 
   if (cfg.typeFilter) {
-    params.push(cfg.typeFilter)
-    conditions.push(`type = $${params.length}`)
+    params.push(`${cfg.typeFilter}%`)
+    conditions.push(`type ILIKE $${params.length}`)
+  }
+  if (cfg.planFilter) {
+    params.push(cfg.planFilter)
+    conditions.push(`details->>'plan' ILIKE $${params.length}`)
   }
   if (from) {
     params.push(from)

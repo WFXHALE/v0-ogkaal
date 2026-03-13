@@ -247,7 +247,10 @@ export default function AdminPanel() {
   const [pricingSaved,  setPricingSaved]        = useState(false)
 
   // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
-  const [dbStats, setDbStats]                   = useState<{ totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number } | null>(null)
+  const [dbStats, setDbStats]                   = useState<{
+    totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number
+    totalVipMembers: number; totalMentorship: number; totalUsdtBuy: number; totalUsdtSell: number
+  } | null>(null)
 
   // ── Analytics state ──────────────────────────────────────────────────────────
   const [analyticsData,    setAnalyticsData]    = useState<Record<string, unknown> | null>(null)
@@ -1032,13 +1035,13 @@ export default function AdminPanel() {
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Dashboard Overview</h2>
 
-      {/* Live DB stats row */}
+      {/* Live DB stats — row 1: users */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Registered Users",  value: dbStats?.totalUsers    ?? "—", icon: Users,       color: "text-blue-400"   },
-          { label: "Active Members",    value: dbStats?.activeMembers ?? "—", icon: Crown,       color: "text-primary"    },
-          { label: "Signups Today",     value: dbStats?.todaySignups  ?? "—", icon: UserPlus,    color: "text-green-400"  },
-          { label: "Visits (14d)",      value: dbStats?.totalVisits14d ?? "—", icon: BarChart2,  color: "text-amber-400"  },
+          { label: "Total Users",       value: dbStats?.totalUsers       ?? usdtBuy.length + usdtSell.length + submissions.length || "—", icon: Users,       color: "text-blue-400"   },
+          { label: "Total VIP Members", value: dbStats?.totalVipMembers  ?? vipSubs.length,    icon: Crown,       color: "text-primary"    },
+          { label: "Total Mentorship",  value: dbStats?.totalMentorship  ?? mentorSubs.length, icon: FileText,    color: "text-blue-400"   },
+          { label: "Signups Today",     value: dbStats?.todaySignups     ?? "—",               icon: UserPlus,    color: "text-green-400"  },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="p-5 rounded-xl bg-card border border-border">
             <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
@@ -1047,13 +1050,13 @@ export default function AdminPanel() {
         ))}
       </div>
 
-      {/* localStorage/demo stats row */}
+      {/* Live DB stats — row 2: USDT orders */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "VIP Members",      value: vipSubs.length,    icon: Star,          color: "text-primary"   },
-          { label: "Mentorship",       value: mentorSubs.length, icon: FileText,      color: "text-blue-400"  },
-          { label: "USDT Buy Orders",  value: usdtBuy.length,    icon: ArrowDownLeft, color: "text-green-400" },
-          { label: "USDT Sell Orders", value: usdtSell.length,   icon: ArrowUpRight,  color: "text-amber-400" },
+          { label: "USDT Buy Orders",  value: dbStats?.totalUsdtBuy  ?? usdtBuy.length,  icon: ArrowDownLeft, color: "text-green-400" },
+          { label: "USDT Sell Orders", value: dbStats?.totalUsdtSell ?? usdtSell.length, icon: ArrowUpRight,  color: "text-amber-400" },
+          { label: "Pending Reviews",  value: pendingSubs.length,                         icon: Clock,         color: "text-amber-400" },
+          { label: "Visits (14d)",     value: dbStats?.totalVisits14d ?? "—",             icon: BarChart2,     color: "text-muted-foreground" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="p-5 rounded-xl bg-card border border-border">
             <div className="flex items-center gap-2 mb-3"><Icon className={`w-5 h-5 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
@@ -1061,12 +1064,13 @@ export default function AdminPanel() {
           </div>
         ))}
       </div>
+      {/* Submission status summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total",       value: submissions.length,     icon: Hash,          color: "text-foreground" },
-          { label: "Pending",     value: pendingSubs.length,     icon: Clock,         color: "text-amber-400"  },
-          { label: "Approved",    value: submissions.filter(s => s.status === "approved" || s.status === "completed").length, icon: CheckCircle, color: "text-green-400" },
-          { label: "Suspicious",  value: suspiciousSubs.length,  icon: AlertTriangle, color: "text-red-400"    },
+          { label: "All Submissions", value: submissions.length,     icon: Hash,          color: "text-foreground" },
+          { label: "Pending",         value: pendingSubs.length,     icon: Clock,         color: "text-amber-400"  },
+          { label: "Approved",        value: submissions.filter(s => s.status === "approved" || s.status === "completed").length, icon: CheckCircle, color: "text-green-400" },
+          { label: "Suspicious",      value: suspiciousSubs.length,  icon: AlertTriangle, color: "text-red-400"    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className={`p-4 rounded-xl bg-card border ${label === "Suspicious" && suspiciousSubs.length > 0 ? "border-red-500/40 bg-red-500/5" : "border-border"}`}>
             <div className="flex items-center gap-2 mb-2"><Icon className={`w-4 h-4 ${color}`} /><span className="text-xs text-muted-foreground">{label}</span></div>
