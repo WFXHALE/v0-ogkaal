@@ -174,6 +174,7 @@ function statusBadge(status: string) {
     rejected:   "bg-red-500/10 text-red-400 border-red-500/30",
     dismissed:  "bg-zinc-500/10 text-zinc-400 border-zinc-500/30",
     deleted:    "bg-zinc-700/20 text-zinc-500 border-zinc-600/30",
+    banned:     "bg-red-900/20 text-red-400 border-red-700/30",
   }
   return map[status] || "bg-secondary text-foreground border-border"
 }
