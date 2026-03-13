@@ -200,16 +200,6 @@ export async function loginWithBackupCode(
   }
 }
 
-  const session: DashboardSession = {
-    ...user,
-    loggedInAt: Date.now(),
-    backupCode: data.backup_code ? String(data.backup_code) : undefined,
-    avatarUrl:  data.avatar_url  ? String(data.avatar_url)  : undefined,
-  }
-  setSession(session)
-  return { success: true, user }
-}
-
 // ── Email verification ────────────────────────────────────────────────────────
 
 export async function sendVerificationEmail(
