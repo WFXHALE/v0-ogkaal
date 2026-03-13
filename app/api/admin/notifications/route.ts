@@ -1,12 +1,42 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
+
+function createServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error("Missing Supabase env vars")
+  return createServiceClient(url, key, { auth: { persistSession: false } })
+}
 
 function inferSection(type: string): string {
-  if (type === "usdt_buy")   return "usdt-buy"
-  if (type === "usdt_sell")  return "usdt-sell"
-  if (type === "usdt")       return "usdt-buy"
-  if (type === "suspicious") return "suspicious"
+  if (type === "usdt_buy")       return "usdt-buy"
+  if (type === "usdt_sell")      return "usdt-sell"
+  if (type === "usdt")           return "usdt-buy"
+  if (type === "suspicious")     return "suspicious"
+  if (type === "mentorship")     return "mentorship-requests"
+  if (type === "vip_membership") return "vip-requests"
+  if (type === "vip_group")      return "vip-requests"
   return "payment-verification"
+}
+
+// POST — insert a new notification (called from saveSubmission on the client)
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const supabase = createServiceRoleClient()
+    const { error } = await supabase.from("admin_notifications").insert({
+      type:       body.type    ?? "other",
+      title:      body.title   ?? null,
+      message:    body.message ?? "",
+      is_read:    false,
+      ref_id:     body.ref_id  ?? null,
+    })
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
 }
 
 // GET — list all admin notifications (newest first)

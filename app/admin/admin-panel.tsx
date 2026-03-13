@@ -49,6 +49,7 @@ type Section =
   | "export" | "system-control" | "telegram" | "logs"
   | "signals" | "memberships" | "performance" | "indicators"
   | "analytics" | "data"
+  | "mentorship-requests" | "vip-requests" | "user-profiles"
 
 interface Submission {
   id: string
@@ -125,6 +126,9 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "payment-verification", label: "Payment Verification", icon: CheckCircle    },
   { key: "usdt-buy",             label: "USDT Buy Requests",    icon: ArrowDownLeft, group: "USDT Trading" },
   { key: "usdt-sell",            label: "USDT Sell Requests",   icon: ArrowUpRight,  group: "USDT Trading" },
+  { key: "mentorship-requests",  label: "Mentorship Requests",  icon: FileText,      group: "Submissions" },
+  { key: "vip-requests",         label: "VIP Group Requests",   icon: Crown,         group: "Submissions" },
+  { key: "user-profiles",        label: "User Profiles",        icon: Users,         group: "Submissions" },
   { key: "suspicious",           label: "Fraud Detection",      icon: AlertTriangle  },
   { key: "members",              label: "Member Database",      icon: Users          },
   { key: "signals",              label: "Signals Manager",      icon: Star,           group: "Content" },
@@ -2527,7 +2531,7 @@ export default function AdminPanel() {
     )
   }
 
-  // ── Performance Manager ───────────────────────────────────────────────────────
+  // ── Performance Manager ───────────────────────────────────────���───────────────
   const renderPerformanceManager = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Performance Manager</h2>
