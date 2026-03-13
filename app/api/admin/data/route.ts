@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 
 function sb() {
+  // Always use SUPABASE_URL (direct project URL) — never the pooled/public URL.
+  // The pooled endpoint has a stale PostgREST schema cache that causes PGRST205.
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    url!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false }, db: { schema: "public" } },
   )
 }
 

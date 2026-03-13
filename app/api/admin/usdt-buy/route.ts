@@ -4,9 +4,9 @@ import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
 const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
 
 function createServiceClient() {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL)!
+  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)!
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return _createSupabaseClient(url, key, { auth: { persistSession: false } })
+  return _createSupabaseClient(url, key, { auth: { persistSession: false }, db: { schema: "public" } })
 }
 
 export async function GET() {

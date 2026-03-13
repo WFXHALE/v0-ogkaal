@@ -4,12 +4,17 @@ import { createClient as _createSupabaseClient } from "@supabase/supabase-js"
 // Use the service role key for all admin-submissions writes so they always
 // bypass RLS and succeed regardless of auth state.
 function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  // Always use SUPABASE_URL (direct project URL) — never the pooled/public URL.
+  // The pooled endpoint has a stale PostgREST schema cache that causes PGRST205.
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
     throw new Error(`Missing Supabase env vars: url=${!!url} key=${!!key}`)
   }
-  return _createSupabaseClient(url, key, { auth: { persistSession: false } })
+  return _createSupabaseClient(url, key, {
+    auth: { persistSession: false },
+    db:   { schema: "public" },
+  })
 }
 
 // Normalize snake_case DB row → camelCase for admin panel
