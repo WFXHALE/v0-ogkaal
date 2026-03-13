@@ -319,78 +319,64 @@ export async function registerDashboardUser(params: {
   tradingType?: string
   yearsExperience?: string
 }): Promise<{ success: true; user: DashboardUser; backupCode: string } | { success: false; error: string }> {
-  const supabase = createClient()
-
-  // Check duplicate User ID
-  const { data: existingId } = await supabase
-    .from("dashboard_users")
-    .select("id")
-    .eq("user_id", params.userId.trim())
-    .maybeSingle()
-  if (existingId) return { success: false, error: "User ID already taken. Please choose another." }
-
-  // Check duplicate email
-  const { data: existingEmail } = await supabase
-    .from("dashboard_users")
-    .select("id")
-    .eq("email", params.email.trim().toLowerCase())
-    .maybeSingle()
-  if (existingEmail) return { success: false, error: "An account with this email already exists. Try logging in." }
-
+  // Hash the password and generate backup code client-side so the plaintext
+  // password is never sent over the wire.
   const passwordHash   = await hashPassword(params.password)
   const backupCode     = generateBackupCode()
   const backupCodeHash = await hashPassword(backupCode.replace(/-/g, ""))
+  const numericUid     = Math.floor(100000 + Math.random() * 900000)
 
-  // Generate a random 6-digit numeric UID
-  const numericUid = Math.floor(100000 + Math.random() * 900000)
-
-  const { data, error } = await supabase
-    .from("dashboard_users")
-    .insert({
-      user_id:          params.userId.trim().toLowerCase(),
-      email:            params.email.trim().toLowerCase(),
-      full_name:        params.fullName.trim(),
-      password_hash:    passwordHash,
-      backup_code_hash: backupCodeHash,
-      backup_code:      backupCode,
-      numeric_uid:      numericUid,
-      trading_level:    params.tradingLevel    || null,
-      market_type:      params.marketType      || null,
-      trading_type:     params.tradingType     || null,
-      years_experience: params.yearsExperience || null,
+  // Delegate the actual INSERT to the server-side API route which uses
+  // lib/db (POSTGRES_URL_NON_POOLING + service role) — bypasses the anon
+  // Supabase client that causes "Invalid API key" errors.
+  try {
+    const res = await fetch("/api/dashboard/register", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId:         params.userId,
+        email:          params.email,
+        fullName:       params.fullName,
+        passwordHash,
+        backupCode,
+        backupCodeHash,
+        numericUid,
+        tradingLevel:    params.tradingLevel,
+        marketType:      params.marketType,
+        tradingType:     params.tradingType,
+        yearsExperience: params.yearsExperience,
+      }),
     })
-    .select()
-    .single()
 
-  if (error || !data) {
-    const msg = error?.message ?? error?.details ?? ""
-    console.error("[registerDashboardUser] insert error:", error)
-    if (msg.includes("email"))           return { success: false, error: "Email already registered." }
-    if (msg.includes("user_id"))         return { success: false, error: "User ID already taken." }
-    if (msg.includes("duplicate"))       return { success: false, error: "An account with this User ID or email already exists." }
-    if (msg.includes("violates"))        return { success: false, error: "Registration failed: " + msg }
-    if (msg)                             return { success: false, error: msg }
-    return { success: false, error: "Registration failed. Please try again." }
-  }
+    const json = await res.json()
 
-  const user: DashboardUser = {
-    id:               String(data.id),
-    userId:           String(data.user_id),
-    email:            String(data.email),
-    fullName:         String(data.full_name),
-    createdAt:        String(data.created_at),
-    numericUid:       numericUid,
-    tradingLevel:     params.tradingLevel    || undefined,
-    marketType:       params.marketType      || undefined,
-    tradingType:      params.tradingType     || undefined,
-    yearsExperience:  params.yearsExperience || undefined,
-  }
+    if (!res.ok) {
+      return { success: false, error: json.error ?? "Registration failed. Please try again." }
+    }
 
-  if (typeof window !== "undefined") {
-    import("./analytics").then(({ Analytics, identifyUser }) => {
-      identifyUser(user.id)
-      Analytics.signUp("email")
-    }).catch(() => {})
+    const data = json.data as Record<string, unknown>
+    const user: DashboardUser = {
+      id:              String(data.id),
+      userId:          String(data.user_id),
+      email:           String(data.email),
+      fullName:        String(data.full_name),
+      createdAt:       String(data.created_at),
+      numericUid,
+      tradingLevel:    params.tradingLevel    || undefined,
+      marketType:      params.marketType      || undefined,
+      tradingType:     params.tradingType     || undefined,
+      yearsExperience: params.yearsExperience || undefined,
+    }
+
+    if (typeof window !== "undefined") {
+      import("./analytics").then(({ Analytics, identifyUser }) => {
+        identifyUser(user.id)
+        Analytics.signUp("email")
+      }).catch(() => {})
+    }
+
+    return { success: true, user, backupCode }
+  } catch {
+    return { success: false, error: "Network error. Please try again." }
   }
-  return { success: true, user, backupCode }
 }
