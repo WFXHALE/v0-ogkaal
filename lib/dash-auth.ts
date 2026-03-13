@@ -2,7 +2,8 @@
 // Dedicated authentication for the Client Dashboard.
 // Completely separate from the Community auth system (community-utils.ts).
 
-import { createClient } from "@/lib/supabase/client"
+// Note: all DB operations go through server-side API routes (lib/db) to avoid
+// the Supabase anon key "Invalid API key" error when called from the browser.
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -284,24 +285,14 @@ export async function verifyOtpAndResetPassword(
 // ── Fetch backup code from DB (auto-generates if missing) ─────────────────────
 
 export async function fetchBackupCode(userId: string): Promise<string | null> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("dashboard_users")
-    .select("backup_code")
-    .eq("id", userId)
-    .single()
-
-  if (error || !data) return null
-  if (data.backup_code) return String(data.backup_code)
-
-  const newCode = generateBackupCode()
-  await supabase
-    .from("dashboard_users")
-    .update({ backup_code: newCode })
-    .eq("id", userId)
-
-  return newCode
+  try {
+    const res  = await fetch(`/api/dashboard/fetch-backup-code?userId=${encodeURIComponent(userId)}`)
+    const json = await res.json()
+    if (!res.ok || !json.backupCode) return null
+    return String(json.backupCode)
+  } catch {
+    return null
+  }
 }
 
 export async function registerDashboardUser(params: {
