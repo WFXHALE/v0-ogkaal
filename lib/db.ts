@@ -14,12 +14,13 @@ export function getDb(): Pool {
     if (!connectionString) {
       throw new Error("POSTGRES_URL_NON_POOLING env var is not set")
     }
-    // Explicitly use verify-full to silence the pg SSL deprecation warning.
-    // POSTGRES_URL_NON_POOLING already contains sslmode in the query string;
-    // we override it here to be unambiguous.
+    // Supabase uses a self-signed cert in the chain, so rejectUnauthorized must
+    // be false. We strip sslmode from the connection string and pass ssl
+    // explicitly to avoid the pg deprecation warning about ambiguous SSL modes.
+    const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, "")
     pool = new Pool({
-      connectionString,
-      ssl: { rejectUnauthorized: true },
+      connectionString: cleanConnectionString,
+      ssl: { rejectUnauthorized: false },
       max: 5,
     })
   }
