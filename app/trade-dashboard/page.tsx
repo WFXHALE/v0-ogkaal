@@ -28,6 +28,7 @@ import {
   Check,
   RefreshCw,
   Shield,
+  Pencil,
 } from "lucide-react"
 
 // Types
@@ -200,6 +201,8 @@ export default function TradeDashboardPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
   const [customPair, setCustomPair] = useState("")
+  const [editingBalance, setEditingBalance] = useState(false)
+  const [balanceInput, setBalanceInput] = useState("")
 
   // New trade form state
   const [newTrade, setNewTrade] = useState({
@@ -257,11 +260,11 @@ export default function TradeDashboardPage() {
         if (acctJson.ok && acctJson.data) {
           const a = acctJson.data as Record<string, unknown>
           setAccountInfo({
-            balance:       Number(a.balance      ?? 10000),
-            equity:        Number(a.balance      ?? 10000),
+            balance:       Number(a.balance      ?? 0),
+            equity:        Number(a.balance      ?? 0),
             floatingPL:    0,
             marginLevel:   0,
-            freeMargin:    Number(a.balance      ?? 10000),
+            freeMargin:    Number(a.balance      ?? 0),
             broker:        String(a.broker       ?? ""),
             platform:      String(a.platform     ?? "MT5"),
             accountType:   String(a.account_type ?? "Funded"),
@@ -967,14 +970,55 @@ export default function TradeDashboardPage() {
 
           {/* Account Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-            <div className="p-4 rounded-xl bg-card border border-border">
+            <div className="p-4 rounded-xl bg-card border border-border group">
               <div className="flex items-center gap-2 mb-2">
                 <Wallet className="w-4 h-4 text-primary" />
                 <span className="text-xs text-muted-foreground">Account Balance</span>
+                {!editingBalance && (
+                  <button
+                    onClick={() => { setBalanceInput(accountInfo.balance > 0 ? String(accountInfo.balance) : ""); setEditingBalance(true) }}
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                    title="Edit balance"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
               </div>
-              <p className="text-xl font-bold text-foreground">
-                ${accountInfo.balance.toLocaleString()}
-              </p>
+              {editingBalance ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const val = parseFloat(balanceInput)
+                    if (isNaN(val) || val < 0) return
+                    const updated = { ...accountInfo, balance: val, equity: val, freeMargin: val }
+                    setAccountInfo(updated)
+                    saveAccount(updated)
+                    setEditingBalance(false)
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <span className="text-xl font-bold text-foreground">$</span>
+                  <input
+                    autoFocus
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={balanceInput}
+                    onChange={e => setBalanceInput(e.target.value)}
+                    onBlur={() => setEditingBalance(false)}
+                    className="w-full bg-transparent text-xl font-bold text-foreground focus:outline-none border-b border-primary"
+                    placeholder="0"
+                  />
+                </form>
+              ) : (
+                <p
+                  className="text-xl font-bold text-foreground cursor-pointer"
+                  onClick={() => { setBalanceInput(accountInfo.balance > 0 ? String(accountInfo.balance) : ""); setEditingBalance(true) }}
+                  title="Click to edit balance"
+                >
+                  {accountInfo.balance > 0 ? `$${accountInfo.balance.toLocaleString()}` : <span className="text-muted-foreground text-base">Click to set balance</span>}
+                </p>
+              )}
             </div>
 
             <div className="p-4 rounded-xl bg-card border border-border">
