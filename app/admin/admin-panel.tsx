@@ -13,7 +13,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Menu, Folder, Lock,
   Globe, ToggleLeft, ToggleRight, Mail, Phone,
   ExternalLink, Send, Bot, Zap, Settings,
-  Crown, UserPlus, Save,
+  Crown, UserPlus, Save, Tag, Percent, Plus, Edit2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,7 +49,7 @@ type Section =
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
   | "signals" | "memberships" | "performance" | "indicators"
-  | "analytics" | "data"
+  | "analytics" | "data" | "coupons"
   | "mentorship-requests" | "vip-requests" | "user-profiles"
   | "broker-verifications"
   | "kyc-verifications"
@@ -57,7 +57,7 @@ type Section =
 interface Submission {
   id: string
   userId?: string
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "support" | "member" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "vip_membership" | "support" | "member" | "other" | "profile_update"
   name: string
   email?: string
   telegram?: string
@@ -141,6 +141,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "memberships",          label: "Memberships",          icon: UserCheck,      group: "Content" },
   { key: "performance",          label: "Performance Manager",  icon: TrendingUp,     group: "Content" },
   { key: "indicators",           label: "Indicators Manager",   icon: BarChart2,      group: "Content" },
+  { key: "coupons",              label: "Coupon Codes",         icon: Tag,            group: "Content" },
   { key: "notifications",        label: "Notifications",        icon: Bell           },
   { key: "files",                label: "File Manager",         icon: Folder         },
   { key: "export",               label: "Export Data",          icon: Download       },
@@ -223,6 +224,39 @@ export default function AdminPanel() {
   const [kycUsers, setKycUsers]               = useState<Array<{ userId: string; name: string; email: string; createdAt: string; kycDocPan: string | null; kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null }>>([])
   const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar" | "broker">("payment-mentorship")
 
+  // ── Coupons ──────────────────────────────────────────────────────────────────
+  type Coupon = {
+    id: string; code: string; description: string
+    discountType: "percent" | "fixed"; discountPct: number; discountAmount: number | null
+    appliesTo: string[]; isActive: boolean
+    startDate: string | null; expiryDate: string | null
+    maxUses: number | null; usageCount: number
+    pushNotify: boolean; emailNotify: boolean; createdAt: string
+  }
+  const emptyCoupon = (): Omit<Coupon, "id" | "usageCount" | "createdAt"> => ({
+    code: "", description: "", discountType: "percent", discountPct: 10,
+    discountAmount: null, appliesTo: [], isActive: true,
+    startDate: null, expiryDate: null, maxUses: null,
+    pushNotify: false, emailNotify: false,
+  })
+  const [coupons,          setCoupons]          = useState<Coupon[]>([])
+  const [couponsLoading,   setCouponsLoading]   = useState(false)
+  const [couponForm,       setCouponForm]       = useState(emptyCoupon())
+  const [couponEditId,     setCouponEditId]     = useState<string | null>(null)
+  const [couponFormOpen,   setCouponFormOpen]   = useState(false)
+  const [couponSaving,     setCouponSaving]     = useState(false)
+
+  // ── Live dashboard_users (for User Profiles section) ─────────────────────────
+  type DashboardUser = {
+    userId: string; fullName: string; email: string; phone: string | null
+    username: string | null; createdAt: string; isVerified: boolean
+    kycStatus: string | null; kycDocPan: string | null
+    kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null
+  }
+  const [dashboardUsers, setDashboardUsers]   = useState<DashboardUser[]>([])
+  const [usersLoading,   setUsersLoading]     = useState(false)
+  const [userSearch,     setUserSearch]       = useState("")
+
   interface BrokerVerification {
     id: string; userId: string | null; username: string | null
     broker: string; traderId: string; screenshotUrl: string | null
@@ -283,7 +317,7 @@ export default function AdminPanel() {
   // ── Session countdown (30-minute window) ─────────────────────────────────────
   const [sessionSecsLeft, setSessionSecsLeft] = useState<number | null>(null)
 
-  // ── Indicators state ─────────────────────────────────────────────────────────
+  // ── Indicators state ────────────────────────────────────────────────────���────
   const [indicatorsList,    setIndicatorsList]    = useState<Indicator[]>([])
   const [indicatorsLoading, setIndicatorsLoading] = useState(false)
   const [indicatorForm, setIndicatorForm] = useState({
@@ -326,7 +360,7 @@ export default function AdminPanel() {
     // We use the setter form to get the latest notifications without a closure issue.
     const sectionReadMap: Partial<Record<Section, string[]>> = {
       "mentorship-requests":  ["mentorship"],
-      "vip-requests":         ["vip_membership", "vip_group"],
+      "vip-requests":         ["vip_membership", "vip_group", "vip"],
       "user-profiles":        ["profile_update"],
       "usdt-buy":             ["usdt_buy"],
       "usdt-sell":            ["usdt_sell"],
@@ -375,13 +409,49 @@ export default function AdminPanel() {
     } else if (
       activeSection === "payment-verification" ||
       activeSection === "mentorship-requests"  ||
-      activeSection === "vip-requests"         ||
-      activeSection === "user-profiles"
+      activeSection === "vip-requests"
     ) {
       fetch("/api/admin/submissions")
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
+    } else if (activeSection === "coupons") {
+      setCouponsLoading(true)
+      fetch("/api/admin/coupons")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setCoupons(d.data ?? []) })
+        .catch(() => {})
+        .finally(() => setCouponsLoading(false))
+    } else if (activeSection === "user-profiles") {
+      // Load both submissions and live dashboard_users in parallel
+      setUsersLoading(true)
+      Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
+        import("@/lib/supabase/client").then(({ createClient }) =>
+          createClient()
+            .from("dashboard_users")
+            .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+            .order("created_at", { ascending: false })
+            .limit(500)
+        ),
+      ]).then(([sub, kyc]: [{ ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
+        if (sub.ok) setSubmissions(sub.data ?? [])
+        if (!kyc.error && kyc.data) {
+          setDashboardUsers(kyc.data.map((u: Record<string, unknown>) => ({
+            userId:             String(u.user_id     ?? ""),
+            fullName:           String(u.full_name   ?? "—"),
+            email:              String(u.email        ?? ""),
+            phone:              u.phone    as string | null,
+            username:           u.username as string | null,
+            createdAt:          String(u.created_at  ?? ""),
+            isVerified:         Boolean(u.is_verified),
+            kycStatus:          u.kyc_status            as string | null,
+            kycDocPan:          u.kyc_doc_pan            as string | null,
+            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
+            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
+          })))
+        }
+      }).catch(() => {}).finally(() => setUsersLoading(false))
     } else if (activeSection === "broker-verifications") {
       fetch("/api/admin/broker-verifications")
         .then(r => r.json())
@@ -570,7 +640,7 @@ export default function AdminPanel() {
     if (sub) {
       const vipGroupLink = "https://t.me/+OgKaalVIPGroup" // update with real link if needed
       if (status === "approved") {
-        const isVip = sub.type === "vip" || sub.type === "vip_group"
+        const isVip = sub.type === "vip" || sub.type === "vip_group" || sub.type === "vip_membership"
         const vipLine = isVip ? `\n\nJoin VIP Group: ${vipGroupLink}` : ""
         await sendTelegramToUser(
           sub.telegram,
@@ -587,7 +657,7 @@ export default function AdminPanel() {
     // When approving a VIP or Mentorship payment, also activate the membership in Supabase
     if (status === "approved") {
       const sub = submissions.find(s => s.id === id)
-      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "mentorship")) {
+      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "vip_membership" || sub.type === "mentorship")) {
         const email = sub.email ?? String(sub.details?.email ?? "")
         if (email) {
           const supabase = (await import("@/lib/supabase/client")).createClient()
@@ -816,7 +886,7 @@ export default function AdminPanel() {
   }
 
   const pendingSubs    = submissions.filter(s => s.status === "pending")
-  const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+  const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group" || s.type === "vip_membership")
   const mentorSubs     = submissions.filter(s => s.type === "mentorship")
   const utrCounts: Record<string, string[]> = {}
   submissions.forEach(s => {
@@ -837,8 +907,8 @@ export default function AdminPanel() {
     "usdt-buy":            usdtBuy.filter(s  => isUnread(s as { notificationStatus?: string })).length,
     "usdt-sell":           usdtSell.filter(s => isUnread(s as { notificationStatus?: string })).length,
     "mentorship-requests": submissions.filter(s => s.type === "mentorship"    && isUnread(s)).length,
-    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group") && isUnread(s)).length,
-    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other") && isUnread(s)).length,
+    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group" || s.type === "vip") && isUnread(s)).length,
+    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other" || s.type === "profile_update") && isUnread(s)).length,
     "payment-verification":submissions.filter(s => (s.type === "usdt_p2p" || s.type === "support") && isUnread(s)).length,
   }
 
@@ -3389,7 +3459,9 @@ export default function AdminPanel() {
   }
 
   const renderVipRequests = () => {
-    const rows = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+    const rows = submissions.filter(s =>
+      s.type === "vip" || s.type === "vip_group" || s.type === "vip_membership"
+    )
     return renderSubmissionSection(
       "VIP Group Requests",
       <Crown className="w-5 h-5 text-primary" />,
@@ -3399,12 +3471,461 @@ export default function AdminPanel() {
   }
 
   const renderUserProfiles = () => {
-    const rows = submissions.filter(s => s.type === "member" || s.type === "other")
-    return renderSubmissionSection(
-      "User Profiles",
-      <Users className="w-5 h-5 text-green-400" />,
-      rows,
-      "user-profiles",
+    const filtered = userSearch.trim()
+      ? dashboardUsers.filter(u =>
+          u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
+          u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+          (u.phone?.includes(userSearch)) ||
+          (u.username?.toLowerCase().includes(userSearch.toLowerCase())) ||
+          u.userId.toLowerCase().includes(userSearch.toLowerCase())
+        )
+      : dashboardUsers
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Users className="w-5 h-5 text-green-400" />
+            <h2 className="text-xl font-bold text-foreground">User Profiles</h2>
+            <span className="text-xs bg-secondary text-muted-foreground px-2 py-0.5 rounded-full font-mono">{dashboardUsers.length} registered</span>
+          </div>
+          <button
+            onClick={() => {
+              setUsersLoading(true)
+              import("@/lib/supabase/client").then(({ createClient }) =>
+                createClient()
+                  .from("dashboard_users")
+                  .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+                  .order("created_at", { ascending: false })
+                  .limit(500)
+                  .then(({ data }) => {
+                    if (data) setDashboardUsers(data.map((u: Record<string, unknown>) => ({
+                      userId: String(u.user_id ?? ""), fullName: String(u.full_name ?? "—"),
+                      email: String(u.email ?? ""), phone: u.phone as string | null,
+                      username: u.username as string | null, createdAt: String(u.created_at ?? ""),
+                      isVerified: Boolean(u.is_verified), kycStatus: u.kyc_status as string | null,
+                      kycDocPan: u.kyc_doc_pan as string | null,
+                      kycDocAadhaarFront: u.kyc_doc_aadhaar_front as string | null,
+                      kycDocAadhaarBack: u.kyc_doc_aadhaar_back as string | null,
+                    })))
+                  })
+              ).catch(() => {}).finally(() => setUsersLoading(false))
+            }}
+            disabled={usersLoading}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${usersLoading ? "animate-spin" : ""}`} />
+            {usersLoading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={userSearch}
+            onChange={e => setUserSearch(e.target.value)}
+            placeholder="Search by name, email, phone, username, or user ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+          />
+          {userSearch && (
+            <button onClick={() => setUserSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {usersLoading && dashboardUsers.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">Loading users...</div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/40">
+                    {["User ID", "Name", "Email", "Phone", "Verified", "KYC Status", "Documents", "Joined", "Actions"].map(h => (
+                      <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0
+                    ? <tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">{userSearch ? "No users match your search" : "No registered users yet"}</td></tr>
+                    : filtered.map(u => (
+                      <tr key={u.userId} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                        <td className="py-3 px-4 font-mono text-xs text-primary whitespace-nowrap">{u.userId}</td>
+                        <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">{u.fullName}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground">{u.email}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{u.phone || "—"}</td>
+                        <td className="py-3 px-4">
+                          {u.isVerified
+                            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-green-500/10 text-green-400 border-green-500/30"><CheckCircle className="w-3 h-3" />Yes</span>
+                            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-amber-500/10 text-amber-400 border-amber-500/30"><Clock className="w-3 h-3" />No</span>
+                          }
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground capitalize">{u.kycStatus ?? "—"}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {u.kycDocPan && (
+                              <button onClick={() => setScreenshotModal(u.kycDocPan!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> PAN
+                              </button>
+                            )}
+                            {u.kycDocAadhaarFront && (
+                              <button onClick={() => setScreenshotModal(u.kycDocAadhaarFront!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> Aadhaar F
+                              </button>
+                            )}
+                            {u.kycDocAadhaarBack && (
+                              <button onClick={() => setScreenshotModal(u.kycDocAadhaarBack!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> Aadhaar B
+                              </button>
+                            )}
+                            {!u.kycDocPan && !u.kycDocAadhaarFront && !u.kycDocAadhaarBack && (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(u.createdAt)}</td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => {
+                              // Show a quick detail popup by reusing the Submission detailView shape
+                              setDetailView({
+                                id: u.userId, userId: u.userId,
+                                type: "member", name: u.fullName,
+                                email: u.email, phone: u.phone ?? "",
+                                telegram: u.username ?? "", details: {},
+                                status: u.isVerified ? "approved" : "pending",
+                                paymentMethod: "", amount: "", utr: "",
+                                screenshotUrl: "",
+                                ipAddress: "", location: "",
+                                createdAt: u.createdAt,
+                              })
+                            }}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+                            title="View Profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderCoupons = () => {
+    const saveCoupon = async () => {
+      setCouponSaving(true)
+      try {
+        const method = couponEditId ? "PATCH" : "POST"
+        const body   = couponEditId ? { ...couponForm, id: couponEditId } : couponForm
+        const res    = await fetch("/api/admin/coupons", {
+          method, headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const data = await res.json()
+        if (data.ok) {
+          if (couponEditId) {
+            setCoupons(prev => prev.map(c => c.id === couponEditId ? data.data : c))
+          } else {
+            setCoupons(prev => [data.data, ...prev])
+          }
+          setCouponFormOpen(false)
+          setCouponEditId(null)
+          setCouponForm(emptyCoupon())
+        }
+      } catch { /* silent */ } finally {
+        setCouponSaving(false)
+      }
+    }
+
+    const deleteCoupon = async (id: string) => {
+      if (!confirm("Delete this coupon code?")) return
+      await fetch("/api/admin/coupons", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
+      setCoupons(prev => prev.filter(c => c.id !== id))
+    }
+
+    const toggleActive = async (c: Coupon) => {
+      const res  = await fetch("/api/admin/coupons", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: c.id, isActive: !c.isActive }),
+      })
+      const data = await res.json()
+      if (data.ok) setCoupons(prev => prev.map(x => x.id === c.id ? data.data : x))
+    }
+
+    const startEdit = (c: Coupon) => {
+      setCouponEditId(c.id)
+      setCouponForm({
+        code: c.code, description: c.description,
+        discountType: c.discountType, discountPct: c.discountPct,
+        discountAmount: c.discountAmount, appliesTo: c.appliesTo,
+        isActive: c.isActive, startDate: c.startDate, expiryDate: c.expiryDate,
+        maxUses: c.maxUses, pushNotify: c.pushNotify, emailNotify: c.emailNotify,
+      })
+      setCouponFormOpen(true)
+    }
+
+    const APPLIES_OPTS = ["mentorship", "vip", "usdt", "all"]
+
+    return (
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Tag className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">Coupon Codes</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-mono">
+              {coupons.length} codes
+            </span>
+          </div>
+          <button
+            onClick={() => { setCouponEditId(null); setCouponForm(emptyCoupon()); setCouponFormOpen(true) }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> New Coupon
+          </button>
+        </div>
+
+        {/* Create / Edit Form */}
+        {couponFormOpen && (
+          <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+            <h3 className="font-semibold text-foreground">{couponEditId ? "Edit Coupon" : "Create New Coupon"}</h3>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Code */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Coupon Code</label>
+                <input
+                  value={couponForm.code}
+                  onChange={e => setCouponForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. NEWYEAR50"
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Description</label>
+                <input
+                  value={couponForm.description}
+                  onChange={e => setCouponForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Short description shown to user"
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* Discount type */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Discount Type</label>
+                <div className="flex gap-2">
+                  {(["percent", "fixed"] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setCouponForm(f => ({ ...f, discountType: t }))}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
+                        couponForm.discountType === t
+                          ? "bg-primary/10 border-primary text-foreground"
+                          : "bg-background border-border text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {t === "percent" ? "% Percent Off" : "₹ Fixed Off"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discount value */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  {couponForm.discountType === "percent" ? "Discount Percent (%)" : "Discount Amount (₹)"}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={couponForm.discountType === "percent" ? 100 : undefined}
+                  value={couponForm.discountType === "percent"
+                    ? couponForm.discountPct
+                    : couponForm.discountAmount ?? ""}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    if (couponForm.discountType === "percent")
+                      setCouponForm(f => ({ ...f, discountPct: v }))
+                    else
+                      setCouponForm(f => ({ ...f, discountAmount: v }))
+                  }}
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* Expiry date */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Expiry Date (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={couponForm.expiryDate ? couponForm.expiryDate.slice(0, 16) : ""}
+                  onChange={e => setCouponForm(f => ({ ...f, expiryDate: e.target.value ? new Date(e.target.value).toISOString() : null }))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground focus:outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* Max uses */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Max Uses (blank = unlimited)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={couponForm.maxUses ?? ""}
+                  onChange={e => setCouponForm(f => ({ ...f, maxUses: e.target.value ? Number(e.target.value) : null }))}
+                  placeholder="Unlimited"
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            </div>
+
+            {/* Applies to */}
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Applies To</label>
+              <div className="flex flex-wrap gap-2">
+                {APPLIES_OPTS.map(opt => {
+                  const active = couponForm.appliesTo.includes(opt)
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => setCouponForm(f => ({
+                        ...f,
+                        appliesTo: active
+                          ? f.appliesTo.filter(a => a !== opt)
+                          : [...f.appliesTo, opt],
+                      }))}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border capitalize transition-colors ${
+                        active
+                          ? "bg-primary/10 border-primary text-foreground"
+                          : "bg-background border-border text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+                <span className="text-xs text-muted-foreground self-center">(none = all products)</span>
+              </div>
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCouponForm(f => ({ ...f, isActive: !f.isActive }))}
+                className="flex items-center gap-2 text-sm text-foreground"
+              >
+                {couponForm.isActive
+                  ? <ToggleRight className="w-8 h-8 text-primary" />
+                  : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
+                <span>{couponForm.isActive ? "Active" : "Inactive"}</span>
+              </button>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={saveCoupon}
+                disabled={couponSaving || !couponForm.code.trim()}
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                {couponSaving ? "Saving..." : couponEditId ? "Update Coupon" : "Create Coupon"}
+              </button>
+              <button
+                onClick={() => { setCouponFormOpen(false); setCouponEditId(null); setCouponForm(emptyCoupon()) }}
+                className="px-5 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Coupon table */}
+        {couponsLoading ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">Loading coupon codes...</div>
+        ) : coupons.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-card border border-border text-center gap-3">
+            <Tag className="w-10 h-10 text-muted-foreground" />
+            <p className="font-semibold text-foreground">No coupon codes yet</p>
+            <p className="text-sm text-muted-foreground">Create your first coupon to offer discounts on mentorship and VIP memberships.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    {["Code", "Discount", "Applies To", "Usage", "Expiry", "Status", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {coupons.map(c => {
+                    const expired = c.expiryDate ? new Date(c.expiryDate) < new Date() : false
+                    const exhausted = c.maxUses !== null && c.usageCount >= c.maxUses
+                    return (
+                      <tr key={c.id} className="hover:bg-secondary/20 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-mono font-bold text-foreground tracking-wider">{c.code}</p>
+                          {c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                            <Percent className="w-3 h-3" />
+                            {c.discountType === "fixed"
+                              ? `₹${c.discountAmount} off`
+                              : `${c.discountPct}% off`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground capitalize">
+                          {c.appliesTo.length ? c.appliesTo.join(", ") : "All"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {c.usageCount}{c.maxUses !== null ? ` / ${c.maxUses}` : " / ∞"}
+                          {exhausted && <span className="ml-1 text-red-400">(limit reached)</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {c.expiryDate
+                            ? <span className={expired ? "text-red-400" : ""}>{new Date(c.expiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => toggleActive(c)} className="flex items-center gap-1.5">
+                            {c.isActive && !expired && !exhausted
+                              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-green-500/10 text-green-400 border-green-500/30"><CheckCircle className="w-3 h-3" />Active</span>
+                              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-secondary text-muted-foreground border-border"><X className="w-3 h-3" />{expired ? "Expired" : exhausted ? "Exhausted" : "Inactive"}</span>
+                            }
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => startEdit(c)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteCoupon(c.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -3433,6 +3954,7 @@ export default function AdminPanel() {
       case "performance":          return renderPerformanceManager()
       case "indicators":           return renderIndicators()
       case "analytics":            return renderAnalytics()
+      case "coupons":              return renderCoupons()
       case "data":                 return <AdminDataManagement />
       default:                     return renderDashboard()
     }

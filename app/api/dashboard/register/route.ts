@@ -56,6 +56,42 @@ export async function POST(req: NextRequest) {
     const data = rows[0]
     if (!data) return NextResponse.json({ error: "Registration failed. Please try again." }, { status: 500 })
 
+    // Insert admin notification + submission record so new signup appears in admin User Profiles
+    try {
+      const baseUrl = req.nextUrl.origin
+      await Promise.all([
+        // Admin notification
+        fetch(`${baseUrl}/api/admin/notifications`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "member",
+            title: "New User Registered",
+            message: `${String(data.full_name ?? fullName)} (${email.trim().toLowerCase()}) just signed up.`,
+            is_read: false,
+            ref_id: String(data.user_id ?? userId),
+          }),
+        }),
+        // Submission record so the user appears in the Members / User Profiles section
+        fetch(`${baseUrl}/api/admin/submissions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "member",
+            name: String(data.full_name ?? fullName),
+            email: email.trim().toLowerCase(),
+            status: "pending",
+            ip_address: req.headers.get("x-forwarded-for") ?? "Unknown",
+            location: "",
+            user_id: String(data.user_id ?? userId),
+            details: { tradingLevel, marketType, tradingType, yearsExperience },
+          }),
+        }),
+      ])
+    } catch {
+      // Fire-and-forget — never block registration response
+    }
+
     return NextResponse.json({ ok: true, data })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
