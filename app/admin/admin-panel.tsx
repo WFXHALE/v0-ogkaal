@@ -57,7 +57,7 @@ type Section =
 interface Submission {
   id: string
   userId?: string
-  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "support" | "member" | "other"
+  type: "usdt_p2p" | "funded_account" | "mentorship" | "vip" | "vip_group" | "vip_membership" | "support" | "member" | "other" | "profile_update"
   name: string
   email?: string
   telegram?: string
@@ -223,6 +223,17 @@ export default function AdminPanel() {
   const [kycUsers, setKycUsers]               = useState<Array<{ userId: string; name: string; email: string; createdAt: string; kycDocPan: string | null; kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null }>>([])
   const [fileCategory, setFileCategory]       = useState<"payment-mentorship" | "payment-vip" | "usdt-buy" | "usdt-sell" | "pan" | "aadhaar" | "broker">("payment-mentorship")
 
+  // ── Live dashboard_users (for User Profiles section) ─────────────────────────
+  type DashboardUser = {
+    userId: string; fullName: string; email: string; phone: string | null
+    username: string | null; createdAt: string; isVerified: boolean
+    kycStatus: string | null; kycDocPan: string | null
+    kycDocAadhaarFront: string | null; kycDocAadhaarBack: string | null
+  }
+  const [dashboardUsers, setDashboardUsers]   = useState<DashboardUser[]>([])
+  const [usersLoading,   setUsersLoading]     = useState(false)
+  const [userSearch,     setUserSearch]       = useState("")
+
   interface BrokerVerification {
     id: string; userId: string | null; username: string | null
     broker: string; traderId: string; screenshotUrl: string | null
@@ -326,7 +337,7 @@ export default function AdminPanel() {
     // We use the setter form to get the latest notifications without a closure issue.
     const sectionReadMap: Partial<Record<Section, string[]>> = {
       "mentorship-requests":  ["mentorship"],
-      "vip-requests":         ["vip_membership", "vip_group"],
+      "vip-requests":         ["vip_membership", "vip_group", "vip"],
       "user-profiles":        ["profile_update"],
       "usdt-buy":             ["usdt_buy"],
       "usdt-sell":            ["usdt_sell"],
@@ -375,13 +386,42 @@ export default function AdminPanel() {
     } else if (
       activeSection === "payment-verification" ||
       activeSection === "mentorship-requests"  ||
-      activeSection === "vip-requests"         ||
-      activeSection === "user-profiles"
+      activeSection === "vip-requests"
     ) {
       fetch("/api/admin/submissions")
         .then(r => r.json())
         .then(d => { if (d.ok) setSubmissions(d.data ?? []) })
         .catch(() => {})
+    } else if (activeSection === "user-profiles") {
+      // Load both submissions and live dashboard_users in parallel
+      setUsersLoading(true)
+      Promise.all([
+        fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
+        import("@/lib/supabase/client").then(({ createClient }) =>
+          createClient()
+            .from("dashboard_users")
+            .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+            .order("created_at", { ascending: false })
+            .limit(500)
+        ),
+      ]).then(([sub, kyc]: [{ ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
+        if (sub.ok) setSubmissions(sub.data ?? [])
+        if (!kyc.error && kyc.data) {
+          setDashboardUsers(kyc.data.map((u: Record<string, unknown>) => ({
+            userId:             String(u.user_id     ?? ""),
+            fullName:           String(u.full_name   ?? "—"),
+            email:              String(u.email        ?? ""),
+            phone:              u.phone    as string | null,
+            username:           u.username as string | null,
+            createdAt:          String(u.created_at  ?? ""),
+            isVerified:         Boolean(u.is_verified),
+            kycStatus:          u.kyc_status            as string | null,
+            kycDocPan:          u.kyc_doc_pan            as string | null,
+            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
+            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
+          })))
+        }
+      }).catch(() => {}).finally(() => setUsersLoading(false))
     } else if (activeSection === "broker-verifications") {
       fetch("/api/admin/broker-verifications")
         .then(r => r.json())
@@ -570,7 +610,7 @@ export default function AdminPanel() {
     if (sub) {
       const vipGroupLink = "https://t.me/+OgKaalVIPGroup" // update with real link if needed
       if (status === "approved") {
-        const isVip = sub.type === "vip" || sub.type === "vip_group"
+        const isVip = sub.type === "vip" || sub.type === "vip_group" || sub.type === "vip_membership"
         const vipLine = isVip ? `\n\nJoin VIP Group: ${vipGroupLink}` : ""
         await sendTelegramToUser(
           sub.telegram,
@@ -587,7 +627,7 @@ export default function AdminPanel() {
     // When approving a VIP or Mentorship payment, also activate the membership in Supabase
     if (status === "approved") {
       const sub = submissions.find(s => s.id === id)
-      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "mentorship")) {
+      if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "vip_membership" || sub.type === "mentorship")) {
         const email = sub.email ?? String(sub.details?.email ?? "")
         if (email) {
           const supabase = (await import("@/lib/supabase/client")).createClient()
@@ -816,7 +856,7 @@ export default function AdminPanel() {
   }
 
   const pendingSubs    = submissions.filter(s => s.status === "pending")
-  const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+  const vipSubs        = submissions.filter(s => s.type === "vip" || s.type === "vip_group" || s.type === "vip_membership")
   const mentorSubs     = submissions.filter(s => s.type === "mentorship")
   const utrCounts: Record<string, string[]> = {}
   submissions.forEach(s => {
@@ -837,8 +877,8 @@ export default function AdminPanel() {
     "usdt-buy":            usdtBuy.filter(s  => isUnread(s as { notificationStatus?: string })).length,
     "usdt-sell":           usdtSell.filter(s => isUnread(s as { notificationStatus?: string })).length,
     "mentorship-requests": submissions.filter(s => s.type === "mentorship"    && isUnread(s)).length,
-    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group") && isUnread(s)).length,
-    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other") && isUnread(s)).length,
+    "vip-requests":        submissions.filter(s => (s.type === "vip_membership" || s.type === "vip_group" || s.type === "vip") && isUnread(s)).length,
+    "user-profiles":       submissions.filter(s => (s.type === "member" || s.type === "other" || s.type === "profile_update") && isUnread(s)).length,
     "payment-verification":submissions.filter(s => (s.type === "usdt_p2p" || s.type === "support") && isUnread(s)).length,
   }
 
@@ -3389,7 +3429,9 @@ export default function AdminPanel() {
   }
 
   const renderVipRequests = () => {
-    const rows = submissions.filter(s => s.type === "vip" || s.type === "vip_group")
+    const rows = submissions.filter(s =>
+      s.type === "vip" || s.type === "vip_group" || s.type === "vip_membership"
+    )
     return renderSubmissionSection(
       "VIP Group Requests",
       <Crown className="w-5 h-5 text-primary" />,
@@ -3399,12 +3441,153 @@ export default function AdminPanel() {
   }
 
   const renderUserProfiles = () => {
-    const rows = submissions.filter(s => s.type === "member" || s.type === "other")
-    return renderSubmissionSection(
-      "User Profiles",
-      <Users className="w-5 h-5 text-green-400" />,
-      rows,
-      "user-profiles",
+    const filtered = userSearch.trim()
+      ? dashboardUsers.filter(u =>
+          u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
+          u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+          (u.phone?.includes(userSearch)) ||
+          (u.username?.toLowerCase().includes(userSearch.toLowerCase())) ||
+          u.userId.toLowerCase().includes(userSearch.toLowerCase())
+        )
+      : dashboardUsers
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Users className="w-5 h-5 text-green-400" />
+            <h2 className="text-xl font-bold text-foreground">User Profiles</h2>
+            <span className="text-xs bg-secondary text-muted-foreground px-2 py-0.5 rounded-full font-mono">{dashboardUsers.length} registered</span>
+          </div>
+          <button
+            onClick={() => {
+              setUsersLoading(true)
+              import("@/lib/supabase/client").then(({ createClient }) =>
+                createClient()
+                  .from("dashboard_users")
+                  .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
+                  .order("created_at", { ascending: false })
+                  .limit(500)
+                  .then(({ data }) => {
+                    if (data) setDashboardUsers(data.map((u: Record<string, unknown>) => ({
+                      userId: String(u.user_id ?? ""), fullName: String(u.full_name ?? "—"),
+                      email: String(u.email ?? ""), phone: u.phone as string | null,
+                      username: u.username as string | null, createdAt: String(u.created_at ?? ""),
+                      isVerified: Boolean(u.is_verified), kycStatus: u.kyc_status as string | null,
+                      kycDocPan: u.kyc_doc_pan as string | null,
+                      kycDocAadhaarFront: u.kyc_doc_aadhaar_front as string | null,
+                      kycDocAadhaarBack: u.kyc_doc_aadhaar_back as string | null,
+                    })))
+                  })
+              ).catch(() => {}).finally(() => setUsersLoading(false))
+            }}
+            disabled={usersLoading}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${usersLoading ? "animate-spin" : ""}`} />
+            {usersLoading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={userSearch}
+            onChange={e => setUserSearch(e.target.value)}
+            placeholder="Search by name, email, phone, username, or user ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+          />
+          {userSearch && (
+            <button onClick={() => setUserSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {usersLoading && dashboardUsers.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground text-sm">Loading users...</div>
+        ) : (
+          <div className="rounded-xl bg-card border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/40">
+                    {["User ID", "Name", "Email", "Phone", "Verified", "KYC Status", "Documents", "Joined", "Actions"].map(h => (
+                      <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0
+                    ? <tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">{userSearch ? "No users match your search" : "No registered users yet"}</td></tr>
+                    : filtered.map(u => (
+                      <tr key={u.userId} className="border-b border-border/50 hover:bg-secondary/20 transition-colors">
+                        <td className="py-3 px-4 font-mono text-xs text-primary whitespace-nowrap">{u.userId}</td>
+                        <td className="py-3 px-4 font-medium text-foreground whitespace-nowrap">{u.fullName}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground">{u.email}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{u.phone || "—"}</td>
+                        <td className="py-3 px-4">
+                          {u.isVerified
+                            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-green-500/10 text-green-400 border-green-500/30"><CheckCircle className="w-3 h-3" />Yes</span>
+                            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs bg-amber-500/10 text-amber-400 border-amber-500/30"><Clock className="w-3 h-3" />No</span>
+                          }
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground capitalize">{u.kycStatus ?? "—"}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {u.kycDocPan && (
+                              <button onClick={() => setScreenshotModal(u.kycDocPan!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> PAN
+                              </button>
+                            )}
+                            {u.kycDocAadhaarFront && (
+                              <button onClick={() => setScreenshotModal(u.kycDocAadhaarFront!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> Aadhaar F
+                              </button>
+                            )}
+                            {u.kycDocAadhaarBack && (
+                              <button onClick={() => setScreenshotModal(u.kycDocAadhaarBack!)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                <Eye className="w-3 h-3" /> Aadhaar B
+                              </button>
+                            )}
+                            {!u.kycDocPan && !u.kycDocAadhaarFront && !u.kycDocAadhaarBack && (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(u.createdAt)}</td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => {
+                              // Show a quick detail popup by reusing the Submission detailView shape
+                              setDetailView({
+                                id: u.userId, userId: u.userId,
+                                type: "member", name: u.fullName,
+                                email: u.email, phone: u.phone ?? "",
+                                telegram: u.username ?? "", details: {},
+                                status: u.isVerified ? "approved" : "pending",
+                                paymentMethod: "", amount: "", utr: "",
+                                screenshotUrl: "",
+                                ipAddress: "", location: "",
+                                createdAt: u.createdAt,
+                              })
+                            }}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+                            title="View Profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
 
