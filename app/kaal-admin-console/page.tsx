@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Shield, Lock, Eye, EyeOff, AlertCircle, RefreshCw, Timer } from "lucide-react"
+import { Shield, Lock, Eye, EyeOff, AlertCircle, RefreshCw, Timer, ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
 import AdminPanel from "@/app/admin/admin-panel"
 import { loginWithSecretKey, isSessionValid, checkLockoutStatus } from "@/lib/admin-auth"
 
@@ -15,6 +16,7 @@ import { loginWithSecretKey, isSessionValid, checkLockoutStatus } from "@/lib/ad
  * The client only renders a countdown; all lockout state lives in the DB.
  */
 export default function KaalAdminConsole() {
+  const router = useRouter()
   const [phase, setPhase]             = useState<"loading" | "key-gate" | "locked" | "panel">("loading")
   const [keyInput, setKeyInput]       = useState("")
   const [showKey, setShowKey]         = useState(false)
@@ -169,6 +171,14 @@ export default function KaalAdminConsole() {
           <p className="text-center text-xs text-muted-foreground mt-6">
             Suspicious activity has been logged. This event will be reported if attempts continue.
           </p>
+
+          <button
+            onClick={() => router.push("/")}
+            className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </button>
         </div>
       </div>
     )
@@ -236,7 +246,7 @@ export default function KaalAdminConsole() {
 
         {/* Attempts warning */}
         {failureCount > 0 && (
-          <div className="mt-6 rounded-xl bg-amber-500/5 border border-amber-500/15 p-3">
+          <div className="mt-4 rounded-xl bg-amber-500/5 border border-amber-500/15 p-3">
             <p className="text-xs text-amber-400 text-center">
               {failureCount} failed {failureCount === 1 ? "attempt" : "attempts"}.
               {attemptsLeft > 0
@@ -245,6 +255,15 @@ export default function KaalAdminConsole() {
             </p>
           </div>
         )}
+
+        {/* Back to Home — always visible */}
+        <button
+          onClick={() => router.push("/")}
+          className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Home
+        </button>
       </div>
     </div>
   )

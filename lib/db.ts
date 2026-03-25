@@ -19,32 +19,41 @@ const g = globalThis as typeof globalThis & {
 }
 
 function buildConnectionString(): string {
-  // Supabase Vercel integration sets POSTGRES_URL to the session pooler (port 6543)
-  const pooling = process.env.POSTGRES_URL
-  if (pooling) {
-    // Strip sslmode from query string (pg handles ssl via the ssl option)
-    return pooling.replace(/[?&]sslmode=[^&]*/g, "")
-  }
-
+  // Priority 1: build from individual vars — these are always clean and correct.
+  // The Supabase Vercel integration always sets all four of these.
   const host     = process.env.POSTGRES_HOST
   const user     = process.env.POSTGRES_USER
   const password = process.env.POSTGRES_PASSWORD
   const database = process.env.POSTGRES_DATABASE
 
   if (host && user && password && database) {
-    // Session pooler is on port 6543; direct is 5432.
-    // Prefer pooler because it's always IPv4-reachable.
+    // Use port 6543 (Supabase session pooler — IPv4-reachable in serverless).
+    // Port 5432 is the direct connection and resolves to IPv6, which causes
+    // ENETUNREACH in Vercel sandbox environments.
     return `postgresql://${user}:${encodeURIComponent(password)}@${host}:6543/${database}`
   }
 
+  // Priority 2: POSTGRES_URL — BUT the Supabase Vercel integration appends
+  // `?supa=base-pooler.x` which pg parses as part of the database name
+  // (producing `postgres&supa=base-pooler.x`).  Strip ALL query params and
+  // force port 6543.
+  const poolingUrl = process.env.POSTGRES_URL
+  if (poolingUrl) {
+    // Remove everything after ? (all query params including &supa=...)
+    const clean = poolingUrl.split("?")[0]
+    // Ensure port is 6543 (pooler, IPv4) not 5432 (direct, IPv6)
+    return clean.replace(/:5432\//, ":6543/").replace(/:6543\//, ":6543/")
+  }
+
+  // Priority 3: non-pooling URL — also strip query params and switch to pooler port
   const nonPooling = process.env.POSTGRES_URL_NON_POOLING
   if (nonPooling) {
-    return nonPooling.replace(/[?&]sslmode=[^&]*/g, "")
+    return nonPooling.split("?")[0].replace(/:5432\//, ":6543/")
   }
 
   throw new Error(
     "No Postgres connection string found. " +
-    "Set POSTGRES_URL or POSTGRES_HOST/USER/PASSWORD/DATABASE env vars."
+    "Set POSTGRES_HOST/USER/PASSWORD/DATABASE or POSTGRES_URL env vars."
   )
 }
 
