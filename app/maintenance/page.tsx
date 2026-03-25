@@ -20,7 +20,6 @@ export default function MaintenancePage() {
           width={80}
           height={80}
           className="rounded-2xl mx-auto"
-          onError={() => {}}
           priority
         />
       </div>

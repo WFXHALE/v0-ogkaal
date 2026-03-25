@@ -6,25 +6,47 @@
  */
 import { Pool } from "pg"
 
-let pool: Pool | null = null
+// Use globalThis so the singleton survives HMR, but re-creates if the env var
+// changes (e.g. when a new Supabase project is connected in Vercel).
+const g = globalThis as typeof globalThis & {
+  _pgPool?: Pool
+  _pgPoolConnStr?: string
+}
 
 export function getDb(): Pool {
-  if (!pool) {
-    const connectionString = process.env.POSTGRES_URL_NON_POOLING
-    if (!connectionString) {
-      throw new Error("POSTGRES_URL_NON_POOLING env var is not set")
-    }
+  const connectionString = process.env.POSTGRES_URL_NON_POOLING
+  if (!connectionString) {
+    throw new Error("POSTGRES_URL_NON_POOLING env var is not set")
+  }
+
+  // Re-create pool if the connection string has changed (e.g. new Supabase project)
+  if (g._pgPool && g._pgPoolConnStr !== connectionString) {
+    void g._pgPool.end().catch(() => {})
+    g._pgPool = undefined
+  }
+
+  if (!g._pgPool) {
     // Supabase uses a self-signed cert in the chain, so rejectUnauthorized must
     // be false. We strip sslmode from the connection string and pass ssl
     // explicitly to avoid the pg deprecation warning about ambiguous SSL modes.
     const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, "")
-    pool = new Pool({
+    g._pgPool = new Pool({
       connectionString: cleanConnectionString,
       ssl: { rejectUnauthorized: false },
       max: 5,
+      // Auto-destroy idle connections so stale pools don't linger
+      idleTimeoutMillis: 30_000,
+    })
+    g._pgPoolConnStr = connectionString
+
+    // On error, destroy the pool so the next request creates a fresh one
+    g._pgPool.on("error", () => {
+      void g._pgPool?.end().catch(() => {})
+      g._pgPool = undefined
     })
   }
-  return pool
+
+  return g._pgPool
 }
 
 /** Run a parameterised query and return all rows. */
