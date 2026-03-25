@@ -47,8 +47,8 @@ async function isMaintenanceModeOn(): Promise<boolean> {
           Authorization: `Bearer ${supabaseKey}`,
           Accept:        'application/json',
         },
-        // Cache for 10 seconds so each request isn't a fresh DB hit
-        next: { revalidate: 10 },
+        // No caching — maintenance mode must reflect DB state immediately
+        cache: 'no-store',
       }
     )
     if (!res.ok) return false

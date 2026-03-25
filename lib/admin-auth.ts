@@ -252,12 +252,9 @@ export async function loginWithSecretKey(
       body:    JSON.stringify({ key: key.trim() }),
     })
     if (res.status === 500) {
-      let errMsg = "Server configuration error."
+      let errMsg = "Server configuration error. Ensure ADMIN_SECRET_KEY is set in environment variables."
       try { const d = await res.json(); errMsg = d.error ?? errMsg } catch { /* ignore */ }
       return { success: false, error: errMsg }
-    }
-    if (!res.ok) {
-      try { const d = await res.json(); serverError = d.error ?? "Invalid key" } catch { serverError = "Invalid key" }
     }
     serverVerified = res.ok
   } catch {

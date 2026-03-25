@@ -26,11 +26,9 @@ import {
   getPerformanceStats, addPerformanceStat, deletePerformanceStat,
 } from "@/lib/membership-store"
 import {
-  loadSystemConfig, saveSystemConfig,
-  loadPricing, savePricing,
-  loadAdminProfile, saveAdminProfile,
-  DEFAULT_PRICING,
-  type PricingConfig,
+  loadAllSettings, saveSystemConfig, savePricing, saveAdminProfile,
+  DEFAULT_PRICING, DEFAULT_SYSTEM,
+  type PricingConfig, type SystemConfig,
 } from "@/lib/admin-settings"
 import type { Membership, VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { AdminPushPanel } from "./admin-push-panel"
@@ -190,20 +188,7 @@ function downloadCSV(rows: Record<string, unknown>[], filename: string) {
   URL.revokeObjectURL(url)
 }
 
-// ─── Demo data ─────────────────────────────────────���──────────────────────────
-
-
-const DEFAULT_SYSTEM = {
-  upiEnabled: true,
-  cryptoEnabled: true,
-  erupeeEnabled: true,
-  vipPrice: "₹2,999",
-  mentorshipPrice: "₹4,999",
-  maintenanceMode: false,
-  paymentInstructions: "Pay via UPI or Crypto and upload screenshot with UTR number.",
-  telegramEnabled: true,
-  notifEnabled: true,
-}
+// ─── (DEFAULT_SYSTEM imported from @/lib/admin-settings) ─────────────────────
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -300,6 +285,8 @@ export default function AdminPanel() {
   const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
   const [pricingSaving, setPricingSaving]       = useState(false)
   const [pricingSaved,  setPricingSaved]        = useState(false)
+  const [systemSaving,  setSystemSaving]        = useState(false)
+  const [systemSaved,   setSystemSaved]         = useState(false)
 
   // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
   const [dbStats, setDbStats]                   = useState<{
@@ -586,17 +573,13 @@ export default function AdminPanel() {
     // Safety net: never leave the loading spinner visible more than 5s
     const loadingTimeout = setTimeout(() => setIsLoading(false), 5000)
 
-    // Load DB-backed settings in parallel; merge both into og_site_config so
-    // useSiteConfig (and all frontend pages) gets the full picture immediately.
-    Promise.all([loadSystemConfig(), loadPricing()]).then(([cfg, pricing]) => {
-      setSystemSettings(s => ({ ...s, ...cfg }))
+    // Load all DB-backed settings in a single request via /api/admin/settings
+    loadAllSettings().then(({ system, pricing, profile }) => {
+      setSystemSettings(s => ({ ...s, ...system }))
       setPricingConfig(pricing)
-      const merged = { ...cfg, ...pricing }
-      localStorage.setItem("og_site_config", JSON.stringify(merged))
+      if (profile.name) setSecForm(f => ({ ...f, name: profile.name }))
+      // Notify same-tab frontend listeners so pricing pages update immediately
       window.dispatchEvent(new Event("og_site_config_change"))
-    })
-    loadAdminProfile().then(p => {
-      if (p.name) setSecForm(f => ({ ...f, name: p.name }))
     })
     // Session countdown display only — no redirect on expiry
     const sessionInterval = setInterval(() => {
@@ -852,16 +835,19 @@ export default function AdminPanel() {
     })
   }
 
-  const saveSystem = (patch: Partial<typeof DEFAULT_SYSTEM>) => {
-    const updated = { ...systemSettings, ...patch }
+  const saveSystem = (patch: Partial<SystemConfig>) => {
+    const updated: SystemConfig = { ...systemSettings, ...patch }
+    // Optimistic UI update
     setSystemSettings(updated)
-    localStorage.setItem("og_admin_system", JSON.stringify(updated))
-    // Publish to a shared key so the rest of the site can read it
-    localStorage.setItem("og_site_config", JSON.stringify(updated))
-    // Notify same-tab listeners (useSiteConfig hook)
+    setSystemSaving(true)
+    setSystemSaved(false)
+    // Notify same-tab frontend listeners (useSiteConfig hook, pricing pages, etc.)
     window.dispatchEvent(new Event("og_site_config_change"))
-    // Persist to Supabase admin_settings (fire-and-forget)
-    saveSystemConfig(updated).catch(() => {})
+    // Persist to database via service-role API route (no localStorage)
+    saveSystemConfig(updated)
+      .then(() => { setSystemSaved(true); setTimeout(() => setSystemSaved(false), 3000) })
+      .catch((err) => { console.error("[admin] saveSystem failed:", err) })
+      .finally(() => setSystemSaving(false))
   }
 
   const handleLogout = async () => { await logout(); router.push("/") }
@@ -2169,7 +2155,13 @@ export default function AdminPanel() {
 
   const renderSystemControl = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-foreground">System Control</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-foreground">System Control</h2>
+        <div className="flex items-center gap-2 text-xs">
+          {systemSaving && <span className="text-primary animate-pulse">Saving...</span>}
+          {systemSaved  && <span className="text-green-400">Saved to database</span>}
+        </div>
+      </div>
       {systemSettings.maintenanceMode && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
@@ -2178,7 +2170,7 @@ export default function AdminPanel() {
       )}
       <div className="rounded-xl bg-card border border-border p-5 space-y-4">
         <h3 className="font-semibold text-foreground text-sm">Payment Methods</h3>
-        <p className="text-xs text-muted-foreground">Toggles persist to <code className="font-mono bg-secondary px-1 rounded">og_site_config</code> in localStorage and are read by the payment pages in real-time.</p>
+        <p className="text-xs text-muted-foreground">Toggles are saved permanently to the database and applied site-wide immediately. Changes persist across reloads and redeployments.</p>
         {([
           { key: "upiEnabled"    as const, label: "UPI Payments",           desc: "Enables/disables UPI payment option on checkout"           },
           { key: "cryptoEnabled" as const, label: "Crypto / USDT Payments", desc: "Enables/disables Crypto and USDT payment options"          },
@@ -2248,9 +2240,7 @@ export default function AdminPanel() {
             setPricingSaving(true)
             setPricingSaved(false)
             await savePricing(snapshot)
-            // Bust frontend cache: write merged config to localStorage and fire event
-            const merged = { ...systemSettings, ...snapshot }
-            localStorage.setItem("og_site_config", JSON.stringify(merged))
+            // Notify same-tab frontend listeners so pricing pages update immediately
             window.dispatchEvent(new Event("og_site_config_change"))
             setPricingSaving(false)
             setPricingSaved(true)
