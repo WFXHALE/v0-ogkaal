@@ -1,13 +1,17 @@
 /**
- * Shared PostgreSQL client.
+ * Shared PostgreSQL client — uses the Supabase session pooler over IPv4.
  *
- * POSTGRES_URL_NON_POOLING may point to an old/wrong Supabase project.
- * We build the connection string directly from the individual env vars
- * (POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE)
- * which always come from the currently-connected Supabase integration,
- * falling back to POSTGRES_URL_NON_POOLING only as a last resort.
+ * The ENETUNREACH error occurs because Node resolves the Supabase host to an
+ * IPv6 address in environments that don't support IPv6 outbound (Vercel
+ * serverless). Forcing dns.lookup family:4 makes pg always connect via IPv4.
+ *
+ * Connection priority:
+ *   1. POSTGRES_URL (Supabase pooler — port 6543, set by the Vercel integration)
+ *   2. Individual POSTGRES_HOST/USER/PASSWORD/DATABASE vars
+ *   3. POSTGRES_URL_NON_POOLING (last resort)
  */
 import { Pool } from "pg"
+import dns from "dns"
 
 const g = globalThis as typeof globalThis & {
   _pgPool?: Pool
@@ -15,37 +19,33 @@ const g = globalThis as typeof globalThis & {
 }
 
 function buildConnectionString(): string {
-  // PRIORITY 1: POSTGRES_URL (Supabase transaction pooler — IPv4, port 6543)
-  // This is the connection string Supabase sets for serverless/edge environments.
-  // It uses PgBouncer in transaction mode over port 6543 which is always IPv4.
+  // Supabase Vercel integration sets POSTGRES_URL to the session pooler (port 6543)
   const pooling = process.env.POSTGRES_URL
   if (pooling) {
-    // Ensure we're on port 6543 (transaction pooler) not 5432 (direct, IPv6 only)
-    return pooling
-      .replace(/[?&]sslmode=[^&]*/g, "")
-      .replace(/:5432\//, ":6543/")
+    // Strip sslmode from query string (pg handles ssl via the ssl option)
+    return pooling.replace(/[?&]sslmode=[^&]*/g, "")
   }
 
-  // PRIORITY 2: Build from individual vars — but use port 6543 (pooler)
   const host     = process.env.POSTGRES_HOST
   const user     = process.env.POSTGRES_USER
   const password = process.env.POSTGRES_PASSWORD
   const database = process.env.POSTGRES_DATABASE
 
   if (host && user && password && database) {
-    // Force port 6543 for Supabase transaction pooler (IPv4-reachable)
+    // Session pooler is on port 6543; direct is 5432.
+    // Prefer pooler because it's always IPv4-reachable.
     return `postgresql://${user}:${encodeURIComponent(password)}@${host}:6543/${database}`
   }
 
-  // PRIORITY 3: Non-pooling URL — also switch to port 6543
   const nonPooling = process.env.POSTGRES_URL_NON_POOLING
   if (nonPooling) {
-    return nonPooling
-      .replace(/[?&]sslmode=[^&]*/g, "")
-      .replace(/:5432\//, ":6543/")
+    return nonPooling.replace(/[?&]sslmode=[^&]*/g, "")
   }
 
-  throw new Error("No Postgres connection string found. Set POSTGRES_URL or POSTGRES_HOST/USER/PASSWORD/DATABASE.")
+  throw new Error(
+    "No Postgres connection string found. " +
+    "Set POSTGRES_URL or POSTGRES_HOST/USER/PASSWORD/DATABASE env vars."
+  )
 }
 
 export function getDb(): Pool {
@@ -59,9 +59,14 @@ export function getDb(): Pool {
   if (!g._pgPool) {
     g._pgPool = new Pool({
       connectionString: connStr,
-      ssl: { rejectUnauthorized: false },
-      max: 5,
+      ssl:  { rejectUnauthorized: false },
+      max:  5,
       idleTimeoutMillis: 30_000,
+      // Force IPv4: prevents ENETUNREACH when the host resolves to an IPv6 address
+      // in environments that only have IPv4 outbound connectivity (e.g. Vercel).
+      lookup: (hostname, options, callback) => {
+        dns.lookup(hostname, { ...options, family: 4 }, callback)
+      },
     })
     g._pgPoolKey = connStr
 

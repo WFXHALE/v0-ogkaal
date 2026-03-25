@@ -225,61 +225,95 @@ export async function loginAdmin(
   return { success: true }
 }
 
-// ─── Secret-key login (new primary auth method) ───────────────────────────────
-// Compares the submitted key against NEXT_PUBLIC_ADMIN_SECRET_KEY (env var).
-// Shares the same 5-attempt / 24-hour lockout as password login.
+// ─── Secret-key login (primary auth method) ──────────────────────────────────
+// All lockout logic lives on the server (/api/admin/verify-key).
+// The client never reads lockout state from localStorage — the server is the
+// single source of truth, tracked per IP in admin_login_attempts.
 
-export async function loginWithSecretKey(
-  key: string,
-): Promise<{ success: boolean; error?: string; attemptsRemaining?: number }> {
+export async function loginWithSecretKey(key: string): Promise<{
+  success:          boolean
+  error?:           string
+  locked?:          boolean
+  remainingSec?:    number
+  lockedUntil?:     string
+  attemptsLeft?:    number
+  failureCount?:    number
+}> {
   if (typeof window === "undefined") return { success: false, error: "Cannot login on server" }
 
-  const lock = isAccountLocked()
-  if (lock.locked) {
-    // fire-and-forget — never block the return on IP lookup
-    addSecurityLog("login_failed", "admin", "Account locked — too many failed secret key attempts").catch(() => {})
-    const hours = lock.remainingSeconds ? Math.ceil(lock.remainingSeconds / 3600) : 24
-    return { success: false, error: `Access blocked for ${hours}h due to too many failed attempts.` }
+  // Generate a stable device ID (stored in localStorage, not used for security — just telemetry)
+  let deviceId = localStorage.getItem("og_device_id") ?? ""
+  if (!deviceId) {
+    deviceId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+    localStorage.setItem("og_device_id", deviceId)
   }
 
-  // Verify the key server-side — ADMIN_SECRET_KEY has no NEXT_PUBLIC_ prefix
-  // so it must never be read in the client bundle.
-  let serverVerified = false
+  let data: Record<string, unknown> = {}
+  let status = 0
   try {
     const res = await fetch("/api/admin/verify-key", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ key: key.trim() }),
+      body:    JSON.stringify({ key: key.trim(), deviceId }),
     })
-    if (res.status === 500) {
-      let errMsg = "Server configuration error. Ensure ADMIN_SECRET_KEY is set in environment variables."
-      try { const d = await res.json(); errMsg = d.error ?? errMsg } catch { /* ignore */ }
-      return { success: false, error: errMsg }
-    }
-    serverVerified = res.ok
+    status = res.status
+    data   = await res.json()
   } catch {
     return { success: false, error: "Network error — could not reach the server. Please try again." }
   }
 
-  if (!serverVerified) {
-    const r = recordFailedAttempt()
-    addSecurityLog("login_failed", "admin", "Invalid secret key").catch(() => {})
-    if (r.locked) {
-      return { success: false, error: "Invalid Key – Access Denied. Account blocked for 24 hours." }
-    }
+  if (status === 500) {
+    return { success: false, error: String(data.error ?? "Server configuration error. ADMIN_SECRET_KEY may not be set.") }
+  }
+
+  if (status === 429 || data.locked) {
     return {
-      success: false,
-      error: `Invalid Key – Access Denied. ${r.attemptsRemaining} attempt${r.attemptsRemaining === 1 ? "" : "s"} remaining.`,
-      attemptsRemaining: r.attemptsRemaining,
+      success:       false,
+      locked:        true,
+      remainingSec:  Number(data.remainingSec  ?? 0),
+      lockedUntil:   String(data.lockedUntil   ?? ""),
+      failureCount:  Number(data.failureCount  ?? 0),
+      attemptsLeft:  0,
+      error:         String(data.error ?? "Too many failed attempts."),
     }
   }
 
-  // Key correct — MUST await createSession so localStorage is written before
-  // router.push("/admin") fires and isSessionValid() is checked.
-  await createSession("sheikhahmed2724@gmail.com")
-  resetLoginAttempts()
-  addSecurityLog("login_success", "sheikhahmed2724@gmail.com", "Login via secret key").catch(() => {})
+  if (!data.ok && !data.success) {
+    return {
+      success:       false,
+      locked:        false,
+      attemptsLeft:  Number(data.attemptsLeft ?? 0),
+      failureCount:  Number(data.failureCount ?? 0),
+      error:         String(data.error ?? "Invalid key."),
+    }
+  }
+
+  // Key is correct — create a local session so isSessionValid() returns true
+  await createSession("admin")
   return { success: true }
+}
+
+/** Check the server for current lockout status (called on page load). */
+export async function checkLockoutStatus(): Promise<{
+  locked:       boolean
+  remainingSec: number
+  lockedUntil:  string | null
+  failureCount: number
+  attemptsLeft: number
+}> {
+  try {
+    const res  = await fetch("/api/admin/verify-key", { method: "GET", cache: "no-store" })
+    const data = await res.json()
+    return {
+      locked:       !!data.locked,
+      remainingSec: Number(data.remainingSec ?? 0),
+      lockedUntil:  data.lockedUntil ? String(data.lockedUntil) : null,
+      failureCount: Number(data.failureCount ?? 0),
+      attemptsLeft: Number(data.attemptsLeft ?? 3),
+    }
+  } catch {
+    return { locked: false, remainingSec: 0, lockedUntil: null, failureCount: 0, attemptsLeft: 3 }
+  }
 }
 
 // ─── Google login (backup method) ────────────────────────────────────────────

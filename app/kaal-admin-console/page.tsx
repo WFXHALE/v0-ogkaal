@@ -1,43 +1,85 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Shield, Lock, Eye, EyeOff, AlertCircle, RefreshCw } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Shield, Lock, Eye, EyeOff, AlertCircle, RefreshCw, Timer } from "lucide-react"
 import AdminPanel from "@/app/admin/admin-panel"
-import { loginWithSecretKey, isSessionValid } from "@/lib/admin-auth"
-
-const SESSION_KEY = "og_admin_key_verified"
+import { loginWithSecretKey, isSessionValid, checkLockoutStatus } from "@/lib/admin-auth"
 
 /**
- * Admin entry point — hidden page triggered by clicking the logo 5 times.
+ * Admin entry point — secret key gate with DB-backed progressive lockout.
  *
- * Flow:
- *   1. If a valid admin session exists → show AdminPanel directly.
- *   2. Otherwise → show Secret Key prompt.
- *   3. On correct key → verify server-side → show AdminPanel + persist session.
+ * Lockout schedule (server-enforced, tracked per IP):
+ *   3 failures  →  5 min   |  7 failures  →  1 hour   |  15 failures  → 24 hours
+ *   5 failures  → 15 min   | 10 failures  →  6 hours  |  20+ failures →  7 days
  *
- * The secret key is stored only as ADMIN_SECRET_KEY on the server (env var).
- * It is never sent to the client — verification happens via POST /api/admin/verify-key.
+ * The client only renders a countdown; all lockout state lives in the DB.
  */
 export default function KaalAdminConsole() {
-  const [phase, setPhase]           = useState<"loading" | "key-gate" | "panel">("loading")
-  const [keyInput, setKeyInput]     = useState("")
-  const [showKey, setShowKey]       = useState(false)
-  const [error, setError]           = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [attempts, setAttempts]     = useState(0)
+  const [phase, setPhase]             = useState<"loading" | "key-gate" | "locked" | "panel">("loading")
+  const [keyInput, setKeyInput]       = useState("")
+  const [showKey, setShowKey]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [submitting, setSubmitting]   = useState(false)
+  const [failureCount, setFailureCount] = useState(0)
+  const [attemptsLeft, setAttemptsLeft] = useState(3)
+  // Lockout countdown
+  const [lockedUntil, setLockedUntil]   = useState<Date | null>(null)
+  const [countdown, setCountdown]       = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // ── Format seconds → human-readable ───────────────────────────────────────
+  const formatCountdown = (sec: number): string => {
+    if (sec <= 0) return "0s"
+    const d = Math.floor(sec / 86400)
+    const h = Math.floor((sec % 86400) / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    const s = sec % 60
+    if (d > 0) return `${d}d ${h}h ${m}m`
+    if (h > 0) return `${h}h ${m}m ${s}s`
+    if (m > 0) return `${m}m ${s}s`
+    return `${s}s`
+  }
+
+  // ── Live countdown tick ────────────────────────────────────────────────────
   useEffect(() => {
-    // If there is already a valid admin session (from a previous login), go straight to the panel
+    if (!lockedUntil) return
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000))
+      setCountdown(remaining)
+      if (remaining <= 0) {
+        setLockedUntil(null)
+        setPhase("key-gate")
+        setError(null)
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [lockedUntil])
+
+  // ── Check session + lockout status on mount ────────────────────────────────
+  const checkStatus = useCallback(async () => {
     if (isSessionValid()) {
       setPhase("panel")
+      return
+    }
+    const status = await checkLockoutStatus()
+    setFailureCount(status.failureCount)
+    setAttemptsLeft(status.attemptsLeft)
+    if (status.locked && status.remainingSec > 0) {
+      setLockedUntil(new Date(Date.now() + status.remainingSec * 1000))
+      setCountdown(status.remainingSec)
+      setPhase("locked")
     } else {
       setPhase("key-gate")
-      // Small delay so the input is in the DOM before we focus
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [])
 
+  useEffect(() => { checkStatus() }, [checkStatus])
+
+  // ── Submit handler ─────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!keyInput.trim() || submitting) return
@@ -46,19 +88,30 @@ export default function KaalAdminConsole() {
     setError(null)
 
     const result = await loginWithSecretKey(keyInput.trim())
-
     setSubmitting(false)
 
     if (result.success) {
       setPhase("panel")
-    } else {
-      setAttempts(a => a + 1)
-      setError(result.error ?? "Invalid key — access denied.")
-      setKeyInput("")
-      setTimeout(() => inputRef.current?.focus(), 50)
+      return
     }
+
+    setKeyInput("")
+
+    if (result.locked && result.remainingSec && result.remainingSec > 0) {
+      setLockedUntil(new Date(Date.now() + result.remainingSec * 1000))
+      setCountdown(result.remainingSec)
+      setFailureCount(result.failureCount ?? 0)
+      setPhase("locked")
+      return
+    }
+
+    setFailureCount(result.failureCount ?? 0)
+    setAttemptsLeft(result.attemptsLeft ?? 0)
+    setError(result.error ?? "Invalid key — access denied.")
+    setTimeout(() => inputRef.current?.focus(), 50)
   }
 
+  // ── Loading splash ─────────────────────────────────────────────────────────
   if (phase === "loading") {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -67,11 +120,61 @@ export default function KaalAdminConsole() {
     )
   }
 
-  if (phase === "panel") {
-    return <AdminPanel />
+  // ── Authenticated — show panel ─────────────────────────────────────────────
+  if (phase === "panel") return <AdminPanel />
+
+  // ── Locked out — countdown screen ─────────────────────────────────────────
+  if (phase === "locked") {
+    const lockDurationLabel = (() => {
+      if (countdown > 86400) return "7 days"
+      if (countdown > 21600) return "24 hours"
+      if (countdown > 3600)  return "6 hours"
+      if (countdown > 900)   return "1 hour"
+      if (countdown > 300)   return "15 minutes"
+      return "5 minutes"
+    })()
+
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center gap-4 mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <Lock className="w-8 h-8 text-red-400" />
+            </div>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-foreground tracking-tight">Access Locked</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Too many failed attempts. Locked for {lockDurationLabel}.
+              </p>
+            </div>
+          </div>
+
+          {/* Countdown */}
+          <div className="rounded-2xl bg-red-500/5 border border-red-500/15 p-6 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Timer className="w-4 h-4 text-red-400" />
+              <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Unlocks in</span>
+            </div>
+            <p className="text-4xl font-mono font-bold text-red-400 tabular-nums">
+              {formatCountdown(countdown)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-secondary border border-border p-4 space-y-1.5 text-xs text-muted-foreground">
+            <p className="flex justify-between"><span>Failed attempts</span><span className="text-foreground font-semibold">{failureCount}</span></p>
+            <p className="flex justify-between"><span>Lockout triggered at</span><span className="text-foreground font-semibold">{failureCount} failures</span></p>
+            <p className="flex justify-between"><span>Next attempt allowed</span><span className="text-foreground font-semibold">{formatCountdown(countdown)}</span></p>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Suspicious activity has been logged. This event will be reported if attempts continue.
+          </p>
+        </div>
+      </div>
+    )
   }
 
-  // ── Secret Key Gate ──────────────────────────────────────────────────────────
+  // ── Key gate ───────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -95,6 +198,7 @@ export default function KaalAdminConsole() {
               type={showKey ? "text" : "password"}
               value={keyInput}
               onChange={e => { setKeyInput(e.target.value); setError(null) }}
+              onKeyDown={e => { if (e.key === "Enter") handleSubmit(e as unknown as React.FormEvent) }}
               placeholder="Secret key"
               autoComplete="off"
               autoCorrect="off"
@@ -114,7 +218,7 @@ export default function KaalAdminConsole() {
           {error && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-red-400">{error}</p>
+              <p className="text-xs text-red-400 leading-relaxed">{error}</p>
             </div>
           )}
 
@@ -130,10 +234,16 @@ export default function KaalAdminConsole() {
           </button>
         </form>
 
-        {attempts > 0 && (
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            {attempts} failed {attempts === 1 ? "attempt" : "attempts"} — account will be locked after 5 failures.
-          </p>
+        {/* Attempts warning */}
+        {failureCount > 0 && (
+          <div className="mt-6 rounded-xl bg-amber-500/5 border border-amber-500/15 p-3">
+            <p className="text-xs text-amber-400 text-center">
+              {failureCount} failed {failureCount === 1 ? "attempt" : "attempts"}.
+              {attemptsLeft > 0
+                ? ` ${attemptsLeft} more ${attemptsLeft === 1 ? "attempt" : "attempts"} before lockout.`
+                : " Next failure will trigger lockout."}
+            </p>
+          </div>
         )}
       </div>
     </div>
