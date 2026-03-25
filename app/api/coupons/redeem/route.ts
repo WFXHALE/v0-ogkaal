@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 
 /**
  * POST /api/coupons/redeem
  * Body: { id: string }
  * Increments usage_count for the given coupon id.
- * Called fire-and-forget from the client after a successful payment submission.
+ * Uses service client because discount_campaigns RLS only allows admin access.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Missing coupon id" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Fetch current usage_count and max_uses first to avoid exceeding the cap
     const { data: coupon, error: fetchErr } = await supabase

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 
 function normalize(r: Record<string, unknown>) {
   return {
@@ -24,7 +24,7 @@ function normalize(r: Record<string, unknown>) {
 /** GET /api/admin/coupons — list all coupons */
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from("discount_campaigns")
       .select("*")
@@ -41,7 +41,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json()
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from("discount_campaigns")
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
     const b = await req.json()
     if (!b.id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
     if (b.code           !== undefined) updates.code            = String(b.code).trim().toUpperCase()
@@ -112,7 +112,7 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { error } = await supabase.from("discount_campaigns").delete().eq("id", id)
     if (error) throw error
     return NextResponse.json({ ok: true })

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 
 /**
  * POST /api/coupons/validate
  * Body: { code: string, applies_to: string }
  * Validates a coupon code and returns discount info.
- * No auth required — validation happens at checkout time.
+ * Uses service client because discount_campaigns RLS only allows admin access.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Coupon code is required" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from("discount_campaigns")

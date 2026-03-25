@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { DEFAULT_PRICING, DEFAULT_SYSTEM, type PricingConfig, type SystemConfig } from "@/lib/admin-settings"
 
 export const dynamic = "force-dynamic"
@@ -7,12 +7,13 @@ export const dynamic = "force-dynamic"
 /**
  * GET /api/pricing
  * Returns merged system config + pricing from Supabase admin_settings.
- * Used by useSiteConfig on the frontend as the authoritative source.
+ * Uses the service-role key so it bypasses the restrictive RLS policy on
+ * admin_settings (which only allows admin users by default).
  * No auth required — pricing is public information shown on checkout pages.
  */
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const [sysRes, priceRes] = await Promise.all([
       supabase.from("admin_settings").select("value").eq("key", "system_config").maybeSingle(),

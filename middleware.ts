@@ -33,7 +33,9 @@ function isMaintenanceBypassed(pathname: string): boolean {
  */
 async function isMaintenanceModeOn(): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  // Use the service role key so we can bypass the restrictive admin_settings RLS policy.
+  // The anon key cannot read admin_settings (only the admin_all_settings policy allows it).
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
 
   try {
@@ -45,8 +47,8 @@ async function isMaintenanceModeOn(): Promise<boolean> {
           Authorization: `Bearer ${supabaseKey}`,
           Accept:        'application/json',
         },
-        // Cache for 10 seconds so each request isn't a fresh DB hit
-        next: { revalidate: 10 },
+        // No caching — maintenance mode must reflect DB state immediately
+        cache: 'no-store',
       }
     )
     if (!res.ok) return false
