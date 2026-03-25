@@ -33,7 +33,7 @@ import {
 } from "lucide-react"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { useSiteConfig } from "@/lib/use-site-config"
-import { CouponInput, applyDiscount, type AppliedCoupon } from "@/components/coupon-input"
+import { CouponInput, applyDiscount, parsePrice, type AppliedCoupon } from "@/components/coupon-input"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -229,6 +229,15 @@ export default function MentorshipPage() {
   }
 
   const handlePaymentSubmit = async () => {
+    // Increment coupon usage count if a coupon was applied
+    if (appliedCoupon?.id) {
+      fetch("/api/coupons/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: appliedCoupon.id }),
+      }).catch(() => {})
+    }
+
     await saveSubmission({
       type: "mentorship",
       name: contactData.fullName,
@@ -241,8 +250,8 @@ export default function MentorshipPage() {
         paymentMethod,
         cryptoOption,
         utr,
-        couponCode:    appliedCoupon?.code     ?? null,
-        discountSaved: savings > 0 ? savings   : null,
+        couponCode:    appliedCoupon?.code       ?? null,
+        discountSaved: savings > 0 ? savings     : null,
         finalAmount:   savings > 0 ? finalAmount : null,
       },
     })
@@ -262,20 +271,15 @@ export default function MentorshipPage() {
     setAppliedCoupon(null)
   }
 
-  // Price helpers
-  const getBasePrice = (): number => {
-    if (selectedProgram === "1.0")    return 9999
-    if (selectedProgram === "2.0")    return 24999
-    if (selectedProgram === "crypto") return 6999
-    return 0
-  }
-
+  // Price helpers — always derive from live siteConfig so admin changes are reflected instantly
   const getPriceDisplay = (): string => {
-    if (selectedProgram === "1.0")    return siteConfig.mentorship_1 || "₹9,999"
-    if (selectedProgram === "2.0")    return siteConfig.mentorship_2 || "₹24,999"
-    if (selectedProgram === "crypto") return siteConfig.mentorship_crypto || "₹6,999"
+    if (selectedProgram === "1.0")    return siteConfig.mentorship_1     || "₹6,500"
+    if (selectedProgram === "2.0")    return siteConfig.mentorship_2     || "₹15,000"
+    if (selectedProgram === "crypto") return siteConfig.crypto_mentorship || "₹20,000"
     return ""
   }
+
+  const getBasePrice = (): number => parsePrice(getPriceDisplay())
 
   const { finalAmount, savings } = applyDiscount(getBasePrice(), appliedCoupon)
 

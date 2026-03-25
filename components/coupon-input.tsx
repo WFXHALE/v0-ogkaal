@@ -131,6 +131,20 @@ export function CouponInput({ appliesTo, onApply }: CouponInputProps) {
 }
 
 /**
+ * Parse a price string like "₹6,500" or "₹2500 / $30" into a number.
+ * Returns 0 if parsing fails.
+ */
+export function parsePrice(raw: string | undefined | null): number {
+  if (!raw) return 0
+  // Take the part before "/" to ignore the USD portion
+  const inrPart = raw.split("/")[0]
+  // Strip everything except digits and dots
+  const numeric = inrPart.replace(/[^\d.]/g, "")
+  const n = parseFloat(numeric)
+  return isNaN(n) ? 0 : n
+}
+
+/**
  * Calculate the final price after applying a coupon.
  * `baseAmount` should be a numeric value in INR.
  * Returns { finalAmount, savings }

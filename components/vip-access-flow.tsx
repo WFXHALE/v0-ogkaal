@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { useSiteConfig } from "@/lib/use-site-config"
-import { CouponInput, applyDiscount, type AppliedCoupon } from "@/components/coupon-input"
+import { CouponInput, applyDiscount, parsePrice, type AppliedCoupon } from "@/components/coupon-input"
 import {
   Check,
   Copy,
@@ -166,6 +166,15 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
 
   const handleContactSubmit = async () => {
     if (contactData.telegramId && contactData.instagramId && contactData.phoneNumber && contactData.email) {
+      // Increment coupon usage count if one was applied
+      if (appliedCoupon?.id) {
+        fetch("/api/coupons/redeem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: appliedCoupon.id }),
+        }).catch(() => {})
+      }
+
       await saveSubmission({
         type: "vip_membership",
         name:
@@ -206,13 +215,10 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     setAppliedCoupon(null)
   }
 
-  // Price helpers
+  // Price helpers — always read from siteConfig so admin changes reflect live
   const getBasePrice = (): number => {
     if (!cardType) return 0
-    if (cardType === "existing") return 2500
-    if (cardType === "new")      return 3500
-    if (cardType === "funded")   return 4500
-    return 0
+    return parsePrice(getPaymentPrice())
   }
   const { finalAmount: vipFinalAmount, savings: vipSavings } = applyDiscount(getBasePrice(), appliedCoupon)
 
