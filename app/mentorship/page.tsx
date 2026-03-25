@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { useSiteConfig } from "@/lib/use-site-config"
+import { CouponInput, applyDiscount, type AppliedCoupon } from "@/components/coupon-input"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -189,6 +190,9 @@ export default function MentorshipPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const screenshotRef = useRef<HTMLInputElement>(null)
 
+  // Coupon
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
+
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   const handleCopy = (key: string, value: string) => {
@@ -237,6 +241,9 @@ export default function MentorshipPage() {
         paymentMethod,
         cryptoOption,
         utr,
+        couponCode:    appliedCoupon?.code     ?? null,
+        discountSaved: savings > 0 ? savings   : null,
+        finalAmount:   savings > 0 ? finalAmount : null,
       },
     })
     setFlowStep("success")
@@ -252,7 +259,25 @@ export default function MentorshipPage() {
     setScreenshot(null)
     setUtr("")
     setCopiedField(null)
+    setAppliedCoupon(null)
   }
+
+  // Price helpers
+  const getBasePrice = (): number => {
+    if (selectedProgram === "1.0")    return 9999
+    if (selectedProgram === "2.0")    return 24999
+    if (selectedProgram === "crypto") return 6999
+    return 0
+  }
+
+  const getPriceDisplay = (): string => {
+    if (selectedProgram === "1.0")    return siteConfig.mentorship_1 || "₹9,999"
+    if (selectedProgram === "2.0")    return siteConfig.mentorship_2 || "₹24,999"
+    if (selectedProgram === "crypto") return siteConfig.mentorship_crypto || "₹6,999"
+    return ""
+  }
+
+  const { finalAmount, savings } = applyDiscount(getBasePrice(), appliedCoupon)
 
   // ── Render flow overlay ───────────────────────────────────────────────────
 
@@ -349,7 +374,7 @@ export default function MentorshipPage() {
               </div>
             )}
 
-            {/* ── STEP: Payment ────────────────────────────────────────── */}
+            {/* ── STEP: Payment ─────────────────────���──────────────────── */}
             {flowStep === "payment" && (
               <div>
                 <h2 className="text-2xl font-bold text-foreground mb-1">Payment</h2>
@@ -566,6 +591,38 @@ export default function MentorshipPage() {
                     />
                   </div>
                 )}
+
+                {/* Coupon code */}
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-foreground mb-2">Have a coupon code?</label>
+                  <CouponInput appliesTo="mentorship" onApply={setAppliedCoupon} />
+                </div>
+
+                {/* Price summary */}
+                <div className="mb-5 p-4 rounded-xl bg-secondary/40 border border-border space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Program</span>
+                    <span className="font-medium text-foreground">{selectedProgram === "crypto" ? "Crypto Mentorship" : `Mentorship ${selectedProgram}`}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Price</span>
+                    <span className="font-medium text-foreground">{getPriceDisplay()}</span>
+                  </div>
+                  {appliedCoupon && savings > 0 && (
+                    <div className="flex items-center justify-between text-green-400">
+                      <span>Coupon ({appliedCoupon.code})</span>
+                      <span>- ₹{savings.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t border-border pt-2 font-bold">
+                    <span className="text-foreground">Total to Pay</span>
+                    <span className="text-primary text-base">
+                      {appliedCoupon && savings > 0
+                        ? `₹${finalAmount.toLocaleString("en-IN")}`
+                        : getPriceDisplay()}
+                    </span>
+                  </div>
+                </div>
 
                 <Button
                   onClick={handlePaymentSubmit}

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { saveSubmission } from "@/lib/admin-submissions"
 import { useSiteConfig } from "@/lib/use-site-config"
+import { CouponInput, applyDiscount, type AppliedCoupon } from "@/components/coupon-input"
 import {
   Check,
   Copy,
@@ -107,6 +108,7 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     phoneNumber: "",
     email: "",
   })
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
 
   const depositFileRef = useRef<HTMLInputElement>(null)
   const paymentFileRef = useRef<HTMLInputElement>(null)
@@ -181,6 +183,9 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
           utr: paymentData.utr,
           instagramId: contactData.instagramId,
           email: contactData.email,
+          couponCode:    appliedCoupon?.code   ?? null,
+          discountSaved: vipSavings > 0 ? vipSavings : null,
+          finalAmount:   vipSavings > 0 ? vipFinalAmount : null,
         },
       })
       setStep("success")
@@ -198,7 +203,18 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
     setCopiedCrypto(false)
     setPaymentData({ screenshot: null, utr: "" })
     setContactData({ telegramId: "", instagramId: "", phoneNumber: "", email: "" })
+    setAppliedCoupon(null)
   }
+
+  // Price helpers
+  const getBasePrice = (): number => {
+    if (!cardType) return 0
+    if (cardType === "existing") return 2500
+    if (cardType === "new")      return 3500
+    if (cardType === "funded")   return 4500
+    return 0
+  }
+  const { finalAmount: vipFinalAmount, savings: vipSavings } = applyDiscount(getBasePrice(), appliedCoupon)
 
   const handleClose = () => {
     resetFlow()
@@ -697,6 +713,34 @@ export function VipAccessFlow({ isOpen, onClose, initialUserType = null }: VipAc
                   )}
                 </div>
               )}
+
+              {/* Coupon code */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">Have a coupon code?</label>
+                <CouponInput appliesTo="vip" onApply={setAppliedCoupon} />
+              </div>
+
+              {/* Price summary */}
+              <div className="mb-4 p-4 rounded-xl bg-secondary/40 border border-border space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Price</span>
+                  <span className="font-medium text-foreground">{getPaymentPrice()}</span>
+                </div>
+                {appliedCoupon && vipSavings > 0 && (
+                  <div className="flex items-center justify-between text-green-400">
+                    <span>Coupon ({appliedCoupon.code})</span>
+                    <span>- ₹{vipSavings.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-border pt-2 font-bold">
+                  <span className="text-foreground">Total to Pay</span>
+                  <span className="text-primary text-base">
+                    {appliedCoupon && vipSavings > 0
+                      ? `₹${vipFinalAmount.toLocaleString("en-IN")}`
+                      : getPaymentPrice()}
+                  </span>
+                </div>
+              </div>
 
               <div className="flex gap-3">
                 <Button
