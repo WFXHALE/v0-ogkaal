@@ -292,7 +292,7 @@ export default function AdminPanel() {
   const [systemSaving,  setSystemSaving]        = useState(false)
   const [systemSaved,   setSystemSaved]         = useState(false)
 
-  // ── DB stats for Dashboard (from analytics API) ──────────────────────────────
+  // ── DB stats for Dashboard (from analytics API) ──────��───────────────────────
   const [dbStats, setDbStats]                   = useState<{
     totalUsers: number; activeMembers: number; todaySignups: number; totalVisits14d: number
     totalVipMembers: number; totalMentorship: number; totalUsdtBuy: number; totalUsdtSell: number
@@ -376,13 +376,25 @@ export default function AdminPanel() {
 
     if (activeSection === "signals") {
       setNewSectionLoading(true)
-      getVipSignals().then(s => { setSignals(s); setNewSectionLoading(false) })
+      fetch("/api/admin/signals")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setSignals(d.data ?? []) })
+        .catch(() => {})
+        .finally(() => setNewSectionLoading(false))
     } else if (activeSection === "memberships") {
       setNewSectionLoading(true)
-      getMemberships().then(m => { setMembershipsData(m); setNewSectionLoading(false) })
+      fetch("/api/admin/memberships")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setMembershipsData(d.data ?? []) })
+        .catch(() => {})
+        .finally(() => setNewSectionLoading(false))
     } else if (activeSection === "performance") {
       setNewSectionLoading(true)
-      getPerformanceStats().then(p => { setPerfStats(p); setNewSectionLoading(false) })
+      fetch("/api/admin/performance")
+        .then(r => r.json())
+        .then(d => { if (d.ok) setPerfStats(d.data ?? []) })
+        .catch(() => {})
+        .finally(() => setNewSectionLoading(false))
     } else if (activeSection === "indicators") {
       setIndicatorsLoading(true)
       listIndicators(false).then(list => { setIndicatorsList(list); setIndicatorsLoading(false) })
@@ -414,34 +426,14 @@ export default function AdminPanel() {
         .catch(() => {})
         .finally(() => setCouponsLoading(false))
     } else if (activeSection === "user-profiles") {
-      // Load both submissions and live dashboard_users in parallel
+      // Load both submissions and live dashboard_users in parallel via API routes
       setUsersLoading(true)
       Promise.all([
         fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
-        import("@/lib/supabase/client").then(({ createClient }) =>
-          createClient()
-            .from("dashboard_users")
-            .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
-            .order("created_at", { ascending: false })
-            .limit(500)
-        ),
-      ]).then(([sub, kyc]: [{ ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
-        if (sub.ok) setSubmissions(sub.data ?? [])
-        if (!kyc.error && kyc.data) {
-          setDashboardUsers(kyc.data.map((u: Record<string, unknown>) => ({
-            userId:             String(u.user_id     ?? ""),
-            fullName:           String(u.full_name   ?? "—"),
-            email:              String(u.email        ?? ""),
-            phone:              u.phone    as string | null,
-            username:           u.username as string | null,
-            createdAt:          String(u.created_at  ?? ""),
-            isVerified:         Boolean(u.is_verified),
-            kycStatus:          u.kyc_status            as string | null,
-            kycDocPan:          u.kyc_doc_pan            as string | null,
-            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
-            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
-          })))
-        }
+        fetch("/api/admin/dashboard-users").then(r => r.json()).catch(() => ({ ok: false })),
+      ]).then(([sub, users]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }]) => {
+        if (sub.ok)   setSubmissions(sub.data ?? [])
+        if (users.ok) setDashboardUsers((users.data ?? []) as DashboardUser[])
       }).catch(() => {}).finally(() => setUsersLoading(false))
     } else if (activeSection === "broker-verifications") {
       fetch("/api/admin/broker-verifications")
@@ -481,20 +473,14 @@ export default function AdminPanel() {
         })
         .catch(() => {})
     } else if (activeSection === "files") {
-      // Load submissions (for payment proofs) + USDT requests + KYC users + broker verifs in parallel
+      // Load submissions + USDT requests + KYC users + broker verifs in parallel via API routes
       Promise.all([
         fetch("/api/admin/submissions").then(r => r.json()),
         fetch("/api/admin/usdt-buy").then(r => r.json()),
         fetch("/api/admin/usdt-sell").then(r => r.json()),
         fetch("/api/admin/broker-verifications").then(r => r.json()),
-        import("@/lib/supabase/client").then(({ createClient }) =>
-          createClient()
-            .from("dashboard_users")
-            .select("user_id, full_name, email, created_at, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
-            .order("created_at", { ascending: false })
-            .limit(500)
-        ),
-      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { error?: unknown; data?: unknown[] }]) => {
+        fetch("/api/admin/dashboard-users?fields=user_id,full_name,email,created_at,kyc_doc_pan,kyc_doc_aadhaar_front,kyc_doc_aadhaar_back").then(r => r.json()),
+      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }]) => {
         if (sub.ok)  setSubmissions(sub.data ?? [])
         if (buy.ok)  setUsdtBuy(buy.data ?? [])
         if (sell.ok) setUsdtSell(sell.data ?? [])
@@ -507,15 +493,15 @@ export default function AdminPanel() {
             createdAt: String(r.created_at ?? ""),
           })))
         }
-        if (!kyc.error && kyc.data) {
-          setKycUsers(kyc.data.map((u: Record<string, unknown>) => ({
-            userId:             String(u.user_id  ?? ""),
-            name:               String(u.full_name ?? "—"),
-            email:              String(u.email     ?? ""),
-            createdAt:          String(u.created_at ?? ""),
-            kycDocPan:          u.kyc_doc_pan            as string | null,
-            kycDocAadhaarFront: u.kyc_doc_aadhaar_front  as string | null,
-            kycDocAadhaarBack:  u.kyc_doc_aadhaar_back   as string | null,
+        if (kyc.ok && kyc.data) {
+          setKycUsers((kyc.data as Record<string, unknown>[]).map(u => ({
+            userId:             String(u.userId  ?? ""),
+            name:               String(u.fullName ?? "—"),
+            email:              String(u.email    ?? ""),
+            createdAt:          String(u.createdAt ?? ""),
+            kycDocPan:          u.kycDocPan          as string | null,
+            kycDocAadhaarFront: u.kycDocAadhaarFront as string | null,
+            kycDocAadhaarBack:  u.kycDocAadhaarBack  as string | null,
           })))
         }
       }).catch(() => {})
@@ -530,42 +516,36 @@ export default function AdminPanel() {
         .then(d => { if (d.ok) setUsdtSell(d.data ?? []) })
         .catch(() => {})
     } else if (activeSection === "members") {
-      // Also pull live users from Supabase to merge with localStorage demo data
-      import("@/lib/supabase/client").then(({ createClient }) => {
-        createClient()
-          .from("dashboard_users")
-          .select("user_id, full_name, email, phone, created_at, is_verified")
-          .order("created_at", { ascending: false })
-          .limit(200)
-          .then(({ data }) => {
-            if (!data?.length) return
-            const liveUsers: Submission[] = data.map(u => ({
-              id: String(u.user_id),
-              userId: String(u.user_id),
-              type: "member" as Submission["type"],
-              name: String(u.full_name || "—"),
-              email: String(u.email || ""),
-              phone: String(u.phone || ""),
-              telegram: "",
-              details: {},
-              status: u.is_verified ? ("approved" as const) : ("pending" as const),
-              paymentMethod: "",
-              amount: "",
-              utr: "",
-              screenshotUrl: "",
-              ipAddress: "",
-              location: "",
-              createdAt: String(u.created_at),
-            }))
-            // Merge: prefer Supabase over demo entries with same userId
-            setSubmissions(prev => {
-              const existingIds = new Set(liveUsers.map(u => u.userId))
-              const filtered = prev.filter(p => !existingIds.has(p.userId))
-              return [...liveUsers, ...filtered]
-            })
+      // Pull live users via API route (never call Supabase client directly)
+      fetch("/api/admin/dashboard-users?fields=user_id,full_name,email,phone,created_at,is_verified&limit=200")
+        .then(r => r.json())
+        .then(d => {
+          if (!d.ok || !d.data?.length) return
+          const liveUsers: Submission[] = (d.data as Record<string, unknown>[]).map(u => ({
+            id:            String(u.userId    ?? ""),
+            userId:        String(u.userId    ?? ""),
+            type:          "member" as Submission["type"],
+            name:          String(u.fullName  ?? "—"),
+            email:         String(u.email     ?? ""),
+            phone:         String(u.phone     ?? ""),
+            telegram:      "",
+            details:       {},
+            status:        u.isVerified ? ("approved" as const) : ("pending" as const),
+            paymentMethod: "",
+            amount:        "",
+            utr:           "",
+            screenshotUrl: "",
+            ipAddress:     "",
+            location:      "",
+            createdAt:     String(u.createdAt ?? ""),
+          }))
+          setSubmissions(prev => {
+            const existingIds = new Set(liveUsers.map(u => u.userId))
+            const filtered = prev.filter(p => !existingIds.has(p.userId))
+            return [...liveUsers, ...filtered]
           })
-          .catch(() => {})
-      })
+        })
+        .catch(() => {})
     }
   }, [activeSection, isAuthenticated])
 
@@ -641,29 +621,36 @@ export default function AdminPanel() {
       }
     }
 
-    // When approving a VIP or Mentorship payment, also activate the membership in Supabase
+    // When approving a VIP or Mentorship payment, also activate the membership via API
     if (status === "approved") {
       const sub = submissions.find(s => s.id === id)
       if (sub && (sub.type === "vip" || sub.type === "vip_group" || sub.type === "vip_membership" || sub.type === "mentorship")) {
         const email = sub.email ?? String(sub.details?.email ?? "")
         if (email) {
-          const supabase = (await import("@/lib/supabase/client")).createClient()
+          // Find pending membership via API route (no Supabase client direct call)
+          const memRes = await fetch(`/api/admin/memberships`).then(r => r.json()).catch(() => ({ ok: false }))
+          const pendingMem = memRes.ok
+            ? (memRes.data as Array<{ id: string; userEmail: string; plan: string; status: string }>)
+                .find(m => m.userEmail === email && m.status === "pending")
+            : null
 
-          // Find the pending membership record for this user
-          const { data: rows } = await supabase
-            .from("memberships")
-            .select("id, plan")
-            .eq("email", email)
-            .eq("status", "pending")
-            .order("created_at", { ascending: false })
-            .limit(1)
-
-          if (rows && rows.length > 0) {
-            const mem = rows[0]
-            await approveMembership(String(mem.id), String(mem.plan), id)
-          } else {
-            // No pending membership row — just mark submission approved in Supabase too
-            await supabase.from("admin_submissions").update({ status: "approved" }).eq("id", id)
+          if (pendingMem) {
+            // Compute join/expiry dates
+            const PLAN_MONTHS: Record<string, number> = {
+              "VIP": 1, "VIP Group": 1, "Mentorship 1.0": 2, "Mentorship 2.0": 3, "Mentorship": 2,
+            }
+            const months = PLAN_MONTHS[pendingMem.plan] ?? 1
+            const now = new Date()
+            const exp = new Date(now); exp.setMonth(exp.getMonth() + months)
+            await fetch("/api/admin/memberships", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: pendingMem.id, status: "active",
+                joinedAt: now.toISOString(), expiresAt: exp.toISOString(),
+                submissionId: id,
+              }),
+            }).catch(() => {})
           }
         }
       }
@@ -2919,7 +2906,7 @@ export default function AdminPanel() {
     )
   }
 
-  // ── Performance Manager ───────────────────────────────────────���───────────────
+  // ── Performance Manager ───────────────────────────────────────����───────────────
   const renderPerformanceManager = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Performance Manager</h2>

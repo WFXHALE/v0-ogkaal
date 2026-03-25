@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServiceClient } from "@/lib/supabase/service"
+import { query, queryOne } from "@/lib/db"
 
 /**
- * GET  /api/admin/settings          — returns { system_config, pricing, admin_profile }
- * POST /api/admin/settings          — upserts a key/value pair
+ * GET  /api/admin/settings  — returns { system_config, pricing, admin_profile }
+ * POST /api/admin/settings  — upserts a key/value pair
  * Body: { key: "system_config" | "pricing" | "admin_profile", value: object }
  *
- * Uses the service-role key so it bypasses the admin_all_settings RLS policy
- * that blocks reads/writes with the anon key.
+ * Uses lib/db (pg over Supabase session pooler) — no Supabase JS client so
+ * there is no ENOTFOUND DNS failure in the Vercel preview sandbox.
  */
 
 export const dynamic = "force-dynamic"
 
 const ALLOWED_KEYS = ["system_config", "pricing", "admin_profile"] as const
-type SettingKey = typeof ALLOWED_KEYS[number]
+type SettingKey = (typeof ALLOWED_KEYS)[number]
 
 export async function GET() {
   try {
-    const sb = createServiceClient()
-    const { data, error } = await sb
-      .from("admin_settings")
-      .select("key, value")
-      .in("key", [...ALLOWED_KEYS])
-
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-    }
+    const rows = await query<{ key: string; value: unknown }>(
+      "SELECT key, value FROM admin_settings WHERE key = ANY($1::text[])",
+      [ALLOWED_KEYS as unknown as string[]],
+    )
 
     const result: Record<string, unknown> = {}
-    for (const row of data ?? []) {
-      result[row.key as string] = row.value
+    for (const row of rows) {
+      result[row.key] = row.value
     }
 
     return NextResponse.json(
@@ -54,16 +49,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "value must be an object" }, { status: 400 })
     }
 
-    const sb = createServiceClient()
-    const { error } = await sb
-      .from("admin_settings")
-      .upsert(
-        { key, value, updated_at: new Date().toISOString() },
-        { onConflict: "key" },
-      )
+    // Check if the row already exists
+    const existing = await queryOne(
+      "SELECT id FROM admin_settings WHERE key = $1",
+      [key],
+    )
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (existing) {
+      await query(
+        "UPDATE admin_settings SET value = $1, updated_at = NOW() WHERE key = $2",
+        [JSON.stringify(value), key],
+      )
+    } else {
+      await query(
+        "INSERT INTO admin_settings (key, value, updated_at) VALUES ($1, $2, NOW())",
+        [key, JSON.stringify(value)],
+      )
     }
 
     return NextResponse.json({ ok: true })

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServiceClient } from "@/lib/supabase/service"
+import { queryOne } from "@/lib/db"
 
 /**
  * POST /api/coupons/validate
- * Body: { code: string, applies_to: string }
+ * Body: { code: string, applies_to?: string }
  * Validates a coupon code and returns discount info.
- * Uses service client because discount_campaigns RLS only allows admin access.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,15 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Coupon code is required" }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
-
-    const { data, error } = await supabase
-      .from("discount_campaigns")
-      .select("id, code, description, discount_pct, discount_type, discount_amount, applies_to, is_active, expiry_date, usage_count, max_uses")
-      .eq("code", code.trim().toUpperCase())
-      .maybeSingle()
-
-    if (error) throw error
+    const data = await queryOne<Record<string, unknown>>(
+      `SELECT id, code, description, discount_pct, discount_type, discount_amount,
+              applies_to, is_active, expiry_date, usage_count, max_uses
+       FROM discount_campaigns
+       WHERE code = $1`,
+      [code.trim().toUpperCase()],
+    )
 
     if (!data) {
       return NextResponse.json({ ok: false, error: "Invalid coupon code" })
@@ -32,17 +29,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "This coupon is no longer active" })
     }
 
-    if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+    if (data.expiry_date && new Date(data.expiry_date as string) < new Date()) {
       return NextResponse.json({ ok: false, error: "This coupon has expired" })
     }
 
-    if (data.max_uses !== null && data.usage_count >= data.max_uses) {
+    const maxUses    = data.max_uses    != null ? Number(data.max_uses)    : null
+    const usageCount = Number(data.usage_count ?? 0)
+    if (maxUses !== null && usageCount >= maxUses) {
       return NextResponse.json({ ok: false, error: "This coupon has reached its usage limit" })
     }
 
-    // Check applies_to — if coupon has restrictions, verify the context matches
-    if (applies_to && data.applies_to && data.applies_to.length > 0) {
-      const matches = data.applies_to.some((a: string) =>
+    // Check applies_to restriction
+    // applies_to is stored as a JSON array in Postgres (text[] or jsonb)
+    const rawApplies = data.applies_to
+    const appliesArr: string[] = Array.isArray(rawApplies)
+      ? (rawApplies as string[])
+      : typeof rawApplies === "string"
+        ? (JSON.parse(rawApplies) as string[])
+        : []
+
+    if (applies_to && appliesArr.length > 0) {
+      const matches = appliesArr.some((a: string) =>
         a.toLowerCase() === applies_to.toLowerCase() ||
         applies_to.toLowerCase().includes(a.toLowerCase())
       )
@@ -54,12 +61,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       coupon: {
-        id:              data.id,
-        code:            data.code,
-        description:     data.description,
-        discountType:    data.discount_type ?? "percent",
-        discountPct:     data.discount_pct ?? 0,
-        discountAmount:  data.discount_amount ?? null,
+        id:             data.id,
+        code:           data.code,
+        description:    data.description,
+        discountType:   data.discount_type ?? "percent",
+        discountPct:    Number(data.discount_pct ?? 0),
+        discountAmount: data.discount_amount ?? null,
       },
     })
   } catch (err) {

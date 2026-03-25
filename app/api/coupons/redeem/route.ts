@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServiceClient } from "@/lib/supabase/service"
+import { query, queryOne } from "@/lib/db"
 
 /**
  * POST /api/coupons/redeem
  * Body: { id: string }
  * Increments usage_count for the given coupon id.
- * Uses service client because discount_campaigns RLS only allows admin access.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,30 +13,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Missing coupon id" }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
+    const coupon = await queryOne<Record<string, unknown>>(
+      "SELECT usage_count, max_uses, is_active FROM discount_campaigns WHERE id = $1",
+      [id],
+    )
 
-    // Fetch current usage_count and max_uses first to avoid exceeding the cap
-    const { data: coupon, error: fetchErr } = await supabase
-      .from("discount_campaigns")
-      .select("usage_count, max_uses, is_active")
-      .eq("id", id)
-      .maybeSingle()
-
-    if (fetchErr || !coupon) {
+    if (!coupon) {
       return NextResponse.json({ ok: false, error: "Coupon not found" }, { status: 404 })
     }
 
+    const maxUses    = coupon.max_uses    != null ? Number(coupon.max_uses)    : null
+    const usageCount = Number(coupon.usage_count ?? 0)
+
     // Guard: don't increment beyond max_uses
-    if (coupon.max_uses !== null && coupon.usage_count >= coupon.max_uses) {
+    if (maxUses !== null && usageCount >= maxUses) {
       return NextResponse.json({ ok: true, skipped: true })
     }
 
-    const { error: updateErr } = await supabase
-      .from("discount_campaigns")
-      .update({ usage_count: coupon.usage_count + 1 })
-      .eq("id", id)
-
-    if (updateErr) throw updateErr
+    await query(
+      "UPDATE discount_campaigns SET usage_count = usage_count + 1 WHERE id = $1",
+      [id],
+    )
 
     return NextResponse.json({ ok: true })
   } catch (err) {
