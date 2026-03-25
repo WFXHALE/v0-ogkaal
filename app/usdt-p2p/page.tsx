@@ -638,7 +638,7 @@ export default function UsdtP2PPage() {
                   {sellStep === -1 && (
                     <div className="flex flex-col items-center gap-3">
                       <Button
-                        onClick={() => setSellStep(0)}
+                        onClick={() => setSellStep(1)}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                       >
                         Sell USDT Now
@@ -654,50 +654,16 @@ export default function UsdtP2PPage() {
                     </div>
                   )}
 
-                  {/* Method Selection */}
-                  {sellStep === 0 && (
-                    <div>
-                      <h4 className="text-center text-sm font-medium text-foreground mb-4">Choose Sell Method</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
-                        >
-                          <a href={BINANCE_P2P_LINK} target="_blank" rel="noopener noreferrer">
-                            <div className="flex flex-col items-center gap-2">
-                              <ExternalLink className="w-6 h-6 text-primary" />
-                              <span className="font-semibold text-foreground">Binance P2P</span>
-                              <span className="text-xs text-muted-foreground">Sell on Binance</span>
-                            </div>
-                          </a>
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          onClick={() => setSellStep(1)}
-                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <Wallet className="w-6 h-6 text-primary" />
-                            <span className="font-semibold text-foreground">KAAL P2P</span>
-                            <span className="text-xs text-muted-foreground">Direct transfer</span>
-                          </div>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* KAAL P2P Form */}
                   {sellStep === 1 && (
                     <div>
                       <Button
                         variant="ghost"
-                        onClick={() => setSellStep(0)}
+                        onClick={() => setSellStep(-1)}
                         className="mb-4 text-muted-foreground"
                       >
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to methods
+                        Back
                       </Button>
 
                       <h4 className="text-lg font-semibold text-foreground mb-6">KAAL P2P - Sell USDT</h4>
