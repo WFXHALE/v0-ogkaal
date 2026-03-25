@@ -1,27 +1,28 @@
 import { NextResponse } from "next/server"
-import { createServiceClient } from "@/lib/supabase/service"
+import { query } from "@/lib/db"
 import { DEFAULT_PRICING, DEFAULT_SYSTEM, type PricingConfig, type SystemConfig } from "@/lib/admin-settings"
 
 export const dynamic = "force-dynamic"
 
 /**
  * GET /api/pricing
- * Returns merged system config + pricing from Supabase admin_settings.
- * Uses the service-role key so it bypasses the restrictive RLS policy on
- * admin_settings (which only allows admin users by default).
+ * Returns merged system config + pricing from admin_settings via lib/db (pg).
+ * No Supabase JS client — avoids ENOTFOUND DNS failures in Vercel preview.
  * No auth required — pricing is public information shown on checkout pages.
  */
 export async function GET() {
   try {
-    const supabase = createServiceClient()
+    const rows = await query<{ key: string; value: unknown }>(
+      "SELECT key, value FROM admin_settings WHERE key IN ('system_config', 'pricing')",
+    )
 
-    const [sysRes, priceRes] = await Promise.all([
-      supabase.from("admin_settings").select("value").eq("key", "system_config").maybeSingle(),
-      supabase.from("admin_settings").select("value").eq("key", "pricing").maybeSingle(),
-    ])
+    let sysVal:   Partial<SystemConfig>  = {}
+    let priceVal: Partial<PricingConfig> = {}
 
-    const sysVal   = (sysRes.data?.value   as Partial<SystemConfig>  | null) ?? {}
-    const priceVal = (priceRes.data?.value as Partial<PricingConfig> | null) ?? {}
+    for (const row of rows) {
+      if (row.key === "system_config") sysVal   = row.value as Partial<SystemConfig>
+      if (row.key === "pricing")       priceVal = row.value as Partial<PricingConfig>
+    }
 
     const merged = {
       ...DEFAULT_SYSTEM,
@@ -31,16 +32,13 @@ export async function GET() {
     }
 
     return NextResponse.json({ ok: true, config: merged }, {
-      headers: {
-        // No-cache so every request gets fresh values from DB
-        "Cache-Control": "no-store, max-age=0",
-      },
+      headers: { "Cache-Control": "no-store, max-age=0" },
     })
   } catch (err) {
     // Return defaults so the frontend never crashes
     return NextResponse.json(
       { ok: false, config: { ...DEFAULT_SYSTEM, ...DEFAULT_PRICING }, error: String(err) },
-      { status: 200 }  // still 200 so clients can fall back gracefully
+      { status: 200 },
     )
   }
 }

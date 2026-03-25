@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { getSession } from "@/lib/community-utils"
-import { getMembershipByEmail, getMembershipByUserId, getVipSignals } from "@/lib/membership-store"
 import type { VipSignal } from "@/lib/membership-store"
 import {
   Crown, TrendingUp, TrendingDown, CheckCircle, XCircle,
@@ -54,27 +53,9 @@ function SignalCard({ signal }: { signal: VipSignal }) {
         </div>
         <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-center">
           <p className="text-xs text-muted-foreground mb-1">Take Profit</p>
-          <p className="text-sm font-bold text-green-400">{signal.takeProfit1}</p>
+          <p className="text-sm font-bold text-green-400">{signal.takeProfit}</p>
         </div>
       </div>
-
-      {/* Extra TPs */}
-      {(signal.takeProfit2 || signal.takeProfit3) && (
-        <div className="flex gap-2 flex-wrap">
-          {signal.takeProfit2 && (
-            <div className="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
-              <span className="text-xs text-muted-foreground">TP2: </span>
-              <span className="text-xs font-bold text-green-400">{signal.takeProfit2}</span>
-            </div>
-          )}
-          {signal.takeProfit3 && (
-            <div className="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
-              <span className="text-xs text-muted-foreground">TP3: </span>
-              <span className="text-xs font-bold text-green-400">{signal.takeProfit3}</span>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Notes & result */}
       {signal.notes && (
@@ -88,7 +69,7 @@ function SignalCard({ signal }: { signal: VipSignal }) {
 
       {/* Timestamp */}
       <p className="text-xs text-muted-foreground pt-1">
-        {new Date(signal.postedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+        {new Date(signal.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
       </p>
     </div>
   )
@@ -107,15 +88,18 @@ export default function VipSignalsPage() {
       const user = getSession()
       if (!user) { router.replace("/community"); return }
 
-      let m = await getMembershipByUserId(user.id)
-      if (!m) m = await getMembershipByEmail(user.email)
+      // Use server-side API routes — never call Supabase client directly from browser
+      const memRes = await fetch(
+        `/api/memberships/check?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email)}`,
+      ).then(r => r.json()).catch(() => ({ ok: false, membership: null }))
 
+      const m = memRes.membership as { status: string; plan: string } | null
       const canAccess = m?.status === "active" && (m.plan === "VIP" || m.plan === "VIP Group")
       setAuthorized(canAccess)
 
       if (canAccess) {
-        const s = await getVipSignals()
-        setSignals(s)
+        const sigRes = await fetch("/api/admin/signals").then(r => r.json()).catch(() => ({ ok: false }))
+        if (sigRes.ok) setSignals(sigRes.data ?? [])
       }
       setLoading(false)
     }
@@ -124,8 +108,8 @@ export default function VipSignalsPage() {
 
   const refresh = async () => {
     setRefreshing(true)
-    const s = await getVipSignals()
-    setSignals(s)
+    const sigRes = await fetch("/api/admin/signals").then(r => r.json()).catch(() => ({ ok: false }))
+    if (sigRes.ok) setSignals(sigRes.data ?? [])
     setRefreshing(false)
   }
 

@@ -149,6 +149,7 @@ export default function UsdtP2PPage() {
     // Google Pay
     gpayNumber: "",
     // Common fields
+    name: "",
     phone: "",
     telegram: "",
     screenshot: null as File | null,
@@ -637,7 +638,7 @@ export default function UsdtP2PPage() {
                   {sellStep === -1 && (
                     <div className="flex flex-col items-center gap-3">
                       <Button
-                        onClick={() => setSellStep(0)}
+                        onClick={() => setSellStep(1)}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                       >
                         Sell USDT Now
@@ -653,50 +654,16 @@ export default function UsdtP2PPage() {
                     </div>
                   )}
 
-                  {/* Method Selection */}
-                  {sellStep === 0 && (
-                    <div>
-                      <h4 className="text-center text-sm font-medium text-foreground mb-4">Choose Sell Method</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
-                        >
-                          <a href={BINANCE_P2P_LINK} target="_blank" rel="noopener noreferrer">
-                            <div className="flex flex-col items-center gap-2">
-                              <ExternalLink className="w-6 h-6 text-primary" />
-                              <span className="font-semibold text-foreground">Binance P2P</span>
-                              <span className="text-xs text-muted-foreground">Sell on Binance</span>
-                            </div>
-                          </a>
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          onClick={() => setSellStep(1)}
-                          className="h-auto py-4 px-6 border-border hover:border-primary/50 hover:bg-primary/5"
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <Wallet className="w-6 h-6 text-primary" />
-                            <span className="font-semibold text-foreground">KAAL P2P</span>
-                            <span className="text-xs text-muted-foreground">Direct transfer</span>
-                          </div>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* KAAL P2P Form */}
                   {sellStep === 1 && (
                     <div>
                       <Button
                         variant="ghost"
-                        onClick={() => setSellStep(0)}
+                        onClick={() => setSellStep(-1)}
                         className="mb-4 text-muted-foreground"
                       >
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to methods
+                        Back
                       </Button>
 
                       <h4 className="text-lg font-semibold text-foreground mb-6">KAAL P2P - Sell USDT</h4>
@@ -896,6 +863,16 @@ export default function UsdtP2PPage() {
                         </div>
                         <div className="space-y-4">
                           <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
+                            <input
+                              type="text"
+                              value={sellFormData.name}
+                              onChange={(e) => setSellFormData(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="Enter your full name"
+                            />
+                          </div>
+                          <div>
                             <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
                             <input
                               type="tel"
@@ -921,30 +898,65 @@ export default function UsdtP2PPage() {
                       {/* Submit Button */}
                       <Button
                         onClick={async () => {
-                          const paymentDetails = sellFormData.paymentMethodType === "upi" 
-                            ? { type: "UPI", upiId: sellFormData.upiId }
+                          // Derive UPI ID and UPI Name from selected payment method
+                          const upiId = sellFormData.paymentMethodType === "upi"
+                            ? sellFormData.upiId
+                            : sellFormData.paymentMethodType === "gpay"
+                            ? sellFormData.gpayNumber
+                            : ""
+                          const upiName = sellFormData.paymentMethodType === "upi"
+                            ? sellFormData.upiId
                             : sellFormData.paymentMethodType === "imps"
-                            ? { type: "IMPS", accountHolder: sellFormData.accountHolderName, accountNumber: sellFormData.accountNumber, ifsc: sellFormData.ifscCode, bank: sellFormData.bankName }
-                            : { type: "Google Pay", gpayNumber: sellFormData.gpayNumber }
-                          
+                            ? sellFormData.accountHolderName
+                            : sellFormData.gpayNumber
+
+                          // Save to usdt_sell_requests table directly (returns id)
+                          let requestId = "N/A"
+                          try {
+                            const sellRes = await fetch("/api/admin/usdt-sell", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                name:               sellFormData.name || "Sell Request",
+                                phone:              sellFormData.phone,
+                                telegram:           sellFormData.telegram,
+                                usdtAmount:         `${sellAmount}`,
+                                upiId,
+                                upiName,
+                                paymentMethodType:  sellFormData.paymentMethodType,
+                                walletAddress:      sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].address : "",
+                              }),
+                            })
+                            const sellJson = await sellRes.json()
+                            if (sellJson.ok && sellJson.id) {
+                              requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                            }
+                          } catch { /* silent */ }
+
+                          // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            name: "Sell Request",
+                            name: sellFormData.name || "Sell Request",
                             telegram: sellFormData.telegram,
                             phone: sellFormData.phone,
                             details: {
                               action: "sell",
-          amount: `${sellAmount} USDT`,
-          rate: `₹${sellRate} per USDT`,
+                              amount: `${sellAmount} USDT`,
+                              rate: `₹${sellRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
-                              paymentMethod: paymentDetails
+                              upiId,
+                              upiName,
+                              accountHolderName: sellFormData.accountHolderName,
+                              requestId,
+                              paymentMethodType: sellFormData.paymentMethodType,
                             }
                           })
                           setSellStep(2)
                         }}
                         disabled={
                           !sellNetwork ||
-                          !sellFormData.screenshot || 
+                          !sellFormData.screenshot ||
+                          !sellFormData.name ||
                           !sellFormData.phone || 
                           !sellFormData.telegram ||
                           !sellFormData.paymentMethodType ||
@@ -996,7 +1008,7 @@ export default function UsdtP2PPage() {
                         onClick={() => {
                           setSellStep(-1)
                           setSellNetwork("")
-                          setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", phone: "", telegram: "", screenshot: null })
+                          setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", name: "", phone: "", telegram: "", screenshot: null })
                           setSellUsdtAmount("")
                         }}
                         className="mt-4 text-muted-foreground"

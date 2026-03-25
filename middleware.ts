@@ -26,37 +26,24 @@ function isMaintenanceBypassed(pathname: string): boolean {
 }
 
 /**
- * Check if maintenance mode is enabled by reading from Supabase REST API.
- * We use the raw REST API here because middleware runs on the Edge runtime
- * and cannot use the Node.js-based @supabase/ssr createServerClient.
- * Result is cached for 10 seconds via the `next` option to avoid hammering the DB.
+ * Check if maintenance mode is enabled by calling our own /api/pricing route.
+ * We cannot call Supabase REST directly from middleware because the DNS for
+ * the Supabase project hostname fails in Vercel sandbox environments.
+ * /api/pricing uses lib/db (pg over IPv4 pooler) which works correctly.
  */
-async function isMaintenanceModeOn(): Promise<boolean> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  // Use the service role key so we can bypass the restrictive admin_settings RLS policy.
-  // The anon key cannot read admin_settings (only the admin_all_settings policy allows it).
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return false
-
+async function isMaintenanceModeOn(request: NextRequest): Promise<boolean> {
   try {
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/admin_settings?key=eq.system_config&select=value`,
-      {
-        headers: {
-          apikey:        supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          Accept:        'application/json',
-        },
-        // No caching — maintenance mode must reflect DB state immediately
-        cache: 'no-store',
-      }
-    )
+    // Build an absolute URL to our own /api/pricing endpoint
+    const url = new URL('/api/pricing', request.url)
+    const res = await fetch(url.toString(), {
+      headers: { 'x-internal-middleware': '1' },
+      cache: 'no-store',
+    })
     if (!res.ok) return false
-    const rows = await res.json() as Array<{ value: Record<string, unknown> }>
-    const config = rows?.[0]?.value
-    return config?.maintenanceMode === true
+    const json = await res.json() as { config?: { maintenanceMode?: boolean } }
+    return json?.config?.maintenanceMode === true
   } catch {
-    // If the DB check fails, don't block the site
+    // If the check fails, don't block the site
     return false
   }
 }
@@ -81,7 +68,7 @@ export async function middleware(request: NextRequest) {
       p => pathname === p || pathname.startsWith(p + '/')
     )
     if (!isAdmin) {
-      const maintenanceOn = await isMaintenanceModeOn()
+      const maintenanceOn = await isMaintenanceModeOn(request)
       if (maintenanceOn) {
         const url = request.nextUrl.clone()
         url.pathname = '/maintenance'
