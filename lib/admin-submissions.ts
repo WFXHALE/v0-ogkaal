@@ -21,15 +21,38 @@ async function notifyAdmin(data: SubmissionData): Promise<void> {
     if (type === "usdt_p2p") {
       const action = String(details.action ?? "order").toUpperCase()
       const amount = String(details.amount ?? "N/A")
-      const wallet = details.walletAddress ? `\nWallet: <code>${String(details.walletAddress)}</code>` : ""
-      const utr    = details.utrNumber ? `\nUTR: <code>${String(details.utrNumber)}</code>` : ""
-      text =
-        `<b>New USDT ${action} Request</b>\n` +
-        `User: ${name}\n` +
-        `Phone: ${phone ?? "N/A"}\n` +
-        `Telegram: ${telegram ?? "N/A"}\n` +
-        `Amount: ${amount}${wallet}${utr}\n\n` +
-        `<i>— OG KAAL TRADER Admin</i>`
+
+      if (action === "SELL") {
+        // Full sell notification with all payment details
+        const upiId    = String(details.upiId    ?? "N/A")
+        const upiName  = String(details.upiName  ?? details.accountHolderName ?? "N/A")
+        const requestId = String(details.requestId ?? "N/A")
+        const now      = new Date()
+        const dateStr  = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        const timeStr  = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+        text =
+          `<b>New USDT SELL Request</b>\n\n` +
+          `User: ${name}\n` +
+          `Phone: ${phone ?? "N/A"}\n` +
+          `Telegram: ${telegram ?? "N/A"}\n` +
+          `Amount: ${amount}\n` +
+          `UPI ID: <code>${upiId}</code>\n` +
+          `UPI Name: ${upiName}\n` +
+          `Date: ${dateStr}\n` +
+          `Time: ${timeStr}\n` +
+          `Request ID: <code>${requestId}</code>\n\n` +
+          `<i>— OG KAAL TRADER Admin</i>`
+      } else {
+        const wallet = details.walletAddress ? `\nWallet: <code>${String(details.walletAddress)}</code>` : ""
+        const utr    = details.utrNumber ? `\nUTR: <code>${String(details.utrNumber)}</code>` : ""
+        text =
+          `<b>New USDT ${action} Request</b>\n` +
+          `User: ${name}\n` +
+          `Phone: ${phone ?? "N/A"}\n` +
+          `Telegram: ${telegram ?? "N/A"}\n` +
+          `Amount: ${amount}${wallet}${utr}\n\n` +
+          `<i>— OG KAAL TRADER Admin</i>`
+      }
     } else if (type === "mentorship") {
       const program = String(details.program ?? "Mentorship")
       text =

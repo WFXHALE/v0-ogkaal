@@ -149,6 +149,7 @@ export default function UsdtP2PPage() {
     // Google Pay
     gpayNumber: "",
     // Common fields
+    name: "",
     phone: "",
     telegram: "",
     screenshot: null as File | null,
@@ -896,6 +897,16 @@ export default function UsdtP2PPage() {
                         </div>
                         <div className="space-y-4">
                           <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
+                            <input
+                              type="text"
+                              value={sellFormData.name}
+                              onChange={(e) => setSellFormData(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="Enter your full name"
+                            />
+                          </div>
+                          <div>
                             <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
                             <input
                               type="tel"
@@ -921,30 +932,65 @@ export default function UsdtP2PPage() {
                       {/* Submit Button */}
                       <Button
                         onClick={async () => {
-                          const paymentDetails = sellFormData.paymentMethodType === "upi" 
-                            ? { type: "UPI", upiId: sellFormData.upiId }
+                          // Derive UPI ID and UPI Name from selected payment method
+                          const upiId = sellFormData.paymentMethodType === "upi"
+                            ? sellFormData.upiId
+                            : sellFormData.paymentMethodType === "gpay"
+                            ? sellFormData.gpayNumber
+                            : ""
+                          const upiName = sellFormData.paymentMethodType === "upi"
+                            ? sellFormData.upiId
                             : sellFormData.paymentMethodType === "imps"
-                            ? { type: "IMPS", accountHolder: sellFormData.accountHolderName, accountNumber: sellFormData.accountNumber, ifsc: sellFormData.ifscCode, bank: sellFormData.bankName }
-                            : { type: "Google Pay", gpayNumber: sellFormData.gpayNumber }
-                          
+                            ? sellFormData.accountHolderName
+                            : sellFormData.gpayNumber
+
+                          // Save to usdt_sell_requests table directly (returns id)
+                          let requestId = "N/A"
+                          try {
+                            const sellRes = await fetch("/api/admin/usdt-sell", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                name:               sellFormData.name || "Sell Request",
+                                phone:              sellFormData.phone,
+                                telegram:           sellFormData.telegram,
+                                usdtAmount:         `${sellAmount}`,
+                                upiId,
+                                upiName,
+                                paymentMethodType:  sellFormData.paymentMethodType,
+                                walletAddress:      sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].address : "",
+                              }),
+                            })
+                            const sellJson = await sellRes.json()
+                            if (sellJson.ok && sellJson.id) {
+                              requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                            }
+                          } catch { /* silent */ }
+
+                          // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            name: "Sell Request",
+                            name: sellFormData.name || "Sell Request",
                             telegram: sellFormData.telegram,
                             phone: sellFormData.phone,
                             details: {
                               action: "sell",
-          amount: `${sellAmount} USDT`,
-          rate: `₹${sellRate} per USDT`,
+                              amount: `${sellAmount} USDT`,
+                              rate: `₹${sellRate} per USDT`,
                               network: sellNetwork ? KAAL_WALLETS[sellNetwork as keyof typeof KAAL_WALLETS].label : "",
-                              paymentMethod: paymentDetails
+                              upiId,
+                              upiName,
+                              accountHolderName: sellFormData.accountHolderName,
+                              requestId,
+                              paymentMethodType: sellFormData.paymentMethodType,
                             }
                           })
                           setSellStep(2)
                         }}
                         disabled={
                           !sellNetwork ||
-                          !sellFormData.screenshot || 
+                          !sellFormData.screenshot ||
+                          !sellFormData.name ||
                           !sellFormData.phone || 
                           !sellFormData.telegram ||
                           !sellFormData.paymentMethodType ||
@@ -996,7 +1042,7 @@ export default function UsdtP2PPage() {
                         onClick={() => {
                           setSellStep(-1)
                           setSellNetwork("")
-                          setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", phone: "", telegram: "", screenshot: null })
+                          setSellFormData({ paymentMethodType: "", upiId: "", accountNumber: "", ifscCode: "", bankName: "", accountHolderName: "", gpayNumber: "", name: "", phone: "", telegram: "", screenshot: null })
                           setSellUsdtAmount("")
                         }}
                         className="mt-4 text-muted-foreground"

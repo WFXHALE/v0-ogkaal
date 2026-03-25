@@ -101,11 +101,14 @@ interface USDTSellRequest {
   phone: string
   telegram?: string
   upiId: string
+  upiName?: string
+  paymentMethodType?: string
   walletAddress: string
   usdtAmount: string
   txId: string
   screenshotUrl: string
-  status: "pending" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
+  notificationStatus?: string
+  status: "pending" | "paid" | "accepted" | "processing" | "completed" | "cancelled" | "rejected"
   createdAt: string
 }
 
@@ -167,6 +170,7 @@ function statusBadge(status: string) {
   const map: Record<string, string> = {
     pending:   "bg-amber-500/10 text-amber-400 border-amber-500/30",
     approved:  "bg-green-500/10 text-green-400 border-green-500/30",
+    paid:      "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
     accepted:  "bg-blue-500/10 text-blue-400 border-blue-500/30",
     completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
     cancelled:  "bg-orange-500/10 text-orange-400 border-orange-500/30",
@@ -693,6 +697,7 @@ export default function AdminPanel() {
   }
 
   const USDT_SELL_MESSAGES: Record<string, { title: string; body: string }> = {
+    paid:      { title: "INR Payment Sent",          body: "INR has been sent to your UPI/bank account. Check your account now."     },
     accepted:  { title: "USDT Sell Order Accepted",  body: "Your USDT sell order has been accepted. Processing your INR payout."     },
     completed: { title: "INR Payout Sent",           body: "Your USDT sale is complete. INR has been sent to your UPI account."      },
     cancelled: { title: "USDT Sell Order Cancelled", body: "Your USDT sell request was cancelled. Contact support if needed."        },
@@ -744,7 +749,9 @@ export default function AdminPanel() {
     }
     // Telegram notification to user
     if (order?.telegram) {
-      const tgMsg = status === "accepted"
+      const tgMsg = status === "paid"
+        ? `<b>INR Payment Sent</b>\n\nYour USDT sell request has been paid. INR has been sent to your ${order.paymentMethodType === "imps" ? "bank account" : "UPI/GPay"}.\n\nAmount: ${order.usdtAmount ?? "N/A"} USDT\nUPI/Account: ${order.upiId || "—"}\n\n<i>— OG KAAL TRADER</i>`
+        : status === "accepted"
         ? `<b>USDT Sell Order Accepted</b>\n\nYour USDT sell request has been accepted. Processing your INR payout.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
         : status === "completed"
         ? `<b>INR Payout Sent</b>\n\nYour USDT sale is complete. INR has been sent to your account.\n\n<i>— OG KAAL TRADER</i>`
@@ -921,7 +928,7 @@ export default function AdminPanel() {
 
   // Auth removed — render immediately.
 
-  // ── Sub-components ───────────────────────────────────────────────────────────
+  // ── Sub-components ─��─────────────────────────────────────────────────────────
 
   const ScreenshotModal = () => {
     if (!screenshotModal) return null
@@ -1395,10 +1402,18 @@ export default function AdminPanel() {
           {isBuy && buy.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={buy.walletAddress}>{buy.walletAddress.slice(0, 16)}…</span></>}
           {isBuy && buy.inrEquivalent && <><span className="text-muted-foreground">INR Equiv.</span><span className="text-foreground">{buy.inrEquivalent}</span></>}
           {isBuy && buy.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{buy.txId}</span></>}
-          {!isBuy && sell.upiId && <><span className="text-muted-foreground">UPI ID</span><span className="text-foreground font-mono">{sell.upiId}</span></>}
+          {!isBuy && sell.upiId && <><span className="text-muted-foreground">UPI ID</span><span className="text-foreground font-mono select-all">{sell.upiId}</span></>}
+          {!isBuy && sell.upiName && <><span className="text-muted-foreground">UPI Name</span><span className="text-foreground font-semibold">{sell.upiName}</span></>}
+          {!isBuy && sell.paymentMethodType && <><span className="text-muted-foreground">Pay Method</span><span className="text-foreground capitalize">{sell.paymentMethodType === "gpay" ? "Google Pay" : sell.paymentMethodType === "imps" ? "IMPS/Bank" : sell.paymentMethodType.toUpperCase()}</span></>}
           {!isBuy && sell.walletAddress && <><span className="text-muted-foreground">Wallet</span><span className="text-foreground font-mono truncate" title={sell.walletAddress}>{sell.walletAddress.slice(0, 16)}…</span></>}
           {!isBuy && sell.txId && <><span className="text-muted-foreground">TX ID</span><span className="text-foreground font-mono truncate">{sell.txId}</span></>}
-          <span className="text-muted-foreground">Submitted</span><span className="text-foreground">{timeAgo(r.createdAt)}</span>
+          <span className="text-muted-foreground">Submitted</span>
+          <span className="text-foreground">
+            {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+            {" "}
+            {new Date(r.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+          </span>
+          <span className="text-muted-foreground">Request ID</span><span className="text-foreground font-mono text-xs">{r.id.slice(0, 8).toUpperCase()}</span>
         </div>
 
         {/* Screenshot */}
@@ -1434,10 +1449,13 @@ export default function AdminPanel() {
                 <button onClick={() => updateBuyStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
               </>
             ) : (
-              <>
-                <button onClick={() => updateSellStatus(r.id, "accepted")}  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Accept</button>
-                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
-              </>
+              <div className="flex flex-col gap-1.5 w-full">
+                <div className="flex gap-1.5">
+                  <button onClick={() => updateSellStatus(r.id, "paid")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"><DollarSign className="w-3.5 h-3.5" />Mark Paid</button>
+                  <button onClick={() => updateSellStatus(r.id, "completed")} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"><CheckCircle className="w-3.5 h-3.5" />Complete</button>
+                </div>
+                <button onClick={() => updateSellStatus(r.id, "cancelled")} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"><Ban className="w-3.5 h-3.5" />Cancel</button>
+              </div>
             )
           )}
         </div>
@@ -2127,7 +2145,7 @@ export default function AdminPanel() {
       { label: "Members Database", desc: "All registered members with contact info and membership status", count: userList.length, action: () => downloadCSV(userList.map(u => ({ userId: u.userId, name: u.name, email: u.email || "", phone: u.phone || "", telegram: u.telegram || "", type: u.type, status: u.status, joined: u.createdAt })), "members.csv") },
       { label: "Payment Records",  desc: "All payment submissions including status, amounts, and UTR numbers", count: submissions.length, action: () => downloadCSV(submissions.map(s => ({ id: s.id, userId: s.userId, name: s.name, method: s.paymentMethod, amount: s.amount, utr: s.utr, status: s.status, date: s.createdAt })), "payments.csv") },
       { label: "USDT Buy Requests", desc: "All USDT buy requests with wallet addresses and transaction IDs", count: usdtBuy.length, action: () => downloadCSV(usdtBuy.map(r => ({ id: r.id, userId: r.userId, name: r.name, wallet: r.walletAddress, txId: r.txId, amountUsdt: r.amountUsdt, inr: r.inrEquivalent, status: r.status, date: r.createdAt })), "usdt-buy.csv") },
-      { label: "USDT Sell Requests", desc: "All USDT sell requests with UPI IDs for INR payouts", count: usdtSell.length, action: () => downloadCSV(usdtSell.map(r => ({ id: r.id, userId: r.userId, name: r.name, upi: r.upiId, wallet: r.walletAddress, usdt: r.usdtAmount, txId: r.txId, status: r.status, date: r.createdAt })), "usdt-sell.csv") },
+      { label: "USDT Sell Requests", desc: "All USDT sell requests with UPI IDs for INR payouts", count: usdtSell.length, action: () => downloadCSV(usdtSell.map(r => ({ id: r.id, userId: r.userId, name: r.name, phone: r.phone, telegram: r.telegram ?? "", upiId: r.upiId, upiName: r.upiName ?? "", paymentMethod: r.paymentMethodType ?? "", wallet: r.walletAddress, usdt: r.usdtAmount, txId: r.txId, status: r.status, date: r.createdAt })), "usdt-sell.csv") },
     ]
     return (
       <div className="space-y-4">

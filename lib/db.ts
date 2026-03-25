@@ -15,26 +15,37 @@ const g = globalThis as typeof globalThis & {
 }
 
 function buildConnectionString(): string {
-  // Prefer individual vars — these are always correct for the active project
+  // PRIORITY 1: POSTGRES_URL (Supabase transaction pooler — IPv4, port 6543)
+  // This is the connection string Supabase sets for serverless/edge environments.
+  // It uses PgBouncer in transaction mode over port 6543 which is always IPv4.
+  const pooling = process.env.POSTGRES_URL
+  if (pooling) {
+    // Ensure we're on port 6543 (transaction pooler) not 5432 (direct, IPv6 only)
+    return pooling
+      .replace(/[?&]sslmode=[^&]*/g, "")
+      .replace(/:5432\//, ":6543/")
+  }
+
+  // PRIORITY 2: Build from individual vars — but use port 6543 (pooler)
   const host     = process.env.POSTGRES_HOST
   const user     = process.env.POSTGRES_USER
   const password = process.env.POSTGRES_PASSWORD
   const database = process.env.POSTGRES_DATABASE
 
   if (host && user && password && database) {
-    // Use port 5432 for direct (non-pooling) connections
-    return `postgresql://${user}:${encodeURIComponent(password)}@${host}:5432/${database}`
+    // Force port 6543 for Supabase transaction pooler (IPv4-reachable)
+    return `postgresql://${user}:${encodeURIComponent(password)}@${host}:6543/${database}`
   }
 
-  // Fall back to the non-pooling URL but strip any stale sslmode param
+  // PRIORITY 3: Non-pooling URL — also switch to port 6543
   const nonPooling = process.env.POSTGRES_URL_NON_POOLING
-  if (nonPooling) return nonPooling.replace(/[?&]sslmode=[^&]*/g, "")
+  if (nonPooling) {
+    return nonPooling
+      .replace(/[?&]sslmode=[^&]*/g, "")
+      .replace(/:5432\//, ":6543/")
+  }
 
-  // Last resort: pooling URL (has PgBouncer in the path, fine for most queries)
-  const pooling = process.env.POSTGRES_URL
-  if (pooling) return pooling.replace(/[?&]sslmode=[^&]*/g, "")
-
-  throw new Error("No Postgres connection string found. Set POSTGRES_HOST/USER/PASSWORD/DATABASE.")
+  throw new Error("No Postgres connection string found. Set POSTGRES_URL or POSTGRES_HOST/USER/PASSWORD/DATABASE.")
 }
 
 export function getDb(): Pool {
