@@ -38,7 +38,7 @@ function MiniPostCard({ post }: { post: Post }) {
       <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3">{post.content}</p>
 
       {post.tradeIdea && (
-        <div className="flex items-center gap-1.5 text-xs text-[#FCD535]">
+        <div className="flex items-center gap-1.5 text-xs text-[#2F80FF]">
           <TrendingUp className="w-3.5 h-3.5" />
           <span>{post.tradeIdea.asset} — Entry {post.tradeIdea.entry} / TP {post.tradeIdea.target}</span>
         </div>
@@ -57,7 +57,7 @@ function MiniPostCard({ post }: { post: Post }) {
       {post.hashtags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {post.hashtags.map((tag) => (
-            <span key={tag} className="text-[10px] text-[#FCD535]">#{tag}</span>
+            <span key={tag} className="text-[10px] text-[#2F80FF]">#{tag}</span>
           ))}
         </div>
       )}
@@ -123,7 +123,7 @@ export default function ProfilePage() {
         <main className="flex-1 mt-16 flex items-center justify-center">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">User not found.</p>
-            <Link href="/community" className="text-sm text-[#FCD535] hover:underline">Back to Community</Link>
+            <Link href="/community" className="text-sm text-[#2F80FF] hover:underline">Back to Community</Link>
           </div>
         </main>
         <Footer />
@@ -167,7 +167,7 @@ export default function ProfilePage() {
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
                         following
                           ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                          : "bg-[#FCD535]/10 text-[#FCD535] border border-[#FCD535]/30 hover:bg-[#FCD535]/20"
+                          : "bg-[#2F80FF]/10 text-[#2F80FF] border border-[#2F80FF]/30 hover:bg-[#2F80FF]/20"
                       }`}>
                       {following ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                       {following ? "Following" : "Follow"}
@@ -205,7 +205,7 @@ export default function ProfilePage() {
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 py-3 text-sm font-semibold capitalize transition-colors ${
                   tab === t
-                    ? "text-foreground border-b-2 border-[#FCD535]"
+                    ? "text-foreground border-b-2 border-[#2F80FF]"
                     : "text-muted-foreground hover:text-foreground"
                 }`}>
                 {t === "content" ? "Posts" : "Replies"}
