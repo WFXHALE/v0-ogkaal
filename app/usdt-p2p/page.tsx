@@ -26,8 +26,8 @@ import {
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
-import { AuthModal } from "@/components/auth-modal"
-import { getSession } from "@/lib/community-utils"
+import { P2PAuthModal } from "@/components/p2p-auth-modal"
+import { getP2PAccount } from "@/lib/p2p-auth"
 import type { CommunityUser } from "@/lib/community-utils"
 import { UsdtHelpModal } from "@/components/usdt-help-modal"
 import { Clock, History } from "lucide-react"
@@ -90,25 +90,17 @@ export default function UsdtP2PPage() {
   const [pendingAuthAction, setPendingAuthAction] = useState<"buy" | "sell" | "history" | null>(null)
 
   useEffect(() => {
-    const session = getSession()
-    setCurrentUser(session)
-    if (session) {
-      setFormData(prev => ({
-        ...prev,
-        fullName: prev.fullName || session.fullName,
-        email: prev.email || session.email,
-        phone: prev.phone || session.phone,
-      }))
-      setSellFormData(prev => ({
-        ...prev,
-        name: prev.name || session.fullName,
-        phone: prev.phone || session.phone,
-      }))
-    }
+    getP2PAccount().then(session => {
+      setCurrentUser(session)
+      if (session) {
+        setFormData(prev => ({ ...prev, fullName: prev.fullName || session.fullName, email: prev.email || session.email, phone: prev.phone || session.phone }))
+        setSellFormData(prev => ({ ...prev, name: prev.name || session.fullName, phone: prev.phone || session.phone }))
+      }
+    })
   }, [])
 
-  const requireP2PAuth = (action: "buy" | "sell" | "history") => {
-    const session = getSession()
+  const requireP2PAuth = async (action: "buy" | "sell" | "history") => {
+    const session = await getP2PAccount()
     if (session) {
       setCurrentUser(session)
       if (action === "buy") { setActiveTab("buy"); setStep(1); setIsComplete(false) }
@@ -169,8 +161,8 @@ export default function UsdtP2PPage() {
     if (activeTab !== "history" || !currentUser?.id) return
     setHistoryLoading(true)
     Promise.all([
-      fetch(`/api/admin/usdt-buy?userId=${encodeURIComponent(currentUser.id)}`).then(r => r.json()).catch(() => ({ ok: false })),
-      fetch(`/api/admin/usdt-sell?userId=${encodeURIComponent(currentUser.id)}`).then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/p2p/buy", { cache: "no-store" }).then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/p2p/sell", { cache: "no-store" }).then(r => r.json()).catch(() => ({ ok: false })),
     ]).then(([buyRes, sellRes]) => {
       const buys:  HistoryRecord[] = (buyRes.ok  ? buyRes.data  ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "buy"  as const }))
       const sells: HistoryRecord[] = (sellRes.ok ? sellRes.data ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "sell" as const }))
@@ -265,7 +257,7 @@ export default function UsdtP2PPage() {
     }
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/admin/usdt-buy", {
+      const response = await fetch("/api/p2p/buy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -982,7 +974,7 @@ export default function UsdtP2PPage() {
                           // Save to usdt_sell_requests table directly (returns id)
                           let requestId = "N/A"
                           try {
-                            const sellRes = await fetch("/api/admin/usdt-sell", {
+                            const sellRes = await fetch("/api/p2p/sell", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
@@ -1833,9 +1825,7 @@ export default function UsdtP2PPage() {
 
       <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
       {authOpen && (
-        <AuthModal
-          initialMode="choose"
-          subtitle="Create an account or sign in to buy or sell USDT and view your P2P transaction history."
+        <P2PAuthModal
           onClose={() => { setAuthOpen(false); setPendingAuthAction(null) }}
           onAuth={handleP2PAuth}
         />
