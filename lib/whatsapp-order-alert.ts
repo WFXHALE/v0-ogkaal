@@ -25,7 +25,8 @@ export async function notifyAdminOfP2POrder(order: P2POrderAlert): Promise<void>
     return
   }
 
-  const adminNumber = adminNumberRaw.replace(/[^\d]/g, "").replace(/^0+/, "")
+  const cleanedAdminNumber = adminNumberRaw.replace(/[^\d]/g, "").replace(/^0+/, "")
+  const adminNumber = cleanedAdminNumber.length === 10 ? `91${cleanedAdminNumber}` : cleanedAdminNumber
   if (adminNumber.length < 10 || adminNumber.length > 15) {
     console.error("[WhatsApp] Order alert skipped: WHATSAPP_ADMIN_NUMBER must be in international format.")
     return
