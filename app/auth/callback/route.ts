@@ -1,97 +1,45 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { avatarUrl } from "@/lib/community-utils"
 
-/**
- * Supabase OAuth callback handler.
- * After Google sign-in, Supabase redirects here with a `code` query param.
- * We exchange it for a session, then upsert the user into `community_users`,
- * and finally redirect the user to the community page.
- */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
-  const code     = searchParams.get("code")
-  const next     = searchParams.get("next") ?? "/community"
-  const errorMsg = searchParams.get("error_description")
-
-  if (errorMsg) {
-    return NextResponse.redirect(`${origin}/?auth_error=${encodeURIComponent(errorMsg)}`)
-  }
-
-  if (!code) {
-    return NextResponse.redirect(`${origin}/community`)
-  }
+  const code = searchParams.get("code")
+  const nextParam = searchParams.get("next") || "/"
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/"
+  const authError = searchParams.get("error_description")
+  if (authError) return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent(authError)}`, origin))
+  if (!code) return NextResponse.redirect(new URL("/", origin))
 
   const cookieStore = await cookies()
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
-            })
-          } catch {
-            // Middleware will handle session refresh if needed
-          }
-        },
-      },
-    }
+    { cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (items) => { try { items.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {} },
+    } }
   )
-
-  const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
-
-  if (error || !session) {
-    console.error("[auth/callback] exchange error:", error)
-    return NextResponse.redirect(`${origin}/community`)
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+  if (error || !data.user) {
+    console.error("[auth/callback] code exchange failed:", error?.message)
+    return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent("Sign-in could not be completed. Please try again.")}`, origin))
   }
 
-  // Upsert the Google user into community_users so they show up in the community
-  const gUser   = session.user
-  const email   = gUser.email?.toLowerCase() ?? ""
-  const fullName = gUser.user_metadata?.full_name
-    || gUser.user_metadata?.name
-    || email.split("@")[0]
-  const photoUrl = gUser.user_metadata?.avatar_url || gUser.user_metadata?.picture || ""
-
-  if (email) {
-    const { data: existing } = await supabase
-      .from("community_users")
-      .select("id")
-      .eq("email", email)
-      .limit(1)
-
-    if (!existing || existing.length === 0) {
-      const id     = Date.now().toString() + Math.random().toString(36).slice(2, 7)
-      const avatar = photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=FCD535&color=000&bold=true&size=128`
-      await supabase.from("community_users").insert({
-        id,
-        full_name:  fullName,
-        email,
-        phone:      "",
-        level:      "Beginner",
-        avatar,
-        is_admin:   false,
-        created_at: new Date().toISOString(),
-        bio:        `__google:${gUser.id}`,
-      })
-    }
+  const user = data.user
+  const metadata = user.user_metadata || {}
+  const fullName = String(metadata.full_name || metadata.name || user.email?.split("@")[0] || "P2P Customer")
+  const phone = String(metadata.phone || "")
+  const level = ["Beginner","Trader","Pro Trader","Master Trader"].includes(metadata.level) ? metadata.level : "Beginner"
+  const avatar = String(metadata.avatar_url || metadata.picture || avatarUrl(fullName, level as "Beginner" | "Trader" | "Pro Trader" | "Master Trader"))
+  const { error: profileError } = await supabase.from("p2p_user_profiles").upsert({
+    user_id: user.id, full_name: fullName, email: (user.email || "").toLowerCase(), phone, level, avatar, updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" })
+  if (profileError) {
+    console.error("[auth/callback] P2P profile upsert failed:", { code: profileError.code, message: profileError.message })
+    return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent("Your sign-in succeeded, but your P2P profile could not be prepared. Please contact support.")}`, origin))
   }
 
-  const forwardedHost = request.headers.get("x-forwarded-host")
-  const isLocalEnv    = process.env.NODE_ENV === "development"
-
-  if (isLocalEnv) {
-    return NextResponse.redirect(`${origin}${next}`)
-  } else if (forwardedHost) {
-    return NextResponse.redirect(`https://${forwardedHost}${next}`)
-  } else {
-    return NextResponse.redirect(`${origin}${next}`)
-  }
+  return NextResponse.redirect(new URL(next, origin))
 }
