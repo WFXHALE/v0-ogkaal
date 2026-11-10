@@ -468,7 +468,7 @@ export default function UsdtP2PPage() {
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
                         <p className="text-sm text-primary mb-1">Your P2P Rate</p>
-                        {mounted ? (
+                        {ratesLoaded ? (
                           <p
                             className="text-2xl font-bold text-primary transition-all duration-500"
                             style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
