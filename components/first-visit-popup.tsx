@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { AuthModal } from "@/components/auth-modal"
 import { getSession } from "@/lib/community-utils"
 import type { CommunityUser } from "@/lib/community-utils"
@@ -9,9 +10,12 @@ import { setSession } from "@/lib/community-utils"
 const FIRST_VISIT_KEY = "og_first_visit_done"
 
 export function FirstVisitPopup() {
+  const pathname = usePathname()
   const [show, setShow] = useState(false)
 
   useEffect(() => {
+    // Keep the USDT P2P landing page focused for first-time visitors.
+    if (pathname === "/" || pathname.startsWith("/usdt-p2p")) return
     // Only run on the client after mount
     const alreadyDone = localStorage.getItem(FIRST_VISIT_KEY)
     const hasSession  = getSession()
@@ -22,7 +26,7 @@ export function FirstVisitPopup() {
       const t = setTimeout(() => setShow(true), 1200)
       return () => clearTimeout(t)
     }
-  }, [])
+  }, [pathname])
 
   function handleAuth(user: CommunityUser) {
     setSession(user)
