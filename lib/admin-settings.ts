@@ -37,6 +37,8 @@ export const DEFAULT_PRICING: PricingConfig = {
   funded_account:          "₹5,000",
   vip_signal_xm_existing:  "₹2,000",
   vip_signal_xm_new:       "₹2,500",
+  p2p_buy_rate:            "106",
+  p2p_sell_rate:           "102",
 }
 
 export const DEFAULT_SYSTEM: SystemConfig = {
