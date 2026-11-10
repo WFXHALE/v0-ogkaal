@@ -43,7 +43,7 @@ export function ThemeToggle() {
       title={`${LABELS[current]} — click to switch`}
     >
       {current === "dark" && (
-        <Sun className="w-4 h-4 text-[#FCD535]" />
+        <Sun className="w-4 h-4 text-[#2F80FF]" />
       )}
       {current === "light" && (
         <Moon className="w-4 h-4" />
