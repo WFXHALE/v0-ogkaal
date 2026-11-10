@@ -1765,7 +1765,7 @@ export default function UsdtP2PPage() {
       </main>
 
       {/* Payment Liability & Legal Notice */}
-      <section className="border-t border-border bg-[#0B0E11] px-4 py-10">
+      <section className="border-t border-border bg-background px-4 py-10">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#2F80FF]" />
