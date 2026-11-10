@@ -90,7 +90,21 @@ export default function UsdtP2PPage() {
   const [pendingAuthAction, setPendingAuthAction] = useState<"buy" | "sell" | "history" | null>(null)
 
   useEffect(() => {
-    setCurrentUser(getSession())
+    const session = getSession()
+    setCurrentUser(session)
+    if (session) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: prev.fullName || session.fullName,
+        email: prev.email || session.email,
+        phone: prev.phone || session.phone,
+      }))
+      setSellFormData(prev => ({
+        ...prev,
+        name: prev.name || session.fullName,
+        phone: prev.phone || session.phone,
+      }))
+    }
   }, [])
 
   const requireP2PAuth = (action: "buy" | "sell" | "history") => {
