@@ -66,12 +66,13 @@ async function setSetting<T extends object>(key: string, value: T): Promise<void
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ key, value }),
     })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      console.error("[admin-settings] setSetting failed:", err)
+    const result = await res.json().catch(() => ({}))
+    if (!res.ok || result?.ok !== true || !result?.data?.key) {
+      throw new Error(result?.error || `Settings save failed (HTTP ${res.status}).`)
     }
   } catch (err) {
-    console.error("[admin-settings] setSetting network error:", err)
+    console.error("[admin-settings] setSetting failed:", err)
+    throw err instanceof Error ? err : new Error("Settings save failed.")
   }
 }
 
