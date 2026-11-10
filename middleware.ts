@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminSessionToken } from '@/lib/admin-session'
+import { createServerClient } from '@supabase/ssr'
 
 const ADMIN_PAGE_PREFIX = '/admin'
 const ADMIN_API_PREFIX = '/api/admin'
@@ -65,7 +66,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next()
+  let response = NextResponse.next({ request })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+        },
+      },
+    },
+  )
+  // Verify/refresh the cookie-backed Supabase session on each matched request.
+  await supabase.auth.getClaims()
+
   if (
     pathname.startsWith('/static') ||
     pathname.match(/\.(js|css|webp|jpg|jpeg|png|gif|svg|woff|woff2)$/i)
