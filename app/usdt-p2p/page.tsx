@@ -26,6 +26,9 @@ import {
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
+import { AuthModal } from "@/components/auth-modal"
+import { getSession } from "@/lib/community-utils"
+import type { CommunityUser } from "@/lib/community-utils"
 import { UsdtHelpModal } from "@/components/usdt-help-modal"
 import { Clock, History } from "lucide-react"
 
@@ -82,6 +85,36 @@ export default function UsdtP2PPage() {
   const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
+  const [currentUser, setCurrentUser] = useState<CommunityUser | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [pendingAuthAction, setPendingAuthAction] = useState<"buy" | "sell" | "history" | null>(null)
+
+  useEffect(() => {
+    setCurrentUser(getSession())
+  }, [])
+
+  const requireP2PAuth = (action: "buy" | "sell" | "history") => {
+    const session = getSession()
+    if (session) {
+      setCurrentUser(session)
+      if (action === "buy") { setActiveTab("buy"); setStep(1); setIsComplete(false) }
+      if (action === "sell") { setActiveTab("sell"); setSellStep(1) }
+      if (action === "history") setActiveTab("history")
+      return
+    }
+    setPendingAuthAction(action)
+    setAuthOpen(true)
+  }
+
+  const handleP2PAuth = (user: CommunityUser) => {
+    setCurrentUser(user)
+    setAuthOpen(false)
+    const action = pendingAuthAction
+    setPendingAuthAction(null)
+    if (action === "buy") { setActiveTab("buy"); setStep(1); setIsComplete(false) }
+    if (action === "sell") { setActiveTab("sell"); setSellStep(1) }
+    if (action === "history") setActiveTab("history")
+  }
 
   // Daily P2P rates are controlled by the Admin Panel and shared site-wide.
   const [buyRate, setBuyRate] = useState<number>(106)
@@ -119,11 +152,11 @@ export default function UsdtP2PPage() {
   const [historyTab, setHistoryTab]               = useState<"pending" | "completed" | "cancelled">("pending")
 
   useEffect(() => {
-    if (activeTab !== "history") return
+    if (activeTab !== "history" || !currentUser?.id) return
     setHistoryLoading(true)
     Promise.all([
-      fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
-      fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+      fetch(`/api/admin/usdt-buy?userId=${encodeURIComponent(currentUser.id)}`).then(r => r.json()).catch(() => ({ ok: false })),
+      fetch(`/api/admin/usdt-sell?userId=${encodeURIComponent(currentUser.id)}`).then(r => r.json()).catch(() => ({ ok: false })),
     ]).then(([buyRes, sellRes]) => {
       const buys:  HistoryRecord[] = (buyRes.ok  ? buyRes.data  ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "buy"  as const }))
       const sells: HistoryRecord[] = (sellRes.ok ? sellRes.data ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "sell" as const }))
@@ -132,7 +165,7 @@ export default function UsdtP2PPage() {
       )
       setHistoryRecords(all)
     }).finally(() => setHistoryLoading(false))
-  }, [activeTab])
+  }, [activeTab, currentUser?.id])
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
@@ -306,7 +339,7 @@ export default function UsdtP2PPage() {
                   Sell USDT
                 </button>
                 <button
-                  onClick={() => setActiveTab("history")}
+                  onClick={() => requireP2PAuth("history")}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
                     activeTab === "history"
                       ? "bg-primary text-primary-foreground"
@@ -503,7 +536,7 @@ export default function UsdtP2PPage() {
                 {step === 0 && !isComplete && (
                   <div className="flex flex-col items-center gap-3">
                     <Button
-                      onClick={() => setStep(1)}
+                      onClick={() => requireP2PAuth("buy")}
                       className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                     >
                       Buy USDT Now
@@ -635,7 +668,7 @@ export default function UsdtP2PPage() {
                   {sellStep === -1 && (
                     <div className="flex flex-col items-center gap-3">
                       <Button
-                        onClick={() => setSellStep(1)}
+                        onClick={() => requireP2PAuth("sell")}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                       >
                         Sell USDT Now
@@ -914,7 +947,9 @@ export default function UsdtP2PPage() {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
-                                name:               sellFormData.name || "Sell Request",
+                                userId:             currentUser?.id,
+                                email:              currentUser?.email,
+                                name:               sellFormData.name || currentUser?.fullName || "Sell Request",
                                 phone:              sellFormData.phone,
                                 telegram:           sellFormData.telegram,
                                 usdtAmount:         `${sellAmount}`,
@@ -933,7 +968,9 @@ export default function UsdtP2PPage() {
                           // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            name: sellFormData.name || "Sell Request",
+                            userId: currentUser?.id,
+                            email: currentUser?.email,
+                            name: sellFormData.name || currentUser?.fullName || "Sell Request",
                             telegram: sellFormData.telegram,
                             phone: sellFormData.phone,
                             details: {
@@ -1751,6 +1788,14 @@ export default function UsdtP2PPage() {
       </section>
 
       <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+      {authOpen && (
+        <AuthModal
+          initialMode="choose"
+          subtitle="Create an account or sign in to buy or sell USDT and view your P2P transaction history."
+          onClose={() => { setAuthOpen(false); setPendingAuthAction(null) }}
+          onAuth={handleP2PAuth}
+        />
+      )}
 
       <Footer />
     </div>
