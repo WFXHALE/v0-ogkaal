@@ -39,7 +39,8 @@ export async function middleware(request: NextRequest) {
   const isAdminPage = pathname === ADMIN_PAGE_PREFIX || pathname.startsWith(ADMIN_PAGE_PREFIX + '/')
   const isAdminApi = pathname === ADMIN_API_PREFIX || pathname.startsWith(ADMIN_API_PREFIX + '/')
 
-  if (isAdminApi && !PUBLIC_ADMIN_API.has(pathname)) {
+  const publicAdminPost = request.method === 'POST' && (pathname === '/api/admin/submissions' || pathname === '/api/admin/notifications')
+  if (isAdminApi && !PUBLIC_ADMIN_API.has(pathname) && !publicAdminPost) {
     const token = request.cookies.get('admin_session')?.value
     if (!(await verifyAdminSessionToken(token))) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
