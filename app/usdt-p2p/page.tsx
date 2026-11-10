@@ -1768,7 +1768,7 @@ export default function UsdtP2PPage() {
       <section className="border-t border-border bg-[#0B0E11] px-4 py-10">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#FCD535]" />
+            <Shield className="w-4 h-4 text-[#2F80FF]" />
             Payment Liability &amp; Legal Notice
           </h2>
           <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
@@ -1786,7 +1786,7 @@ export default function UsdtP2PPage() {
               "Indian Penal Code Section 468 – Forgery for the purpose of cheating",
             ].map((law) => (
               <li key={law} className="flex items-start gap-2">
-                <span className="text-[#FCD535] mt-0.5 shrink-0">•</span>
+                <span className="text-[#2F80FF] mt-0.5 shrink-0">•</span>
                 {law}
               </li>
             ))}
@@ -1795,7 +1795,7 @@ export default function UsdtP2PPage() {
           <p className="text-xs font-semibold text-foreground mb-1">Penalty Clause</p>
           <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
             If the website owner&apos;s account or financial system is affected due to a user&apos;s transaction, the responsible user will be required to pay a penalty of{" "}
-            <span className="text-[#FCD535] font-semibold">5x the payment amount</span>.{" "}
+            <span className="text-[#2F80FF] font-semibold">5x the payment amount</span>.{" "}
             Example: If the payment amount is ₹1,000, the penalty will be ₹5,000.
           </p>
 
