@@ -30,10 +30,12 @@ function normalize(r: Record<string, unknown>) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const userId = req.nextUrl.searchParams.get("userId")
+    if (!userId) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 })
     const rows = await query<Record<string, unknown>>(
-      `SELECT * FROM usdt_sell_requests ORDER BY created_at DESC LIMIT 500`
+      `SELECT * FROM usdt_sell_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500`, [userId]
     )
     return NextResponse.json({ ok: true, data: rows.map(normalize) })
   } catch (err) {
@@ -45,6 +47,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json()
+    if (!b.userId) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 })
     const row = await queryOne<{ id: string }>(
       `INSERT INTO usdt_sell_requests
          (user_id, name, email, phone, telegram, upi_id, upi_name,
