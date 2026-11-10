@@ -75,11 +75,21 @@ export async function firebaseSignUp(opts: {
     const sb = createClient()
 
     // Check for duplicate email
-    const { data: existing } = await sb
+    const { data: existing, error: lookupError } = await sb
       .from("community_users")
       .select("id, email")
       .eq("email", opts.email.trim().toLowerCase())
       .limit(1)
+
+    if (lookupError) {
+      console.error("[firebaseSignUp] account lookup failed:", {
+        code: lookupError.code,
+        message: lookupError.message,
+        details: lookupError.details,
+        hint: lookupError.hint,
+      })
+      return { ok: false, error: "Unable to check this email right now. Please try again in a moment." }
+    }
 
     if (existing && existing.length > 0) {
       return { ok: false, error: "An account with this email already exists. Try signing in." }
@@ -116,7 +126,19 @@ export async function firebaseSignUp(opts: {
       if (error.message?.includes("duplicate") || error.code === "23505") {
         return { ok: false, error: "An account with this email already exists. Try signing in." }
       }
-      return { ok: false, error: "Sign up failed. Please try again." }
+      console.error("[firebaseSignUp] profile insert failed:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      })
+      if (error.code === "42501" || error.message?.toLowerCase().includes("row-level security")) {
+        return { ok: false, error: "Account creation is blocked by database permissions. Please contact support." }
+      }
+      if (error.code === "42P01" || error.code === "PGRST205") {
+        return { ok: false, error: "The account database is not available. Please contact support." }
+      }
+      return { ok: false, error: `Sign up failed: ${error.message || "Database rejected the request."}` }
     }
 
     setSession(newUser)
