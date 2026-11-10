@@ -49,25 +49,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "value must be an object" }, { status: 400 })
     }
 
-    // Check if the row already exists
-    const existing = await queryOne(
-      "SELECT id FROM admin_settings WHERE key = $1",
-      [key],
+    // Atomic upsert: never report success unless PostgreSQL confirms the write.
+    const saved = await queryOne<{ key: string; value: unknown; updated_at: string }>(
+      `INSERT INTO admin_settings (key, value, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (key)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+       RETURNING key, value, updated_at`,
+      [key, JSON.stringify(value)],
     )
 
-    if (existing) {
-      await query(
-        "UPDATE admin_settings SET value = $1, updated_at = NOW() WHERE key = $2",
-        [JSON.stringify(value), key],
-      )
-    } else {
-      await query(
-        "INSERT INTO admin_settings (key, value, updated_at) VALUES ($1, $2, NOW())",
-        [key, JSON.stringify(value)],
-      )
+    if (!saved) {
+      throw new Error("Database did not confirm the settings write.")
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, data: saved }, { headers: { "Cache-Control": "no-store, max-age=0" } })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
