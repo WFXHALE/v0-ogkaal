@@ -49,6 +49,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "value must be an object" }, { status: 400 })
     }
 
+    if (key === "pricing") {
+      const pricing = value as Record<string, unknown>
+      if (pricing.p2p_buy_rate !== undefined) {
+        const buy = Number(pricing.p2p_buy_rate)
+        if (!Number.isFinite(buy) || buy < 105 || buy > 107) {
+          return NextResponse.json({ ok: false, error: "P2P buy rate must be between ₹105 and ₹107." }, { status: 400 })
+        }
+      }
+      if (pricing.p2p_sell_rate !== undefined) {
+        const sell = Number(pricing.p2p_sell_rate)
+        if (!Number.isFinite(sell) || sell < 99 || sell > 102.5) {
+          return NextResponse.json({ ok: false, error: "P2P sell rate must be between ₹99 and ₹102.50." }, { status: 400 })
+        }
+      }
+    }
+
     // Atomic upsert: never report success unless PostgreSQL confirms the write.
     const saved = await queryOne<{ key: string; value: unknown; updated_at: string }>(
       `INSERT INTO admin_settings (key, value, updated_at)
