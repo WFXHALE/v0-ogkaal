@@ -1175,8 +1175,9 @@ export default function UsdtP2PPage() {
                             value={formData.usdtAmount}
                             onChange={(e) => handleInputChange("usdtAmount", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="Enter amount (min 50 USDT recommended)"
-                            min="1"
+                            placeholder="Enter amount (50–5,000 USDT)"
+                            min="50"
+                            max="5000"
                           />
                           {formData.usdtAmount && Number(formData.usdtAmount) < 50 && (
                             <p className="text-amber-500 text-sm mt-2">
