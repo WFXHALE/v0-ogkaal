@@ -455,10 +455,10 @@ export default function UsdtP2PPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
                         <p className="text-sm text-muted-foreground mb-1">Daily Reference</p>
-                        {mounted ? (
+                        {ratesLoaded ? (
                           <p
                             className="text-2xl font-bold text-foreground transition-all duration-500"
-                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                            
                           >
                             ₹{buyRate}
                           </p>
@@ -617,7 +617,7 @@ export default function UsdtP2PPage() {
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">Sell Rate:</span>
-                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
+                          <span className="text-foreground font-medium">₹{sellRate.toFixed(2)} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
