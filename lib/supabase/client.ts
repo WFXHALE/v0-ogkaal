@@ -1,23 +1,13 @@
-import { createClient as _createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient, type SupabaseClient } from "@supabase/ssr"
 
-// Use globalThis so the singleton survives Next.js HMR module re-evaluation
-// in development, preventing "Multiple GoTrueClient instances" warnings.
-const g = globalThis as typeof globalThis & { _supabaseBrowserClient?: SupabaseClient }
+let browserClient: SupabaseClient | undefined
 
 export function createClient(): SupabaseClient {
-  if (!g._supabaseBrowserClient) {
-    // Only use NEXT_PUBLIC_ prefixed vars — non-public vars are never
-    // exposed to the browser and would resolve to undefined on the client,
-    // causing "Invalid API key" errors.
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    if (!url || !key) {
-      throw new Error(
-        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
-        "Check your environment variables."
-      )
-    }
-    g._supabaseBrowserClient = _createClient(url, key)
+  if (!browserClient) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) throw new Error("Supabase browser configuration is missing.")
+    browserClient = createBrowserClient(url, key)
   }
-  return g._supabaseBrowserClient
+  return browserClient
 }
