@@ -23,8 +23,8 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'OG KAAL TRADER - Master the Markets',
-  description: 'Master the markets with Smart Money Concepts and proven ICT trading strategies. Join thousands of profitable traders.',
+  title: 'USDT P2P Exchange | OG KAAL TRADER',
+  description: 'Buy and sell USDT through OG KAAL TRADER P2P. Check today’s rates and submit your USDT exchange request.',
   generator: 'v0.app',
   icons: {
     icon: [

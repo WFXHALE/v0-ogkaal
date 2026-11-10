@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query, queryOne } from "@/lib/db"
+import { createAdminSessionToken, ADMIN_SESSION_MAX_AGE } from "@/lib/admin-session"
 
 /**
  * Progressive lockout schedule (cumulative failures → lockout duration):
@@ -178,7 +179,11 @@ export async function POST(req: NextRequest) {
         [ip, deviceId, userAgent]
       ).catch(() => {})
 
-      return NextResponse.json({ ok: true, success: true })
+      const token = await createAdminSessionToken()
+      if (!token) return NextResponse.json({ ok: false, error: "Admin session configuration error." }, { status: 500 })
+      const response = NextResponse.json({ ok: true, success: true })
+      response.cookies.set("admin_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: ADMIN_SESSION_MAX_AGE })
+      return response
     }
 
     // 4. Record failure and apply lockout if threshold reached
@@ -233,7 +238,13 @@ export async function POST(req: NextRequest) {
     console.error("[verify-key POST] db error:", err)
     // On DB error, still verify the key but skip lockout tracking
     const isValid = key === secret.trim()
-    if (isValid) return NextResponse.json({ ok: true, success: true })
+    if (isValid) {
+      const token = await createAdminSessionToken()
+      if (!token) return NextResponse.json({ ok: false, error: "Admin session configuration error." }, { status: 500 })
+      const response = NextResponse.json({ ok: true, success: true })
+      response.cookies.set("admin_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: ADMIN_SESSION_MAX_AGE })
+      return response
+    }
     return NextResponse.json(
       { ok: false, error: "Verification failed. Please try again." },
       { status: 401 }

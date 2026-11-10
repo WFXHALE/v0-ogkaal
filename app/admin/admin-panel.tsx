@@ -42,7 +42,7 @@ import { AdminDataManagement } from "./admin-data-management"
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Section =
-  | "dashboard" | "usdt-buy" | "usdt-sell"
+  | "dashboard" | "usdt-buy" | "usdt-sell" | "usdt-rates"
   | "payment-verification" | "suspicious" | "members"
   | "notifications" | "security" | "files"
   | "export" | "system-control" | "telegram" | "logs"
@@ -131,6 +131,7 @@ const NAV: { key: Section; label: string; icon: typeof Shield; group?: string }[
   { key: "payment-verification", label: "Payment Verification", icon: CheckCircle    },
   { key: "usdt-buy",             label: "USDT Buy Requests",    icon: ArrowDownLeft, group: "USDT Trading" },
   { key: "usdt-sell",            label: "USDT Sell Requests",   icon: ArrowUpRight,  group: "USDT Trading" },
+  { key: "usdt-rates",           label: "USDT Rates",           icon: TrendingUp,    group: "USDT Trading" },
   { key: "mentorship-requests",  label: "Mentorship Requests",  icon: FileText,      group: "Submissions" },
   { key: "vip-requests",         label: "VIP Group Requests",   icon: Crown,         group: "Submissions" },
   { key: "user-profiles",        label: "User Profiles",        icon: Users,         group: "Submissions" },
@@ -289,6 +290,7 @@ export default function AdminPanel() {
   const [pricingConfig, setPricingConfig]       = useState<PricingConfig>(DEFAULT_PRICING)
   const [pricingSaving, setPricingSaving]       = useState(false)
   const [pricingSaved,  setPricingSaved]        = useState(false)
+  const [p2pRatesError, setP2pRatesError]        = useState<string | null>(null)
   const [systemSaving,  setSystemSaving]        = useState(false)
   const [systemSaved,   setSystemSaved]         = useState(false)
 
@@ -835,12 +837,13 @@ export default function AdminPanel() {
     setSystemSettings(updated)
     setSystemSaving(true)
     setSystemSaved(false)
+    setSystemError(null)
     // Notify same-tab frontend listeners (useSiteConfig hook, pricing pages, etc.)
     window.dispatchEvent(new Event("og_site_config_change"))
     // Persist to database via service-role API route (no localStorage)
     saveSystemConfig(updated)
       .then(() => { setSystemSaved(true); setTimeout(() => setSystemSaved(false), 3000) })
-      .catch((err) => { console.error("[admin] saveSystem failed:", err) })
+      .catch((err) => { console.error("[admin] saveSystem failed:", err); setSystemError(err instanceof Error ? err.message : "Save failed. Please retry.") })
       .finally(() => setSystemSaving(false))
   }
 
@@ -2165,6 +2168,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-2 text-xs">
           {systemSaving && <span className="text-primary animate-pulse">Saving...</span>}
           {systemSaved  && <span className="text-green-400">Saved to database</span>}
+          {systemError && <span className="text-red-400 text-xs">{systemError}</span>}
         </div>
       </div>
       {systemSettings.maintenanceMode && (
@@ -3924,12 +3928,41 @@ export default function AdminPanel() {
     )
   }
 
+  const renderUSDTRates = () => (
+    <div className="space-y-5 max-w-2xl">
+      <div><h2 className="text-xl font-bold text-foreground">Daily USDT P2P Rates</h2><p className="text-sm text-muted-foreground mt-1">Set today's rates. The public P2P page reads these values from the database and refreshes automatically.</p></div>
+      <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+        <div><label className="block text-sm font-medium text-foreground mb-2">Buy USDT from you (₹ per USDT)</label>
+          <input type="number" min="105" max="107" step="0.01" value={pricingConfig.p2p_buy_rate ?? "106"} onChange={e => setPricingConfig(p => ({ ...p, p2p_buy_rate: e.target.value }))} className="w-full px-3 py-3 rounded-lg bg-secondary border border-border text-foreground" />
+          <p className="text-xs text-muted-foreground mt-1">Allowed range: ₹105–₹107. Today's example: ₹106.</p></div>
+        <div><label className="block text-sm font-medium text-foreground mb-2">Sell USDT to you (₹ per USDT)</label>
+          <input type="number" min="99" max="102.5" step="0.01" value={pricingConfig.p2p_sell_rate ?? "102"} onChange={e => setPricingConfig(p => ({ ...p, p2p_sell_rate: e.target.value }))} className="w-full px-3 py-3 rounded-lg bg-secondary border border-border text-foreground" />
+          <p className="text-xs text-muted-foreground mt-1">Allowed range: ₹99–₹102.50. Today's example: ₹102.</p></div>
+        {p2pRatesError && <p className="text-sm text-red-400">{p2pRatesError}</p>}
+        {pricingSaved && <p className="text-sm text-green-400">Today's P2P rates saved.</p>}
+        <button onClick={async () => {
+          const buy = Number(pricingConfig.p2p_buy_rate), sell = Number(pricingConfig.p2p_sell_rate)
+          if (!Number.isFinite(buy) || buy < 105 || buy > 107) { setP2pRatesError("Buy rate must be between ₹105 and ₹107."); return }
+          if (!Number.isFinite(sell) || sell < 99 || sell > 102.5) { setP2pRatesError("Sell rate must be between ₹99 and ₹102.50."); return }
+          setP2pRatesError(null); setPricingSaving(true); setPricingSaved(false)
+          try {
+            const snapshot = { ...pricingConfig, p2p_buy_rate: buy.toFixed(2), p2p_sell_rate: sell.toFixed(2) }
+            await savePricing(snapshot); setPricingConfig(snapshot)
+            window.dispatchEvent(new Event("og_site_config_change")); setPricingSaved(true); setTimeout(() => setPricingSaved(false), 3000)
+          } catch (err) { setP2pRatesError(err instanceof Error ? err.message : "Could not save rates.") }
+          finally { setPricingSaving(false) }
+        }} disabled={pricingSaving} className="w-full px-4 py-3 rounded-lg bg-primary text-primary-foreground font-semibold disabled:opacity-50">{pricingSaving ? "Saving..." : "Update Today's Rates"}</button>
+      </div>
+    </div>
+  )
+
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":            return renderDashboard()
       case "payment-verification": return renderPaymentVerification()
       case "usdt-buy":             return renderUSDTBuy()
       case "usdt-sell":            return renderUSDTSell()
+      case "usdt-rates":           return renderUSDTRates()
       case "broker-verifications":  return renderBrokerVerifications()
       case "kyc-verifications":     return renderKycVerifications()
       case "mentorship-requests":  return renderMentorshipRequests()

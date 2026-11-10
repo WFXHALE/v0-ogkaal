@@ -64,6 +64,14 @@ function AvatarUpload({
 
     const fd = new FormData()
     fd.append("file", file)
+    const currentSession = getSession()
+    if (!currentSession?.id) {
+      setUploadErr("Your session has expired. Please sign in again.")
+      setLocalPreview(null)
+      setUploading(false)
+      return
+    }
+    fd.append("userId", currentSession.id)
 
     try {
       const res  = await fetch("/api/dashboard/avatar", { method: "POST", body: fd })

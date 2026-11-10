@@ -26,6 +26,9 @@ import {
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { saveSubmission } from "@/lib/admin-submissions"
+import { P2PAuthModal } from "@/components/p2p-auth-modal"
+import { getP2PAccount } from "@/lib/p2p-auth"
+import type { CommunityUser } from "@/lib/community-utils"
 import { UsdtHelpModal } from "@/components/usdt-help-modal"
 import { Clock, History } from "lucide-react"
 
@@ -82,34 +85,72 @@ export default function UsdtP2PPage() {
   const [step, setStep] = useState(0) // 0 = info, 1-5 = form steps
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
-
-  // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
-  // Start with a fixed value (0 = not yet mounted) to avoid SSR/client mismatch
-  // from Math.random(), then set the real value after first mount.
-  const [exchangeRate, setExchangeRate] = useState<number>(0)
-  const [rateFlash, setRateFlash] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
-  const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
+  const [currentUser, setCurrentUser] = useState<CommunityUser | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [pendingAuthAction, setPendingAuthAction] = useState<"buy" | "sell" | "history" | null>(null)
 
   useEffect(() => {
-    // Set initial random rate only on client after mount
-    setExchangeRate(Math.floor(Math.random() * 16) + 105)
-    setMounted(true)
-
-    const FIFTEEN_MINUTES = 15 * 60 * 1000
-    const id = setInterval(() => {
-      setExchangeRate(prev => {
-        const delta = Math.random() < 0.5 ? -2 : 2
-        const next  = Math.min(120, Math.max(105, prev + delta))
-        return next
-      })
-      setRateFlash(true)
-      setTimeout(() => setRateFlash(false), 600)
-    }, FIFTEEN_MINUTES)
-    return () => clearInterval(id)
+    getP2PAccount().then(session => {
+      setCurrentUser(session)
+      if (session) {
+        setFormData(prev => ({ ...prev, fullName: prev.fullName || session.fullName, email: prev.email || session.email, phone: prev.phone || session.phone }))
+        setSellFormData(prev => ({ ...prev, name: prev.name || session.fullName, phone: prev.phone || session.phone }))
+      }
+    })
   }, [])
+
+  const requireP2PAuth = async (action: "buy" | "sell" | "history") => {
+    const session = await getP2PAccount()
+    if (session) {
+      setCurrentUser(session)
+      if (action === "buy") { setActiveTab("buy"); setStep(1); setIsComplete(false) }
+      if (action === "sell") { setActiveTab("sell"); setSellStep(1) }
+      if (action === "history") setActiveTab("history")
+      return
+    }
+    setPendingAuthAction(action)
+    setAuthOpen(true)
+  }
+
+  const handleP2PAuth = (user: CommunityUser) => {
+    setCurrentUser(user)
+    setAuthOpen(false)
+    const action = pendingAuthAction
+    setPendingAuthAction(null)
+    if (action === "buy") { setActiveTab("buy"); setStep(1); setIsComplete(false) }
+    if (action === "sell") { setActiveTab("sell"); setSellStep(1) }
+    if (action === "history") setActiveTab("history")
+  }
+
+  // Daily P2P rates are controlled by the Admin Panel and shared site-wide.
+  const [buyRate, setBuyRate] = useState<number>(106)
+  const [sellRate, setSellRate] = useState<number>(102)
+  const [ratesLoaded, setRatesLoaded] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const loadRates = async () => {
+      try {
+        const response = await fetch("/api/pricing", { cache: "no-store" })
+        const payload = await response.json()
+        if (!active || !payload?.ok) return
+        const pricing = payload.config ?? {}
+        const nextBuy = Number.parseFloat(String(pricing.p2p_buy_rate ?? "106").replace(/[^0-9.]/g, ""))
+        const nextSell = Number.parseFloat(String(pricing.p2p_sell_rate ?? "102").replace(/[^0-9.]/g, ""))
+        if (Number.isFinite(nextBuy) && nextBuy >= 105 && nextBuy <= 107) setBuyRate(nextBuy)
+        if (Number.isFinite(nextSell) && nextSell >= 99 && nextSell <= 102.5) setSellRate(nextSell)
+      } catch (error) {
+        console.error("[p2p] Could not load admin rates:", error)
+      } finally {
+        if (active) setRatesLoaded(true)
+      }
+    }
+    loadRates()
+    const id = setInterval(loadRates, 60_000)
+    return () => { active = false; clearInterval(id) }
+  }, [])
+
+  const p2pRate = buyRate
 
   // History state
   const [historyRecords, setHistoryRecords]       = useState<HistoryRecord[]>([])
@@ -117,11 +158,11 @@ export default function UsdtP2PPage() {
   const [historyTab, setHistoryTab]               = useState<"pending" | "completed" | "cancelled">("pending")
 
   useEffect(() => {
-    if (activeTab !== "history") return
+    if (activeTab !== "history" || !currentUser?.id) return
     setHistoryLoading(true)
     Promise.all([
-      fetch("/api/admin/usdt-buy").then(r => r.json()).catch(() => ({ ok: false })),
-      fetch("/api/admin/usdt-sell").then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/p2p/buy", { cache: "no-store" }).then(r => r.json()).catch(() => ({ ok: false })),
+      fetch("/api/p2p/sell", { cache: "no-store" }).then(r => r.json()).catch(() => ({ ok: false })),
     ]).then(([buyRes, sellRes]) => {
       const buys:  HistoryRecord[] = (buyRes.ok  ? buyRes.data  ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "buy"  as const }))
       const sells: HistoryRecord[] = (sellRes.ok ? sellRes.data ?? [] : []).map((r: HistoryRecord) => ({ ...r, type: "sell" as const }))
@@ -130,7 +171,7 @@ export default function UsdtP2PPage() {
       )
       setHistoryRecords(all)
     }).finally(() => setHistoryLoading(false))
-  }, [activeTab])
+  }, [activeTab, currentUser?.id])
   const [sellUsdtAmount, setSellUsdtAmount] = useState("")
   const [copiedUpi, setCopiedUpi] = useState(false)
   
@@ -210,26 +251,51 @@ export default function UsdtP2PPage() {
   }
 
   const handleSubmit = async () => {
+    if (!currentUser?.id) {
+      requireP2PAuth("buy")
+      return
+    }
     setIsSubmitting(true)
-    
-    // Save submission to admin dashboard
-    await saveSubmission({
-      type: "usdt_p2p",
-      name: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      details: {
-        action: "buy",
-        amount: `${formData.usdtAmount} USDT`,
-        paymentMethod: formData.paymentMethod,
-        utrNumber: formData.utrNumber,
-        network: formData.network,
-        walletAddress: formData.walletAddress
-      }
-    })
-    
-    setIsSubmitting(false)
-    setIsComplete(true)
+    try {
+      const response = await fetch("/api/p2p/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          name: formData.fullName || currentUser.fullName,
+          email: formData.email || currentUser.email,
+          phone: formData.phone || currentUser.phone,
+          amountUsdt: formData.usdtAmount,
+          inrEquivalent: totalAmount,
+          amountPaid: totalAmount,
+          transactionId: formData.utrNumber,
+          walletAddress: formData.walletAddress,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not submit your buy request")
+      await saveSubmission({
+        type: "usdt_p2p",
+        name: formData.fullName || currentUser.fullName,
+        email: formData.email || currentUser.email,
+        phone: formData.phone || currentUser.phone,
+        details: {
+          userId: currentUser.id,
+          action: "buy",
+          amount: `${formData.usdtAmount} USDT`,
+          paymentMethod: formData.paymentMethod,
+          utrNumber: formData.utrNumber,
+          network: formData.network,
+          walletAddress: formData.walletAddress
+        }
+      })
+      setIsComplete(true)
+    } catch (error) {
+      console.error("[p2p] Buy request failed:", error)
+      alert(error instanceof Error ? error.message : "Could not submit your request. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Calculate payment amount — always uses live p2pRate
@@ -243,11 +309,8 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT — fixed pricing: ₹90 below 50 USDT, ₹93–₹95 for 50+ USDT (max ₹95)
-  const sellAmount   = Number(sellUsdtAmount) || 0
-  const SELL_RATE_SMALL = 90                                    // below 50 USDT
-  const SELL_RATE_LARGE = Math.min(95, Math.max(93, p2pRate - 20)) // 50+ USDT: ₹93–₹95
-  const sellRate     = sellAmount > 0 && sellAmount < 50 ? SELL_RATE_SMALL : SELL_RATE_LARGE
+  // Customer sells USDT to us at the admin-set daily sell rate.
+  const sellAmount = Number(sellUsdtAmount) || 0
   const sellTotalINR = sellAmount * sellRate
 
   // Step labels for progress indicator
@@ -307,7 +370,7 @@ export default function UsdtP2PPage() {
                   Sell USDT
                 </button>
                 <button
-                  onClick={() => setActiveTab("history")}
+                  onClick={() => requireP2PAuth("history")}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
                     activeTab === "history"
                       ? "bg-primary text-primary-foreground"
@@ -455,13 +518,13 @@ export default function UsdtP2PPage() {
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
-                        {mounted ? (
+                        <p className="text-sm text-muted-foreground mb-1">Daily Reference</p>
+                        {ratesLoaded ? (
                           <p
                             className="text-2xl font-bold text-foreground transition-all duration-500"
-                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
+                            
                           >
-                            ₹{exchangeRate}
+                            ₹{buyRate}
                           </p>
                         ) : (
                           <div className="h-8 w-16 mx-auto rounded bg-secondary animate-pulse" />
@@ -469,12 +532,9 @@ export default function UsdtP2PPage() {
                       </div>
                       <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
                         <p className="text-sm text-primary mb-1">Your P2P Rate</p>
-                        {mounted ? (
-                          <p
-                            className="text-2xl font-bold text-primary transition-all duration-500"
-                            style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
-                          >
-                            ₹{p2pRate}
+                        {ratesLoaded ? (
+                          <p className="text-2xl font-bold text-primary transition-all duration-500">
+                            ₹{buyRate}
                           </p>
                         ) : (
                           <div className="h-8 w-16 mx-auto rounded bg-primary/20 animate-pulse" />
@@ -496,7 +556,7 @@ export default function UsdtP2PPage() {
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                         <p className="text-sm text-amber-200">
-                          If someone buys below 50 USDT, the rate increases to <strong>₹115 – ₹120 per USDT</strong> due to taxes and transaction fees.
+                          Today’s buy rate is set by the admin and stays between ₹105 and ₹107 per USDT.
                         </p>
                       </div>
                     </div>
@@ -507,7 +567,7 @@ export default function UsdtP2PPage() {
                 {step === 0 && !isComplete && (
                   <div className="flex flex-col items-center gap-3">
                     <Button
-                      onClick={() => setStep(1)}
+                      onClick={() => requireP2PAuth("buy")}
                       className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                     >
                       Buy USDT Now
@@ -553,7 +613,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">Below 50 USDT</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount > 0 && sellAmount < 50 ? "text-primary" : "text-foreground"
-                      }`}>₹90 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹99 – ₹102.50 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                     <div className={`p-4 rounded-xl border text-center transition-colors ${
                       sellAmount >= 50 
@@ -563,7 +623,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹93 – ₹95 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹{sellRate.toFixed(2)} <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -576,7 +636,8 @@ export default function UsdtP2PPage() {
                       onChange={(e) => setSellUsdtAmount(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg"
                       placeholder="Enter amount of USDT to sell"
-                      min="1"
+                      min="50"
+                       max="5000"
                     />
                   </div>
 
@@ -592,14 +653,14 @@ export default function UsdtP2PPage() {
                           <>
                             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                             <p className="text-sm text-amber-200">
-                              Small trade rate will apply because the amount is below 50 USDT.
+                              Minimum sell quantity is 50 USDT.
                             </p>
                           </>
                         ) : (
                           <>
                             <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                             <p className="text-sm text-green-200">
-                              Standard market rate will apply for 50 USDT or above.
+                              Today’s admin-set sell rate is applied to your full quantity.
                             </p>
                           </>
                         )}
@@ -617,7 +678,7 @@ export default function UsdtP2PPage() {
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">Sell Rate:</span>
-                          <span className="text-foreground font-medium">₹{sellRate} per USDT</span>
+                          <span className="text-foreground font-medium">₹{sellRate.toFixed(2)} per USDT</span>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-border">
                           <span className="font-semibold text-foreground">Estimated INR:</span>
@@ -630,7 +691,7 @@ export default function UsdtP2PPage() {
                   {/* Transparency Note */}
                   <div className="p-4 rounded-xl bg-secondary/30 border border-border mb-6">
                     <p className="text-xs text-muted-foreground text-center">
-                      Smaller trades may have a slightly lower rate due to transaction fees, GST, and processing costs.
+                      Sell rate is updated daily by the admin. Minimum 50 USDT; maximum 5,000 USDT.
                     </p>
                   </div>
 
@@ -638,7 +699,7 @@ export default function UsdtP2PPage() {
                   {sellStep === -1 && (
                     <div className="flex flex-col items-center gap-3">
                       <Button
-                        onClick={() => setSellStep(1)}
+                        onClick={() => requireP2PAuth("sell")}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg px-8 py-6"
                       >
                         Sell USDT Now
@@ -913,11 +974,13 @@ export default function UsdtP2PPage() {
                           // Save to usdt_sell_requests table directly (returns id)
                           let requestId = "N/A"
                           try {
-                            const sellRes = await fetch("/api/admin/usdt-sell", {
+                            const sellRes = await fetch("/api/p2p/sell", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
-                                name:               sellFormData.name || "Sell Request",
+                                userId:             currentUser?.id,
+                                email:              currentUser?.email,
+                                name:               sellFormData.name || currentUser?.fullName || "Sell Request",
                                 phone:              sellFormData.phone,
                                 telegram:           sellFormData.telegram,
                                 usdtAmount:         `${sellAmount}`,
@@ -928,15 +991,22 @@ export default function UsdtP2PPage() {
                               }),
                             })
                             const sellJson = await sellRes.json()
-                            if (sellJson.ok && sellJson.id) {
-                              requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                            if (!sellRes.ok || !sellJson.ok || !sellJson.id) {
+                              throw new Error(sellJson.error || "Could not submit your sell request")
                             }
-                          } catch { /* silent */ }
+                            requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                          } catch (error) {
+                            console.error("[p2p] Sell request failed:", error)
+                            alert(error instanceof Error ? error.message : "Could not submit your request. Please try again.")
+                            return
+                          }
 
                           // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            name: sellFormData.name || "Sell Request",
+                            userId: currentUser?.id,
+                            email: currentUser?.email,
+                            name: sellFormData.name || currentUser?.fullName || "Sell Request",
                             telegram: sellFormData.telegram,
                             phone: sellFormData.phone,
                             details: {
@@ -1105,8 +1175,9 @@ export default function UsdtP2PPage() {
                             value={formData.usdtAmount}
                             onChange={(e) => handleInputChange("usdtAmount", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="Enter amount (min 50 USDT recommended)"
-                            min="1"
+                            placeholder="Enter amount (50–5,000 USDT)"
+                            min="50"
+                            max="5000"
                           />
                           {formData.usdtAmount && Number(formData.usdtAmount) < 50 && (
                             <p className="text-amber-500 text-sm mt-2">
@@ -1754,6 +1825,12 @@ export default function UsdtP2PPage() {
       </section>
 
       <UsdtHelpModal mode={helpMode} isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+      {authOpen && (
+        <P2PAuthModal
+          onClose={() => { setAuthOpen(false); setPendingAuthAction(null) }}
+          onAuth={handleP2PAuth}
+        />
+      )}
 
       <Footer />
     </div>

@@ -25,6 +25,8 @@ export type PricingConfig = {
   funded_account: string
   vip_signal_xm_existing: string
   vip_signal_xm_new: string
+  p2p_buy_rate: string
+  p2p_sell_rate: string
 }
 
 export const DEFAULT_PRICING: PricingConfig = {
@@ -35,6 +37,8 @@ export const DEFAULT_PRICING: PricingConfig = {
   funded_account:          "₹5,000",
   vip_signal_xm_existing:  "₹2,000",
   vip_signal_xm_new:       "₹2,500",
+  p2p_buy_rate:            "106",
+  p2p_sell_rate:           "102",
 }
 
 export const DEFAULT_SYSTEM: SystemConfig = {
@@ -66,12 +70,13 @@ async function setSetting<T extends object>(key: string, value: T): Promise<void
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ key, value }),
     })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      console.error("[admin-settings] setSetting failed:", err)
+    const result = await res.json().catch(() => ({}))
+    if (!res.ok || result?.ok !== true || !result?.data?.key) {
+      throw new Error(result?.error || `Settings save failed (HTTP ${res.status}).`)
     }
   } catch (err) {
-    console.error("[admin-settings] setSetting network error:", err)
+    console.error("[admin-settings] setSetting failed:", err)
+    throw err instanceof Error ? err : new Error("Settings save failed.")
   }
 }
 
