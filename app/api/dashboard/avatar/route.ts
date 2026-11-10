@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
-import { createClient } from "@/lib/supabase/server"
+import { query } from "@/lib/db"
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
@@ -30,14 +30,13 @@ export async function POST(req: NextRequest) {
   })
 
   // Persist the URL to the database
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("dashboard_users")
-    .update({ avatar_url: blob.url })
-    .eq("id", userId)
+  const rows = await query(
+    "UPDATE dashboard_users SET avatar_url = $1 WHERE id = $2 RETURNING id",
+    [blob.url, userId]
+  )
 
-  if (error) {
-    return NextResponse.json({ error: "Uploaded but failed to save URL" }, { status: 500 })
+  if (!rows.length) {
+    return NextResponse.json({ error: "User not found; image URL was not saved." }, { status: 404 })
   }
 
   return NextResponse.json({ url: blob.url })
