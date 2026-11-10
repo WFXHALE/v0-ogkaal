@@ -985,10 +985,15 @@ export default function UsdtP2PPage() {
                               }),
                             })
                             const sellJson = await sellRes.json()
-                            if (sellJson.ok && sellJson.id) {
-                              requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                            if (!sellRes.ok || !sellJson.ok || !sellJson.id) {
+                              throw new Error(sellJson.error || "Could not submit your sell request")
                             }
-                          } catch { /* silent */ }
+                            requestId = String(sellJson.id).slice(0, 8).toUpperCase()
+                          } catch (error) {
+                            console.error("[p2p] Sell request failed:", error)
+                            alert(error instanceof Error ? error.message : "Could not submit your request. Please try again.")
+                            return
+                          }
 
                           // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
