@@ -1,7 +1,7 @@
 "use client"
 
 import { GoogleAuthProvider, signInWithPopup, signOut, getAuth } from "firebase/auth"
-import { app, auth } from "./firebase"
+import { app } from "./firebase"
 import { createClient } from "./supabase/client"
 import { Analytics, identifyUser } from "./analytics"
 import type { DashboardSession } from "./dash-auth"
@@ -17,16 +17,16 @@ export async function signInWithGoogle(): Promise<
   | { success: true; user: DashboardSession; isNew: boolean }
   | { success: false; error: string }
 > {
-  if (!auth) {
-    return { success: false, error: "Google sign-in is not available on this domain. Please use email/password to sign in." }
-  }
   try {
+    // Initialise Auth in the browser at click time. A module-level Auth instance
+    // may be unavailable if the Firebase module was evaluated during SSR.
+    const authInstance = getAuth(app)
     const provider = new GoogleAuthProvider()
     provider.addScope("email")
     provider.addScope("profile")
     provider.setCustomParameters({ prompt: "select_account" })
 
-    const result  = await signInWithPopup(auth, provider)
+    const result  = await signInWithPopup(authInstance, provider)
     const gUser   = result.user
     const email   = gUser.email?.toLowerCase() ?? ""
     const name    = gUser.displayName ?? email.split("@")[0]
@@ -116,6 +116,6 @@ export async function signInWithGoogle(): Promise<
 
 export async function signOutGoogle(): Promise<void> {
   try {
-    await signOut(auth)
+    await signOut(getAuth(app))
   } catch {}
 }
