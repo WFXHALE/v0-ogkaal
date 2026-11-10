@@ -23,7 +23,7 @@ const TYPE_META: Record<NotificationType, { icon: React.ElementType; color: stri
   like:       { icon: Heart,         color: "text-red-400",    label: "liked your post" },
   comment:    { icon: MessageCircle, color: "text-blue-400",   label: "commented on your post" },
   follow:     { icon: UserPlus,      color: "text-green-400",  label: "started following you" },
-  admin_post: { icon: Megaphone,     color: "text-[#FCD535]",  label: "posted a new update" },
+  admin_post: { icon: Megaphone,     color: "text-[#2F80FF]",  label: "posted a new update" },
 }
 
 async function fetchNotifications(userId: string): Promise<Notification[]> {
@@ -99,7 +99,7 @@ export function NotificationBell({ userId }: Props) {
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#FCD535] text-[#0B0E11] text-[10px] font-bold px-1 leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#2F80FF] text-[#0B0E11] text-[10px] font-bold px-1 leading-none">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -143,7 +143,7 @@ export function NotificationBell({ userId }: Props) {
                 return (
                   <div
                     key={n.id}
-                    className={`flex gap-3 px-4 py-3 transition-colors ${n.is_read ? "" : "bg-[#FCD535]/[0.04]"}`}
+                    className={`flex gap-3 px-4 py-3 transition-colors ${n.is_read ? "" : "bg-[#2F80FF]/[0.04]"}`}
                   >
                     {/* Avatar + type icon */}
                     <div className="relative shrink-0">
@@ -173,7 +173,7 @@ export function NotificationBell({ userId }: Props) {
 
                     {/* Unread dot */}
                     {!n.is_read && (
-                      <div className="w-2 h-2 rounded-full bg-[#FCD535] shrink-0 mt-1.5" />
+                      <div className="w-2 h-2 rounded-full bg-[#2F80FF] shrink-0 mt-1.5" />
                     )}
                   </div>
                 )
