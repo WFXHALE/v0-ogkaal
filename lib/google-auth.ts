@@ -2,7 +2,6 @@
 
 import { GoogleAuthProvider, signInWithPopup, signOut, getAuth } from "firebase/auth"
 import { app } from "./firebase"
-import { createClient } from "./supabase/client"
 import { Analytics, identifyUser } from "./analytics"
 import type { DashboardSession } from "./dash-auth"
 
@@ -33,46 +32,21 @@ export async function signInWithGoogle(): Promise<
 
     if (!email) return { success: false, error: "Google account has no email." }
 
-    const supabase = createClient()
-
-    // Try to find existing dashboard_users row by email
-    const { data: existing } = await supabase
-      .from("dashboard_users")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle()
-
-    let row = existing
-    let isNew = false
-
-    if (!row) {
-      // Create a new user row — no password (google_uid stored instead)
-      isNew = true
-      const userId = email.split("@")[0].replace(/[^a-z0-9_]/gi, "").toLowerCase().slice(0, 20) +
-        "_" + Math.random().toString(36).slice(2, 6)
-
-      const numericUid = Math.floor(10000000 + Math.random() * 90000000)
-
-      const { data: inserted, error: insErr } = await supabase
-        .from("dashboard_users")
-        .insert({
-          user_id:       userId,
-          email,
-          full_name:     name,
-          numeric_uid:   numericUid,
-          password_hash: "", // no password for Google users
-          is_verified:   true,
-          kyc_status:    "none",
-        })
-        .select("*")
-        .single()
-
-      if (insErr || !inserted) {
-        console.error("User creation error:", insErr)
-        return { success: false, error: "Failed to create account. Please try again." }
-      }
-      row = inserted
+    // The custom dashboard account is stored in PostgreSQL, not Supabase Auth.
+    // Verify Firebase identity and create/load the dashboard row server-side.
+    const idToken = await gUser.getIdToken()
+    const response = await fetch("/api/dashboard/google-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload?.data) {
+      console.error("[google-auth] Dashboard account API failed:", payload?.error)
+      return { success: false, error: payload?.error ?? "Failed to create account. Please try again." }
     }
+    const row = payload.data
+    const isNew = Boolean(payload.isNew)
 
     const session: DashboardSession = {
       id:              String(row.id),
