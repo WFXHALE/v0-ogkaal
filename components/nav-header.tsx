@@ -23,6 +23,7 @@ const MORE_ITEMS: NavItem[] = [
   { label: "Community", href: "/community" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
+  { label: "Wallet", href: "/wallet" },
   { label: "Trade Dashboard", href: "/trade-dashboard" },
   { label: "SMC Guide", href: "/smc-guide" },
   { label: "Material", href: "/material" },
