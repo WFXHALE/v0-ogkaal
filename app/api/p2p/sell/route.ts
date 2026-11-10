@@ -21,7 +21,7 @@ export async function POST(request:NextRequest) {
   if(!userId)return NextResponse.json({ok:false,error:"Sign in required"},{status:401})
   const b=await request.json().catch(()=>({}))
   const amount=String(b.usdtAmount??b.amount_usdt??"").trim()
-  if(!amount||!/^(?:\d+(?:\.\d{1,6})?)$/.test(amount)||Number(amount)<=0)return NextResponse.json({ok:false,error:"Enter a valid USDT amount."},{status:400})
+  if(!amount||!/^(?:\d+(?:\.\d{1,6})?)$/.test(amount)||(Number(amount)<50 || Number(amount)>5000))return NextResponse.json({ok:false,error:"Sell quantity must be between 50 and 5,000 USDT."},{status:400})
   try {
     const pricing=await queryOne<{value:{p2p_sell_rate?:string}}>("SELECT value FROM admin_settings WHERE key = 'pricing'")
     const rate=Number(pricing?.value?.p2p_sell_rate ?? 102)
