@@ -245,26 +245,51 @@ export default function UsdtP2PPage() {
   }
 
   const handleSubmit = async () => {
+    if (!currentUser?.id) {
+      requireP2PAuth("buy")
+      return
+    }
     setIsSubmitting(true)
-    
-    // Save submission to admin dashboard
-    await saveSubmission({
-      type: "usdt_p2p",
-      name: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      details: {
-        action: "buy",
-        amount: `${formData.usdtAmount} USDT`,
-        paymentMethod: formData.paymentMethod,
-        utrNumber: formData.utrNumber,
-        network: formData.network,
-        walletAddress: formData.walletAddress
-      }
-    })
-    
-    setIsSubmitting(false)
-    setIsComplete(true)
+    try {
+      const response = await fetch("/api/admin/usdt-buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          name: formData.fullName || currentUser.fullName,
+          email: formData.email || currentUser.email,
+          phone: formData.phone || currentUser.phone,
+          amountUsdt: formData.usdtAmount,
+          inrEquivalent: totalAmount,
+          amountPaid: totalAmount,
+          transactionId: formData.utrNumber,
+          walletAddress: formData.walletAddress,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not submit your buy request")
+      await saveSubmission({
+        type: "usdt_p2p",
+        name: formData.fullName || currentUser.fullName,
+        email: formData.email || currentUser.email,
+        phone: formData.phone || currentUser.phone,
+        details: {
+          userId: currentUser.id,
+          action: "buy",
+          amount: `${formData.usdtAmount} USDT`,
+          paymentMethod: formData.paymentMethod,
+          utrNumber: formData.utrNumber,
+          network: formData.network,
+          walletAddress: formData.walletAddress
+        }
+      })
+      setIsComplete(true)
+    } catch (error) {
+      console.error("[p2p] Buy request failed:", error)
+      alert(error instanceof Error ? error.message : "Could not submit your request. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Calculate payment amount — always uses live p2pRate
