@@ -1,5 +1,6 @@
 "use client"
 import { createClient } from "@/lib/supabase/client"
+import { setSession } from "@/lib/community-utils"
 import type { CommunityUser, TraderLevel } from "@/lib/community-utils"
 
 export type P2PAuthResult = { ok: true; user?: CommunityUser; confirmationRequired?: boolean } | { ok: false; error: string }
@@ -8,6 +9,7 @@ async function loadProfile(): Promise<CommunityUser> {
   const response = await fetch("/api/p2p/account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}), cache: "no-store" })
   const payload = await response.json()
   if (!response.ok || !payload.ok || !payload.user) throw new Error(payload.error || "Could not load your account profile.")
+  setSession(payload.user as CommunityUser)
   return payload.user as CommunityUser
 }
 export async function getP2PAccount(): Promise<CommunityUser | null> {
@@ -17,7 +19,9 @@ export async function getP2PAccount(): Promise<CommunityUser | null> {
     if (!session) return null
     const response = await fetch("/api/p2p/account", { cache: "no-store" })
     const payload = await response.json()
-    return response.ok && payload.ok ? payload.user as CommunityUser : null
+    if (!response.ok || !payload.ok || !payload.user) return null
+    setSession(payload.user as CommunityUser)
+    return payload.user as CommunityUser
   } catch { return null }
 }
 export async function p2pSignUp(input: { fullName: string; email: string; password: string; phone: string; level: TraderLevel }): Promise<P2PAuthResult> {
