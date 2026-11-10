@@ -68,7 +68,7 @@ function AvatarCircle({
   const initials = getInitials(name)
   return (
     <div
-      className="rounded-full bg-[#FCD535] flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#FCD535]/40"
+      className="rounded-full bg-[#2F80FF] flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#2F80FF]/40"
       style={{ width: size, height: size }}
     >
       {avatarUrl ? (
@@ -588,7 +588,7 @@ export function UserAvatar() {
               {name}
             </p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-[#FCD535]/40 bg-[#FCD535]/10 text-[#FCD535]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-[#2F80FF]/40 bg-[#2F80FF]/10 text-[#2F80FF]">
                 Regular
               </span>
               {session.isVerified ? (
