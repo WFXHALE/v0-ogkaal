@@ -3,10 +3,13 @@ import { query } from "@/lib/db"
 
 const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const userId = req.nextUrl.searchParams.get("userId")
+    if (!userId) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 })
     const rows = await query(
-      "SELECT * FROM usdt_buy_requests ORDER BY created_at DESC LIMIT 500",
+      "SELECT * FROM usdt_buy_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500",
+      [userId],
     )
     const normalized = rows.map(r => ({
       id:            r.id,
@@ -25,6 +28,25 @@ export async function GET() {
       createdAt:     r.created_at,
     }))
     return NextResponse.json({ ok: true, data: normalized })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+}
+
+
+export async function POST(req: NextRequest) {
+  try {
+    const b = await req.json()
+    if (!b.userId || !b.name || !b.amountUsdt) {
+      return NextResponse.json({ ok: false, error: "Missing account or trade details" }, { status: 400 })
+    }
+    const rows = await query(
+      `INSERT INTO usdt_buy_requests
+         (user_id, name, email, phone, wallet_address, amount_usdt, inr_equivalent, amount_paid, transaction_id, screenshot_url, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending') RETURNING id`,
+      [b.userId, b.name, b.email ?? null, b.phone ?? null, b.walletAddress ?? null, b.amountUsdt, b.inrEquivalent ?? null, b.amountPaid ?? null, b.transactionId ?? null, b.screenshotUrl ?? null]
+    )
+    return NextResponse.json({ ok: true, id: rows[0]?.id ?? null })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
