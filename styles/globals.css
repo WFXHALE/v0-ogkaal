@@ -40,6 +40,7 @@
   --sidebar: #E7E9ED; --sidebar-foreground: #20242B; --sidebar-primary: #3B73C5;
   --sidebar-primary-foreground: #FFFFFF; --sidebar-accent: #DDE1E7; --sidebar-accent-foreground: #303844;
   --sidebar-border: #D0D4DA; --sidebar-ring: #3B73C5;
+  --radius: 0.625rem;
 }
 
 @theme inline {
