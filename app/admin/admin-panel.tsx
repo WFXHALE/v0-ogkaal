@@ -835,12 +835,13 @@ export default function AdminPanel() {
     setSystemSettings(updated)
     setSystemSaving(true)
     setSystemSaved(false)
+    setSystemError(null)
     // Notify same-tab frontend listeners (useSiteConfig hook, pricing pages, etc.)
     window.dispatchEvent(new Event("og_site_config_change"))
     // Persist to database via service-role API route (no localStorage)
     saveSystemConfig(updated)
       .then(() => { setSystemSaved(true); setTimeout(() => setSystemSaved(false), 3000) })
-      .catch((err) => { console.error("[admin] saveSystem failed:", err) })
+      .catch((err) => { console.error("[admin] saveSystem failed:", err); setSystemError(err instanceof Error ? err.message : "Save failed. Please retry.") })
       .finally(() => setSystemSaving(false))
   }
 
@@ -2165,6 +2166,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-2 text-xs">
           {systemSaving && <span className="text-primary animate-pulse">Saving...</span>}
           {systemSaved  && <span className="text-green-400">Saved to database</span>}
+          {systemError && <span className="text-red-400 text-xs">{systemError}</span>}
         </div>
       </div>
       {systemSettings.maintenanceMode && (
