@@ -24,7 +24,7 @@ function SignalCard({ signal }: { signal: VipSignal }) {
   }[signal.status]
 
   return (
-    <div className={`rounded-2xl border bg-card p-5 space-y-4 ${isActive ? "border-[#FCD535]/30" : "border-border"}`}>
+    <div className={`rounded-2xl border bg-card p-5 space-y-4 ${isActive ? "border-[#2F80FF]/30" : "border-border"}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -124,7 +124,7 @@ export default function VipSignalsPage() {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#FCD535] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#2F80FF] border-t-transparent rounded-full animate-spin" />
         </main>
         <Footer />
       </div>
@@ -137,15 +137,15 @@ export default function VipSignalsPage() {
         <Header />
         <main className="flex-1 flex items-center justify-center px-4">
           <div className="max-w-md w-full text-center space-y-6 py-20">
-            <div className="w-20 h-20 rounded-3xl bg-[#FCD535]/10 border border-[#FCD535]/30 flex items-center justify-center mx-auto">
-              <Lock className="w-10 h-10 text-[#FCD535]" />
+            <div className="w-20 h-20 rounded-3xl bg-[#2F80FF]/10 border border-[#2F80FF]/30 flex items-center justify-center mx-auto">
+              <Lock className="w-10 h-10 text-[#2F80FF]" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-2">VIP Access Required</h1>
               <p className="text-muted-foreground">VIP trading signals are exclusively available to active VIP and VIP Group members.</p>
             </div>
             <div className="flex gap-3 justify-center flex-wrap">
-              <Link href="/vip-group" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FCD535] text-black font-bold text-sm hover:bg-[#FCD535]/90 transition-colors">
+              <Link href="/vip-group" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2F80FF] text-black font-bold text-sm hover:bg-[#2F80FF]/90 transition-colors">
                 <Crown className="w-4 h-4" />
                 Get VIP Access
               </Link>
@@ -170,10 +170,10 @@ export default function VipSignalsPage() {
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <Crown className="w-6 h-6 text-[#FCD535]" />
+              <Crown className="w-6 h-6 text-[#2F80FF]" />
               <h1 className="text-2xl font-bold text-foreground">VIP Signals</h1>
               {activeCount > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FCD535]/10 text-[#FCD535] border border-[#FCD535]/30">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#2F80FF]/10 text-[#2F80FF] border border-[#2F80FF]/30">
                   {activeCount} Active
                 </span>
               )}
@@ -196,7 +196,7 @@ export default function VipSignalsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-colors ${filter === f ? "bg-[#FCD535] text-black" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-colors ${filter === f ? "bg-[#2F80FF] text-black" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
             >
               {f}
             </button>
