@@ -25,6 +25,8 @@ export type PricingConfig = {
   funded_account: string
   vip_signal_xm_existing: string
   vip_signal_xm_new: string
+  p2p_buy_rate: string
+  p2p_sell_rate: string
 }
 
 export const DEFAULT_PRICING: PricingConfig = {
