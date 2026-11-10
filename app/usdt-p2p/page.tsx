@@ -83,33 +83,35 @@ export default function UsdtP2PPage() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpMode, setHelpMode] = useState<"buy" | "sell">("buy")
 
-  // Live simulated exchange rate — range ₹105–₹120, updates every 15 min by ±₹2
-  // Start with a fixed value (0 = not yet mounted) to avoid SSR/client mismatch
-  // from Math.random(), then set the real value after first mount.
-  const [exchangeRate, setExchangeRate] = useState<number>(0)
-  const [rateFlash, setRateFlash] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  // p2pRate is always exchangeRate − 5, clamped to ₹100–₹115
-  const p2pRate = Math.min(115, Math.max(100, exchangeRate - 5))
+  // Daily P2P rates are controlled by the Admin Panel and shared site-wide.
+  const [buyRate, setBuyRate] = useState<number>(106)
+  const [sellRate, setSellRate] = useState<number>(102)
+  const [ratesLoaded, setRatesLoaded] = useState(false)
 
   useEffect(() => {
-    // Set initial random rate only on client after mount
-    setExchangeRate(Math.floor(Math.random() * 16) + 105)
-    setMounted(true)
-
-    const FIFTEEN_MINUTES = 15 * 60 * 1000
-    const id = setInterval(() => {
-      setExchangeRate(prev => {
-        const delta = Math.random() < 0.5 ? -2 : 2
-        const next  = Math.min(120, Math.max(105, prev + delta))
-        return next
-      })
-      setRateFlash(true)
-      setTimeout(() => setRateFlash(false), 600)
-    }, FIFTEEN_MINUTES)
-    return () => clearInterval(id)
+    let active = true
+    const loadRates = async () => {
+      try {
+        const response = await fetch("/api/pricing", { cache: "no-store" })
+        const payload = await response.json()
+        if (!active || !payload?.ok) return
+        const pricing = payload.config ?? {}
+        const nextBuy = Number.parseFloat(String(pricing.p2p_buy_rate ?? "106").replace(/[^0-9.]/g, ""))
+        const nextSell = Number.parseFloat(String(pricing.p2p_sell_rate ?? "102").replace(/[^0-9.]/g, ""))
+        if (Number.isFinite(nextBuy) && nextBuy >= 105 && nextBuy <= 107) setBuyRate(nextBuy)
+        if (Number.isFinite(nextSell) && nextSell >= 99 && nextSell <= 102.5) setSellRate(nextSell)
+      } catch (error) {
+        console.error("[p2p] Could not load admin rates:", error)
+      } finally {
+        if (active) setRatesLoaded(true)
+      }
+    }
+    loadRates()
+    const id = setInterval(loadRates, 60_000)
+    return () => { active = false; clearInterval(id) }
   }, [])
+
+  const p2pRate = buyRate
 
   // History state
   const [historyRecords, setHistoryRecords]       = useState<HistoryRecord[]>([])
@@ -243,11 +245,8 @@ export default function UsdtP2PPage() {
   const canProceedStep4 = formData.governmentId && formData.selfie
   const canProceedStep5 = formData.walletAddress && formData.network
 
-  // Sell USDT — fixed pricing: ₹90 below 50 USDT, ₹93–₹95 for 50+ USDT (max ₹95)
-  const sellAmount   = Number(sellUsdtAmount) || 0
-  const SELL_RATE_SMALL = 90                                    // below 50 USDT
-  const SELL_RATE_LARGE = Math.min(95, Math.max(93, p2pRate - 20)) // 50+ USDT: ₹93–₹95
-  const sellRate     = sellAmount > 0 && sellAmount < 50 ? SELL_RATE_SMALL : SELL_RATE_LARGE
+  // Customer sells USDT to us at the admin-set daily sell rate.
+  const sellAmount = Number(sellUsdtAmount) || 0
   const sellTotalINR = sellAmount * sellRate
 
   // Step labels for progress indicator
@@ -455,13 +454,13 @@ export default function UsdtP2PPage() {
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Other Exchange USDT Rate</p>
+                        <p className="text-sm text-muted-foreground mb-1">Daily Reference</p>
                         {mounted ? (
                           <p
                             className="text-2xl font-bold text-foreground transition-all duration-500"
                             style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
                           >
-                            ₹{exchangeRate}
+                            ₹{buyRate}
                           </p>
                         ) : (
                           <div className="h-8 w-16 mx-auto rounded bg-secondary animate-pulse" />
@@ -474,7 +473,7 @@ export default function UsdtP2PPage() {
                             className="text-2xl font-bold text-primary transition-all duration-500"
                             style={{ opacity: rateFlash ? 0.3 : 1, transform: rateFlash ? "scale(0.95)" : "scale(1)" }}
                           >
-                            ₹{p2pRate}
+                            ₹{buyRate}
                           </p>
                         ) : (
                           <div className="h-8 w-16 mx-auto rounded bg-primary/20 animate-pulse" />
@@ -496,7 +495,7 @@ export default function UsdtP2PPage() {
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                         <p className="text-sm text-amber-200">
-                          If someone buys below 50 USDT, the rate increases to <strong>₹115 – ₹120 per USDT</strong> due to taxes and transaction fees.
+                          Today’s buy rate is set by the admin and stays between ₹105 and ₹107 per USDT.
                         </p>
                       </div>
                     </div>
@@ -553,7 +552,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">Below 50 USDT</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount > 0 && sellAmount < 50 ? "text-primary" : "text-foreground"
-                      }`}>₹90 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹99 – ₹102.50 <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                     <div className={`p-4 rounded-xl border text-center transition-colors ${
                       sellAmount >= 50 
@@ -563,7 +562,7 @@ export default function UsdtP2PPage() {
                       <p className="text-sm text-muted-foreground mb-1">50 USDT or Above</p>
                       <p className={`text-2xl font-bold ${
                         sellAmount >= 50 ? "text-primary" : "text-foreground"
-                      }`}>₹93 – ₹95 <span className="text-sm font-normal">per USDT</span></p>
+                      }`}>₹{sellRate.toFixed(2)} <span className="text-sm font-normal">per USDT</span></p>
                     </div>
                   </div>
 
@@ -576,7 +575,8 @@ export default function UsdtP2PPage() {
                       onChange={(e) => setSellUsdtAmount(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg"
                       placeholder="Enter amount of USDT to sell"
-                      min="1"
+                      min="50"
+                       max="5000"
                     />
                   </div>
 
@@ -592,14 +592,14 @@ export default function UsdtP2PPage() {
                           <>
                             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                             <p className="text-sm text-amber-200">
-                              Small trade rate will apply because the amount is below 50 USDT.
+                              Minimum sell quantity is 50 USDT.
                             </p>
                           </>
                         ) : (
                           <>
                             <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                             <p className="text-sm text-green-200">
-                              Standard market rate will apply for 50 USDT or above.
+                              Today’s admin-set sell rate is applied to your full quantity.
                             </p>
                           </>
                         )}
@@ -630,7 +630,7 @@ export default function UsdtP2PPage() {
                   {/* Transparency Note */}
                   <div className="p-4 rounded-xl bg-secondary/30 border border-border mb-6">
                     <p className="text-xs text-muted-foreground text-center">
-                      Smaller trades may have a slightly lower rate due to transaction fees, GST, and processing costs.
+                      Sell rate is updated daily by the admin. Minimum 50 USDT; maximum 5,000 USDT.
                     </p>
                   </div>
 
