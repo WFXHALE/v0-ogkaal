@@ -14,22 +14,11 @@ import { LanguagePicker } from "@/components/language-picker"
 interface NavItem { label: string; href: string }
 
 const MORE_ITEMS: NavItem[] = [
-  { label: "Home", href: "/home" },
   { label: "Mentorship", href: "/mentorship" },
-  { label: "VIP Group", href: "/vip-group" },
-  { label: "Intelligence", href: "/intelligence" },
-  { label: "Indicators", href: "/indicators" },
+  { label: "Resources", href: "/resources" },
   { label: "Prop Firms", href: "/prop-firms" },
-  { label: "Community", href: "/community" },
-  { label: "Blog", href: "/blog" },
+  { label: "VIP Services", href: "/vip-group" },
   { label: "Contact", href: "/contact" },
-  { label: "Trade Dashboard", href: "/trade-dashboard" },
-  { label: "SMC Guide", href: "/smc-guide" },
-  { label: "Material", href: "/material" },
-  { label: "Performance", href: "/performance" },
-  { label: "VIP Signals", href: "/vip-signals" },
-  { label: "About", href: "/about" },
-  { label: "My Profile", href: "/profile" },
 ]
 
 export function Header() {
