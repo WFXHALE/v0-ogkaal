@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryOne, query } from "@/lib/db"
 import { randomInt } from "node:crypto"
+import { setDashboardSession } from "@/lib/dashboard-session"
 
 export const runtime = "nodejs"
 
@@ -16,6 +17,10 @@ type FirebaseLookup = {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.DASHBOARD_SESSION_SECRET || process.env.DASHBOARD_SESSION_SECRET.length < 32) {
+      return NextResponse.json({ error: "Dashboard authentication is temporarily unavailable. Please contact support." }, { status: 503 })
+    }
+
     const { idToken } = await req.json() as { idToken?: string }
     if (!idToken) return NextResponse.json({ error: "Missing Google identity token." }, { status: 400 })
 
@@ -68,13 +73,23 @@ export async function POST(req: NextRequest) {
 
     if (!row) return NextResponse.json({ error: "Could not create or load your account." }, { status: 500 })
 
+    // A verified Firebase email is sufficient to mark this dashboard account verified.
+    if (!row.is_verified) {
+      await query("UPDATE dashboard_users SET is_verified = TRUE WHERE id = $1", [row.id])
+      row.is_verified = true
+    }
+
     // Refresh name/photo only when supplied by the verified identity.
     if (name && row.full_name !== name) {
       await query("UPDATE dashboard_users SET full_name = $1 WHERE id = $2", [name, row.id])
       row.full_name = name
     }
 
-    return NextResponse.json({ ok: true, isNew, data: row }, { headers: { "Cache-Control": "no-store, max-age=0" } })
+    const response = NextResponse.json({ ok: true, isNew, data: row }, { headers: { "Cache-Control": "no-store, max-age=0" } })
+    return setDashboardSession(response, {
+      userId: String(row.user_id),
+      email: String(row.email),
+    })
   } catch (err) {
     console.error("[google-login] error:", err)
     return NextResponse.json({ error: "Google sign-in failed while preparing your account." }, { status: 500 })
