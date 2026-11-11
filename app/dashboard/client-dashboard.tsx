@@ -686,28 +686,65 @@ export default function ClientDashboard() {
   const [signals, setSignals]               = useState<VipSignal[]>([])
   const [perfStats, setPerfStats]           = useState<PerformanceStat[]>([])
 
-  // Check existing session on mount and load stored backup code
+  // Validate the server-issued HttpOnly cookie before restoring local UI state.
   useEffect(() => {
-    const s = getSession()
-    if (s) {
-      // Redirect admin to admin panel silently
-      if (s.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
-        window.location.href = "/admin"
-        return
-      }
-      setSessionState(s)
-      // Check email verification status via server-side API
-      fetch(`/api/dashboard/profile?userId=${encodeURIComponent(s.userId)}`)
-        .then(r => r.json())
-        .then(d => { if (d.ok && d.data) setIsVerified(Boolean(d.data.is_verified)) })
-        .catch(() => {})
-      // Always fetch backup code fresh from DB so it is always available
-      fetchBackupCode(s.id).then(code => {
-        if (code) { setStoredBackup(code); storeBackupCode(code) }
-        else setStoredBackup(getStoredBackupCode())
-      })
+    const cached = getSession()
+    if (!cached) {
+      setBooting(false)
+      return
     }
-    setBooting(false)
+
+    let cancelled = false
+    fetch("/api/dashboard/session", { cache: "no-store" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Session expired")
+        const payload = await response.json()
+        if (!payload?.ok || !payload?.user) throw new Error("Invalid session")
+        return payload.user as Record<string, unknown>
+      })
+      .then(user => {
+        if (cancelled) return
+        const session: DashboardSession = {
+          ...cached,
+          id: String(user.id),
+          userId: String(user.user_id),
+          email: String(user.email),
+          fullName: String(user.full_name),
+          createdAt: String(user.created_at),
+          numericUid: user.numeric_uid ? Number(user.numeric_uid) : undefined,
+          tradingLevel: user.trading_level ? String(user.trading_level) : undefined,
+          marketType: user.market_type ? String(user.market_type) : undefined,
+          tradingType: user.trading_type ? String(user.trading_type) : undefined,
+          yearsExperience: user.years_experience ? String(user.years_experience) : undefined,
+          isVerified: Boolean(user.is_verified),
+          kycStatus: (user.kyc_status as DashboardSession["kycStatus"]) ?? "none",
+          avatarUrl: user.avatar_url ? String(user.avatar_url) : undefined,
+        }
+
+        if (session.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
+          window.location.href = "/admin"
+          return
+        }
+
+        setSessionState(session)
+        setIsVerified(session.isVerified)
+        fetchBackupCode(session.id).then(code => {
+          if (cancelled) return
+          if (code) { setStoredBackup(code); storeBackupCode(code) }
+          else setStoredBackup(getStoredBackupCode())
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          logout()
+          setSessionState(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false)
+      })
+
+    return () => { cancelled = true }
   }, [])
 
   const loadData = useCallback(async (s: DashboardSession) => {
