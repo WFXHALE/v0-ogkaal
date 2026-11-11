@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
     let duplicateUtr = false
     if (submittedUtr) {
       const existing = await queryOne(
-        `SELECT id FROM admin_submissions WHERE LOWER(TRIM(utr)) = LOWER(TRIM($1)) LIMIT 1`,
+        `SELECT id FROM admin_submissions WHERE LOWER(TRIM(utr)) = LOWER(TRIM($1))
+         UNION ALL SELECT id FROM usdt_buy_requests WHERE LOWER(TRIM(transaction_id)) = LOWER(TRIM($1))
+         UNION ALL SELECT id FROM usdt_sell_requests WHERE LOWER(TRIM(transaction_id)) = LOWER(TRIM($1))
+         LIMIT 1`,
         [submittedUtr],
       )
       duplicateUtr = Boolean(existing)
