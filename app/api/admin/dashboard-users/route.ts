@@ -24,11 +24,21 @@ export async function GET(req: NextRequest) {
   if (denied) return denied
   try {
     const { searchParams } = new URL(req.url)
-    const fields = searchParams.get("fields") ?? "user_id,full_name,email,phone,username,created_at,is_verified,kyc_status,kyc_doc_pan,kyc_doc_aadhaar_front,kyc_doc_aadhaar_back"
-    const limit  = Math.min(Number(searchParams.get("limit") ?? 500), 1000)
+    const allowedFields = new Set([
+      "user_id", "full_name", "email", "phone", "username", "created_at",
+      "is_verified", "kyc_status", "kyc_doc_pan", "kyc_doc_aadhaar_front",
+      "kyc_doc_aadhaar_back",
+    ])
+    const requestedFields = (searchParams.get("fields") ?? "user_id,full_name,email,phone,username,created_at,is_verified,kyc_status,kyc_doc_pan,kyc_doc_aadhaar_front,kyc_doc_aadhaar_back")
+      .split(",").map(field => field.trim()).filter(field => allowedFields.has(field))
+    if (requestedFields.length === 0) {
+      return NextResponse.json({ ok: false, error: "No valid fields requested" }, { status: 400 })
+    }
+    const rawLimit = Number(searchParams.get("limit") ?? 500)
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 1000) : 500
 
     const rows = await query(
-      `SELECT ${fields} FROM dashboard_users ORDER BY created_at DESC LIMIT $1`,
+      `SELECT ${requestedFields.join(", ")} FROM dashboard_users ORDER BY created_at DESC LIMIT $1`,
       [limit],
     )
     return NextResponse.json({ ok: true, data: rows.map(normalize) })
