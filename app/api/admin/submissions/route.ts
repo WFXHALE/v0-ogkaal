@@ -31,6 +31,15 @@ function normalize(r: Record<string, unknown>) {
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json()
+    const submittedUtr = String(b.utr ?? "").trim()
+    let duplicateUtr = false
+    if (submittedUtr) {
+      const existing = await queryOne(
+        `SELECT id FROM admin_submissions WHERE LOWER(TRIM(utr)) = LOWER(TRIM($1)) LIMIT 1`,
+        [submittedUtr],
+      )
+      duplicateUtr = Boolean(existing)
+    }
     await query(
       `INSERT INTO admin_submissions
         (type, name, email, phone, telegram, details, status,
@@ -59,7 +68,7 @@ export async function POST(req: NextRequest) {
         b.user_id        ?? b.userId ?? null,
       ],
     )
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, duplicateUtr, status: "pending" })
   } catch (err) {
     console.error("[submissions POST] error:", err)
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
