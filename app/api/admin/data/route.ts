@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 type DatasetConfig = {
   table:       string
@@ -23,6 +24,8 @@ const DATASETS: Record<string, DatasetConfig> = {
 }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   const dataset = req.nextUrl.searchParams.get("dataset") ?? ""
   const search  = req.nextUrl.searchParams.get("search")  ?? ""
   const from    = req.nextUrl.searchParams.get("from")    ?? ""
@@ -71,6 +74,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id, dataset, status } = await req.json()
     const cfg = DATASETS[dataset]
@@ -86,6 +91,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id, dataset } = await req.json()
     const cfg = DATASETS[dataset]
