@@ -7,7 +7,7 @@ import {
   Loader2, BadgeCheck, Clock, XCircle, ChevronRight, Upload, FileCheck, Lock, AtSign as IdIcon,
   Users, LogIn, UserPlus, LogOut,
 } from "lucide-react"
-import { getSession, setSession } from "@/lib/dash-auth"
+import { getSession, setSession, logout } from "@/lib/dash-auth"
 import type { DashboardSession } from "@/lib/dash-auth"
 import { getSession as getCommunitySession, setSession as setCommunitySession } from "@/lib/community-utils"
 import type { CommunityUser } from "@/lib/community-utils"
@@ -396,20 +396,39 @@ export default function ProfileClient() {
   }, [searchParams])
 
   useEffect(() => {
-    // Load community session regardless of dashboard session
     setCommunityUser(getCommunitySession())
 
-    const s = getSession()
-    if (!s) { setBooting(false); return }  // no dashboard session — show community auth section
-    setSessionState(s)
-    fetch(`/api/dashboard/profile?id=${s.id}`)
-      .then(r => r.json())
-      .then(({ user }) => {
-        if (!user) return
-        setFullName(user.full_name ?? "")
-        setPhone(user.phone ?? "")
-        setUsername(user.username ?? "")
-        setAvatarUrl(user.avatar_url ?? "")
+    const cached = getSession()
+    if (!cached) { setBooting(false); return }
+
+    fetch("/api/dashboard/session", { cache: "no-store" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Session expired")
+        const payload = await response.json()
+        if (!payload?.ok || !payload?.user) throw new Error("Invalid session")
+        return payload.user as Record<string, unknown>
+      })
+      .then(user => {
+        const validSession: DashboardSession = {
+          ...cached,
+          id: String(user.id),
+          userId: String(user.user_id),
+          email: String(user.email),
+          fullName: String(user.full_name),
+          createdAt: String(user.created_at),
+          isVerified: Boolean(user.is_verified),
+          avatarUrl: user.avatar_url ? String(user.avatar_url) : undefined,
+        }
+        setSession(validSession)
+        setSessionState(validSession)
+        setFullName(user.full_name ? String(user.full_name) : "")
+        setPhone(user.phone ? String(user.phone) : "")
+        setUsername(user.username ? String(user.username) : "")
+        setAvatarUrl(user.avatar_url ? String(user.avatar_url) : "")
+      })
+      .catch(() => {
+        logout()
+        setSessionState(null)
       })
       .finally(() => setBooting(false))
   }, [router])
