@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 function normalize(r: Record<string, unknown>) {
   return {
@@ -19,6 +20,8 @@ function normalize(r: Record<string, unknown>) {
 
 /** GET /api/admin/dashboard-users — list registered dashboard users */
 export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { searchParams } = new URL(req.url)
     const fields = searchParams.get("fields") ?? "user_id,full_name,email,phone,username,created_at,is_verified,kyc_status,kyc_doc_pan,kyc_doc_aadhaar_front,kyc_doc_aadhaar_back"
