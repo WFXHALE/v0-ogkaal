@@ -134,8 +134,11 @@ export async function PUT(req: NextRequest) {
   try {
     const { email, otp, newPassword } = await req.json()
 
-    if (!email || !otp || !newPassword) {
+    if (typeof email !== "string" || typeof otp !== "string" || typeof newPassword !== "string") {
       return NextResponse.json({ error: "Email, OTP and new password are required." }, { status: 400 })
+    }
+    if (!/^\d{6}$/.test(otp.trim())) {
+      return NextResponse.json({ error: "Enter the six-digit code sent to your email." }, { status: 400 })
     }
     if (newPassword.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 })
