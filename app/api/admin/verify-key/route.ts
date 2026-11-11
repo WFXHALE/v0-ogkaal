@@ -127,8 +127,11 @@ export async function POST(req: NextRequest) {
       locked_until:  string | null
       device_id:     string | null
     }>(
-      `SELECT failure_count, locked_until, device_id FROM admin_login_attempts WHERE ip_address = $1`,
-      [ip]
+      `SELECT failure_count, locked_until, device_id FROM admin_login_attempts
+       WHERE ip_address = $1 OR device_id = $2
+       ORDER BY (ip_address = $1) DESC
+       LIMIT 1`,
+      [ip, deviceId]
     )
 
     const failureCount = existing?.failure_count ?? 0
@@ -168,9 +171,9 @@ export async function POST(req: NextRequest) {
       if (existing) {
         await query(
           `UPDATE admin_login_attempts
-           SET failure_count=0, locked_until=NULL, last_attempt_at=$1
-           WHERE ip_address=$2`,
-          [now.toISOString(), ip]
+           SET ip_address=$1, device_id=$2, failure_count=0, locked_until=NULL, last_attempt_at=$3
+           WHERE id=(SELECT id FROM admin_login_attempts WHERE ip_address=$4 OR device_id=$2 ORDER BY (ip_address=$4) DESC LIMIT 1)`,
+          [ip, deviceId, now.toISOString(), ip]
         )
       }
       query(
@@ -196,9 +199,9 @@ export async function POST(req: NextRequest) {
     if (existing) {
       await query(
         `UPDATE admin_login_attempts
-         SET failure_count=$1, locked_until=$2, last_attempt_at=$3, device_id=$4
-         WHERE ip_address=$5`,
-        [newFailureCount, newLockedUntil, now.toISOString(), deviceId, ip]
+         SET ip_address=$1, device_id=$2, failure_count=$3, locked_until=$4, last_attempt_at=$5
+         WHERE id=(SELECT id FROM admin_login_attempts WHERE ip_address=$6 OR device_id=$2 ORDER BY (ip_address=$6) DESC LIMIT 1)`,
+        [ip, deviceId, newFailureCount, newLockedUntil, now.toISOString(), ip]
       )
     } else {
       await query(
@@ -246,8 +249,8 @@ export async function POST(req: NextRequest) {
       return response
     }
     return NextResponse.json(
-      { ok: false, error: "Verification failed. Please try again." },
-      { status: 401 }
+      { ok: false, error: "Incorrect key. Login-attempt tracking is temporarily unavailable; please try again shortly." },
+      { status: 503 }
     )
   }
 }
