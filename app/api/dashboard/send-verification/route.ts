@@ -29,12 +29,14 @@ export async function POST(req: NextRequest) {
     const normalised  = email.trim().toLowerCase()
     const normUserId  = userId.trim().toLowerCase()
 
-    const user = await queryOne<{ id: string; full_name: string; is_verified: boolean }>(
-      "SELECT id, full_name, is_verified FROM dashboard_users WHERE user_id = $1",
+    const user = await queryOne<{ id: string; full_name: string; is_verified: boolean; email: string }>(
+      "SELECT id, full_name, is_verified, email FROM dashboard_users WHERE user_id = $1",
       [normUserId]
     )
 
-    if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 })
+    if (!user || user.email?.trim().toLowerCase() !== normalised) {
+      return NextResponse.json({ error: "Account details do not match." }, { status: 404 })
+    }
     if (user.is_verified) return NextResponse.json({ error: "Email is already verified." }, { status: 409 })
 
     // Rate-limit: max MAX_RESENDS_PER_DAY per day
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     const { error: emailErr } = await resend.emails.send({
       from:    "noreply@ogkaal.com",
-      to:      normalised,
+      to:      user.email,
       subject: "Verify your OG KAAL account",
       html: `
 <!DOCTYPE html>
