@@ -341,8 +341,7 @@ export default function UsdtP2PPage() {
                 SAFE <span className="text-primary">USDT P2P</span> EXCHANGE
               </h1>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                I provide safe funds and I am a tax payer. USDT prices may fluctuate depending on market demand and supply. 
-                When demand is high, the price may increase. When supply is high, the price may decrease.
+                Buy or sell USDT with clear rates and a guided request process. Rates may change with market conditions.
               </p>
             </div>
 
@@ -516,30 +515,13 @@ export default function UsdtP2PPage() {
                       <h3 className="text-lg font-semibold text-foreground">Live USDT Buy Rates</h3>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                      <div className="p-4 rounded-xl bg-secondary/50 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Daily Reference</p>
-                        {ratesLoaded ? (
-                          <p
-                            className="text-2xl font-bold text-foreground transition-all duration-500"
-                            
-                          >
-                            ₹{buyRate}
-                          </p>
-                        ) : (
-                          <div className="h-8 w-16 mx-auto rounded bg-secondary animate-pulse" />
-                        )}
-                      </div>
-                      <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center">
-                        <p className="text-sm text-primary mb-1">Your P2P Rate</p>
-                        {ratesLoaded ? (
-                          <p className="text-2xl font-bold text-primary transition-all duration-500">
-                            ₹{buyRate}
-                          </p>
-                        ) : (
-                          <div className="h-8 w-16 mx-auto rounded bg-primary/20 animate-pulse" />
-                        )}
-                      </div>
+                    <div className="mb-6 rounded-xl border border-primary/30 bg-primary/10 p-5 text-center">
+                      <p className="mb-1 text-sm text-primary">Current buy rate</p>
+                      {ratesLoaded ? (
+                        <p className="text-3xl font-bold text-primary transition-all duration-500">₹{buyRate} <span className="text-base font-medium">/ USDT</span></p>
+                      ) : (
+                        <div className="mx-auto h-9 w-28 rounded bg-primary/20 animate-pulse" />
+                      )}
                     </div>
 
                     <div className="p-4 rounded-xl bg-secondary/30 border border-border">
@@ -1783,10 +1765,10 @@ export default function UsdtP2PPage() {
       </main>
 
       {/* Payment Liability & Legal Notice */}
-      <section className="border-t border-border bg-[#0B0E11] px-4 py-10">
+      <section className="border-t border-border bg-background px-4 py-10">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#FCD535]" />
+            <Shield className="w-4 h-4 text-[#2F80FF]" />
             Payment Liability &amp; Legal Notice
           </h2>
           <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
@@ -1804,7 +1786,7 @@ export default function UsdtP2PPage() {
               "Indian Penal Code Section 468 – Forgery for the purpose of cheating",
             ].map((law) => (
               <li key={law} className="flex items-start gap-2">
-                <span className="text-[#FCD535] mt-0.5 shrink-0">•</span>
+                <span className="text-[#2F80FF] mt-0.5 shrink-0">•</span>
                 {law}
               </li>
             ))}
@@ -1813,7 +1795,7 @@ export default function UsdtP2PPage() {
           <p className="text-xs font-semibold text-foreground mb-1">Penalty Clause</p>
           <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
             If the website owner&apos;s account or financial system is affected due to a user&apos;s transaction, the responsible user will be required to pay a penalty of{" "}
-            <span className="text-[#FCD535] font-semibold">5x the payment amount</span>.{" "}
+            <span className="text-[#2F80FF] font-semibold">5x the payment amount</span>.{" "}
             Example: If the payment amount is ₹1,000, the penalty will be ₹5,000.
           </p>
 

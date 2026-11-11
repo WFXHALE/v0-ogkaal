@@ -65,7 +65,7 @@ export function PageLoader() {
           style={{
             display: "inline-block",
             fontSize: 16,
-            color: "#FCD535",
+            color: "#2F80FF",
             animation: "spin-cw 0.7s linear infinite",
             willChange: "transform",
             lineHeight: 1,

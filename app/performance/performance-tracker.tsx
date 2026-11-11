@@ -240,7 +240,7 @@ export default function PerformanceTracker() {
                       formatter={(v: number) => [`${v}%`, "Win Rate"]}
                       contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
                     />
-                    <Line type="monotone" dataKey="winRate" stroke="#FCD535" strokeWidth={2.5} dot={{ fill: "#FCD535", strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="winRate" stroke="#2F80FF" strokeWidth={2.5} dot={{ fill: "#2F80FF", strokeWidth: 0, r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

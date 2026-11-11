@@ -2,7 +2,7 @@ export function Logo({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Logo Icon with Candlesticks — shine overlay */}
-      <div className="relative w-10 h-10 rounded-lg bg-[#FCD535] flex items-center justify-center overflow-hidden">
+      <div className="relative w-10 h-10 rounded-lg bg-[#2F80FF] flex items-center justify-center overflow-hidden">
         <svg
           viewBox="0 0 24 24"
           className="w-6 h-6 relative z-10"
@@ -35,9 +35,9 @@ export function Logo({ className = "" }: { className?: string }) {
         <span className="relative inline-block">
           OG{" "}
           <span
-            className="text-[#FCD535] relative inline-block"
+            className="text-[#2F80FF] relative inline-block"
             style={{
-              background: "linear-gradient(105deg, #FCD535 35%, #fff8c0 50%, #FCD535 65%)",
+              background: "linear-gradient(105deg, #2F80FF 35%, #fff8c0 50%, #2F80FF 65%)",
               backgroundSize: "200% auto",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",

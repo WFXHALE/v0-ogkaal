@@ -74,7 +74,7 @@ const blogPosts = [
 ]
 
 const categoryColors: Record<string, string> = {
-  "SMC":             "bg-[#FCD535]/10 text-[#FCD535] border-[#FCD535]/30",
+  "SMC":             "bg-[#2F80FF]/10 text-[#2F80FF] border-[#2F80FF]/30",
   "Psychology":      "bg-purple-500/10 text-purple-400 border-purple-500/30",
   "Funded Accounts": "bg-blue-500/10 text-blue-400 border-blue-500/30",
   "Risk Management": "bg-green-500/10 text-green-400 border-green-500/30",
@@ -88,7 +88,7 @@ export default function AboutPage() {
       <main className="flex-1">
         {/* Hero */}
         <section className="px-4 py-20 text-center max-w-3xl mx-auto">
-          <p className="text-sm font-semibold text-[#FCD535] uppercase tracking-widest mb-3">About</p>
+          <p className="text-sm font-semibold text-[#2F80FF] uppercase tracking-widest mb-3">About</p>
           <h1 className="text-4xl sm:text-5xl font-bold text-foreground text-balance leading-tight mb-5">
             OG KAAL TRADER
           </h1>
@@ -119,8 +119,8 @@ export default function AboutPage() {
           <div className="grid sm:grid-cols-2 gap-5">
             {values.map(v => (
               <div key={v.title} className="rounded-2xl border border-border bg-card p-6 flex gap-4">
-                <div className="w-10 h-10 rounded-xl bg-[#FCD535]/10 flex items-center justify-center shrink-0">
-                  <v.icon className="w-5 h-5 text-[#FCD535]" />
+                <div className="w-10 h-10 rounded-xl bg-[#2F80FF]/10 flex items-center justify-center shrink-0">
+                  <v.icon className="w-5 h-5 text-[#2F80FF]" />
                 </div>
                 <div>
                   <p className="font-bold text-foreground mb-1">{v.title}</p>
@@ -139,7 +139,7 @@ export default function AboutPage() {
         {/* Blog section — anchored so /about#blog works */}
         <section id="blog" className="px-4 py-16 max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <p className="text-sm font-semibold text-[#FCD535] uppercase tracking-widest mb-3">Blog</p>
+            <p className="text-sm font-semibold text-[#2F80FF] uppercase tracking-widest mb-3">Blog</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground text-balance mb-4">
               Trading Education
             </h2>
@@ -152,7 +152,7 @@ export default function AboutPage() {
             {blogPosts.map(p => (
               <article
                 key={p.slug}
-                className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 hover:border-[#FCD535]/40 transition-colors group"
+                className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 hover:border-[#2F80FF]/40 transition-colors group"
               >
                 <div className="flex items-center justify-between">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${categoryColors[p.category] ?? "bg-secondary text-muted-foreground border-border"}`}>
@@ -164,7 +164,7 @@ export default function AboutPage() {
                   </span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-bold text-foreground leading-snug mb-2 group-hover:text-[#FCD535] transition-colors text-balance">
+                  <h3 className="text-sm font-bold text-foreground leading-snug mb-2 group-hover:text-[#2F80FF] transition-colors text-balance">
                     {p.title}
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed text-pretty">{p.excerpt}</p>
@@ -173,7 +173,7 @@ export default function AboutPage() {
                   <span className="text-xs text-muted-foreground">{p.date}</span>
                   <Link
                     href={`/blog/${p.slug}`}
-                    className="flex items-center gap-1 text-xs font-semibold text-[#FCD535] hover:underline"
+                    className="flex items-center gap-1 text-xs font-semibold text-[#2F80FF] hover:underline"
                   >
                     Read <ArrowRight className="w-3 h-3" />
                   </Link>

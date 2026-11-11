@@ -18,7 +18,7 @@ const CATEGORIES: {
   bg: string
 }[] = [
   { id: "all",          label: "All",          icon: BarChart2,  color: "text-foreground",    border: "border-border",          bg: "bg-secondary/30"  },
-  { id: "SMC",          label: "SMC",          icon: Layers,     color: "text-[#FCD535]",     border: "border-[#FCD535]/25",    bg: "bg-[#FCD535]/8"   },
+  { id: "SMC",          label: "SMC",          icon: Layers,     color: "text-[#2F80FF]",     border: "border-[#2F80FF]/25",    bg: "bg-[#2F80FF]/8"   },
   { id: "ICT",          label: "ICT",          icon: Zap,        color: "text-sky-400",       border: "border-sky-500/25",      bg: "bg-sky-500/8"     },
   { id: "Liquidity",    label: "Liquidity",    icon: Droplets,   color: "text-emerald-400",   border: "border-emerald-500/25",  bg: "bg-emerald-500/8" },
   { id: "Sessions",     label: "Sessions",     icon: Clock,      color: "text-orange-400",    border: "border-orange-500/25",   bg: "bg-orange-500/8"  },
@@ -102,7 +102,7 @@ export default function IndicatorsPage() {
 
           {/* Hero */}
           <div className="mb-10 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FCD535]/10 border border-[#FCD535]/20 text-[#FCD535] text-xs font-semibold mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#2F80FF]/10 border border-[#2F80FF]/20 text-[#2F80FF] text-xs font-semibold mb-4">
               <BarChart2 className="w-3.5 h-3.5" />
               SMC &amp; ICT Based
             </div>

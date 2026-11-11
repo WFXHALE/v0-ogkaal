@@ -62,7 +62,7 @@ export function FaqFeedback() {
                   <Star
                     className={`w-6 h-6 transition-colors ${
                       star <= (hoverRating || rating)
-                        ? "fill-[#FCD535] text-[#FCD535]"
+                        ? "fill-[#2F80FF] text-[#2F80FF]"
                         : "text-muted-foreground"
                     }`}
                   />

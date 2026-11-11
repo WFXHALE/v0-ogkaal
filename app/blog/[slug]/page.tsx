@@ -8,7 +8,7 @@ import { notFound } from "next/navigation"
 import { use } from "react"
 
 const catStyle: Record<string, string> = {
-  SMC:               "bg-[#FCD535]/10 text-[#FCD535] border-[#FCD535]/30",
+  SMC:               "bg-[#2F80FF]/10 text-[#2F80FF] border-[#2F80FF]/30",
   ICT:               "bg-sky-500/10 text-sky-400 border-sky-500/30",
   Psychology:        "bg-purple-500/10 text-purple-400 border-purple-500/30",
   "Funded Accounts": "bg-blue-500/10 text-blue-400 border-blue-500/30",

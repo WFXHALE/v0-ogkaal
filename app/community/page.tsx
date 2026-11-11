@@ -86,9 +86,9 @@ function CommentDrawer({ post, currentUser, onClose, onComment }: {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               placeholder="Write a comment..."
-              className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30"
+              className="flex-1 px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2F80FF]/30"
             />
-            <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-xl bg-[#FCD535]/10 hover:bg-[#FCD535]/20 text-[#FCD535] disabled:opacity-40 transition-colors">
+            <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-xl bg-[#2F80FF]/10 hover:bg-[#2F80FF]/20 text-[#2F80FF] disabled:opacity-40 transition-colors">
               <Send className="w-4 h-4" />
             </button>
           </div>
@@ -140,7 +140,7 @@ function FollowButton({ targetId, currentUserId, currentUser }: {
       className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold transition-all duration-300 ${
         following
           ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-          : "bg-[#FCD535]/10 text-[#FCD535] border border-[#FCD535]/30 hover:bg-[#FCD535]/20"
+          : "bg-[#2F80FF]/10 text-[#2F80FF] border border-[#2F80FF]/30 hover:bg-[#2F80FF]/20"
       }`}
     >
       {following ? <UserCheck className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
@@ -172,10 +172,10 @@ function PostCard({ post, currentUser, onLike, onComment }: {
       {/* Author row */}
       <div className="flex items-start justify-between gap-3">
         <Link href={`/community/profile/${post.authorId}`} className="flex items-center gap-3 group min-w-0">
-          <img src={post.authorAvatar} alt={post.authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:ring-2 group-hover:ring-[#FCD535]/50 transition-all" />
+          <img src={post.authorAvatar} alt={post.authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:ring-2 group-hover:ring-[#2F80FF]/50 transition-all" />
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-foreground text-sm group-hover:text-[#FCD535] transition-colors">{post.authorName}</span>
+              <span className="font-semibold text-foreground text-sm group-hover:text-[#2F80FF] transition-colors">{post.authorName}</span>
               {isAdmin && <AdminBadges />}
               {post.type === "article" && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/25">Article</span>
@@ -191,7 +191,7 @@ function PostCard({ post, currentUser, onLike, onComment }: {
       <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{post.content}</p>
 
       {post.tradeIdea && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-xl bg-[#FCD535]/5 border border-[#FCD535]/20">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-xl bg-[#2F80FF]/5 border border-[#2F80FF]/20">
           {([
             ["Asset", post.tradeIdea.asset],
             ["Entry", post.tradeIdea.entry],
@@ -200,7 +200,7 @@ function PostCard({ post, currentUser, onLike, onComment }: {
           ] as [string, string][]).map(([label, val]) => (
             <div key={label} className="text-center">
               <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-              <p className="text-sm font-bold text-[#FCD535]">{val}</p>
+              <p className="text-sm font-bold text-[#2F80FF]">{val}</p>
             </div>
           ))}
         </div>
@@ -212,8 +212,8 @@ function PostCard({ post, currentUser, onLike, onComment }: {
 
       {post.imageUrl?.startsWith("[video]") && (
         <a href={post.imageUrl.replace("[video] ", "")} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary border border-border text-sm text-foreground hover:border-[#FCD535]/40 transition-colors">
-          <Video className="w-4 h-4 text-[#FCD535]" />
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary border border-border text-sm text-foreground hover:border-[#2F80FF]/40 transition-colors">
+          <Video className="w-4 h-4 text-[#2F80FF]" />
           Watch Video
         </a>
       )}
@@ -221,7 +221,7 @@ function PostCard({ post, currentUser, onLike, onComment }: {
       {post.hashtags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {post.hashtags.map((tag) => (
-            <span key={tag} className="text-xs text-[#FCD535]">#{tag}</span>
+            <span key={tag} className="text-xs text-[#2F80FF]">#{tag}</span>
           ))}
         </div>
       )}
@@ -331,7 +331,7 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
         <div className="flex gap-2">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setPostType(t.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${postType === t.key ? "bg-[#FCD535] text-[#0B0E11]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${postType === t.key ? "bg-[#2F80FF] text-[#0B0E11]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
               {t.label}
             </button>
           ))}
@@ -345,19 +345,19 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
           {(postType === "article" || postType === "video") && (
             <input value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder={postType === "video" ? "Video Title" : "Add Your Title"}
-              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm font-semibold" />
+              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2F80FF]/30 text-sm font-semibold" />
           )}
           {postType === "video" && (
             <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Paste YouTube / video link..."
-              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm" />
+              className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2F80FF]/30 text-sm" />
           )}
           <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Share your thoughts..." rows={3}
-            className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FCD535]/30 text-sm resize-none" />
+            className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2F80FF]/30 text-sm resize-none" />
 
           {hashtags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {hashtags.map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCD535]/10 text-[#FCD535] text-xs">
+                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2F80FF]/10 text-[#2F80FF] text-xs">
                   #{tag}<button onClick={() => setHashtags((h) => h.filter((t) => t !== tag))} className="opacity-60 hover:opacity-100">×</button>
                 </span>
               ))}
@@ -380,7 +380,7 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
           )}
 
           {showTradeIdea && (
-            <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#FCD535]/5 border border-[#FCD535]/20">
+            <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#2F80FF]/5 border border-[#2F80FF]/20">
               {(["asset", "entry", "stopLoss", "target"] as const).map((field) => (
                 <input key={field} value={tradeIdea[field]} onChange={(e) => setTradeIdea((t) => ({ ...t, [field]: e.target.value }))}
                   placeholder={{ asset: "Asset (e.g. XAUUSD)", entry: "Entry", stopLoss: "Stop Loss", target: "Target" }[field]}
@@ -392,7 +392,7 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
           <div className="flex items-center gap-2 flex-wrap">
             {postType !== "video" && (
               <button onClick={() => setShowImageInput((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showImageInput ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showImageInput ? "bg-[#2F80FF]/20 text-[#2F80FF]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <ImageIcon className="w-3.5 h-3.5" /> Image
               </button>
             )}
@@ -403,12 +403,12 @@ function PostCreator({ currentUser, onPost, defaultType = "post", onCancel }: {
             </div>
             {postType === "post" && (
               <button onClick={() => setShowTradeIdea((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showTradeIdea ? "bg-[#FCD535]/20 text-[#FCD535]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${showTradeIdea ? "bg-[#2F80FF]/20 text-[#2F80FF]" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <TrendingUp className="w-3.5 h-3.5" /> Trade Idea
               </button>
             )}
             <button onClick={handleSubmit} disabled={!content.trim()}
-              className="ml-auto px-5 py-1.5 rounded-lg bg-[#FCD535] text-[#0B0E11] text-xs font-bold hover:bg-[#F0B90B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="ml-auto px-5 py-1.5 rounded-lg bg-[#2F80FF] text-[#0B0E11] text-xs font-bold hover:bg-[#2F80FF] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               Publish
             </button>
           </div>
@@ -424,7 +424,7 @@ function PullIndicator({ progress, refreshing }: { progress: number; refreshing:
   if (progress === 0 && !refreshing) return null
   return (
     <div className="flex items-center justify-center py-3" style={{ height: refreshing ? 56 : Math.min(progress * 56, 56) }}>
-      <RefreshCw className={`w-5 h-5 text-[#FCD535] ${refreshing ? "animate-spin" : ""}`}
+      <RefreshCw className={`w-5 h-5 text-[#2F80FF] ${refreshing ? "animate-spin" : ""}`}
         style={{ transform: `rotate(${progress * 360}deg)` }} />
     </div>
   )
@@ -549,15 +549,15 @@ export default function CommunityPage() {
               <div className="flex items-center gap-2">
                 <NotificationBell userId={currentUser.id} />
                 <Link href={`/community/profile/${currentUser.id}`} className="flex items-center gap-2 group">
-                  <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full group-hover:ring-2 group-hover:ring-[#FCD535]/50 transition-all" />
-                  <span className="hidden sm:block text-sm font-semibold text-foreground group-hover:text-[#FCD535] transition-colors">{currentUser.fullName}</span>
+                  <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full group-hover:ring-2 group-hover:ring-[#2F80FF]/50 transition-all" />
+                  <span className="hidden sm:block text-sm font-semibold text-foreground group-hover:text-[#2F80FF] transition-colors">{currentUser.fullName}</span>
                 </Link>
                 <button onClick={handleSignOut} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Sign Out">
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <button onClick={() => setShowAuth(true)} className="px-4 py-2 rounded-xl bg-[#FCD535] text-[#0B0E11] text-sm font-bold hover:bg-[#F0B90B] transition-colors">
+              <button onClick={() => setShowAuth(true)} className="px-4 py-2 rounded-xl bg-[#2F80FF] text-[#0B0E11] text-sm font-bold hover:bg-[#2F80FF] transition-colors">
                 Sign In / Sign Up
               </button>
             )}
@@ -568,13 +568,13 @@ export default function CommunityPage() {
         <div className="max-w-2xl mx-auto px-4 pt-5">
           <Link
             href="/smc-guide"
-            className="flex items-center gap-4 rounded-2xl border border-[#FCD535]/30 bg-[#FCD535]/5 hover:bg-[#FCD535]/10 hover:border-[#FCD535]/60 transition-colors px-5 py-4 group"
+            className="flex items-center gap-4 rounded-2xl border border-[#2F80FF]/30 bg-[#2F80FF]/5 hover:bg-[#2F80FF]/10 hover:border-[#2F80FF]/60 transition-colors px-5 py-4 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#FCD535]/15 flex items-center justify-center shrink-0">
-              <FileText className="w-5 h-5 text-[#FCD535]" />
+            <div className="w-10 h-10 rounded-xl bg-[#2F80FF]/15 flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5 text-[#2F80FF]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground group-hover:text-[#FCD535] transition-colors">SMC Guide</p>
+              <p className="text-sm font-bold text-foreground group-hover:text-[#2F80FF] transition-colors">SMC Guide</p>
               <p className="text-xs text-muted-foreground truncate">Complete Smart Money Concepts guide — order blocks, liquidity, market structure & more</p>
             </div>
             <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
@@ -588,7 +588,7 @@ export default function CommunityPage() {
           )}
           {currentUser && !showCreator && (
             <button onClick={() => openCreator("post")}
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 text-left hover:border-[#FCD535]/40 transition-colors">
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-5 py-4 text-left hover:border-[#2F80FF]/40 transition-colors">
               <img src={currentUser.avatar} alt={currentUser.fullName} className="w-9 h-9 rounded-full flex-shrink-0" />
               <span className="text-sm text-muted-foreground">Share something with the community...</span>
             </button>
@@ -618,7 +618,7 @@ export default function CommunityPage() {
               { type: "video"   as CreatorType, label: "Upload Video",   icon: <Video className="w-4 h-4" /> },
             ]).map((item) => (
               <button key={item.type} onClick={() => openCreator(item.type)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border text-foreground text-sm font-medium shadow-lg hover:border-[#FCD535]/40 hover:text-[#FCD535] transition-all">
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border text-foreground text-sm font-medium shadow-lg hover:border-[#2F80FF]/40 hover:text-[#2F80FF] transition-all">
                 {item.icon}{item.label}
               </button>
             ))}
@@ -626,7 +626,7 @@ export default function CommunityPage() {
         )}
         <button
           onClick={() => { if (!currentUser) { setShowAuth(true); return } setFabOpen((v) => !v) }}
-          className="w-14 h-14 rounded-full bg-[#FCD535] text-[#0B0E11] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          className="w-14 h-14 rounded-full bg-[#2F80FF] text-[#0B0E11] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
           style={{ boxShadow: "0 0 0 0 rgba(252,213,53,0.4), 0 4px 24px rgba(252,213,53,0.35)" }}
           aria-label="Create post"
         >

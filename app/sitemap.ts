@@ -5,6 +5,7 @@ const publicRoutes = [
   "",
   "/about",
   "/mentorship",
+  "/resources",
   "/prop-firms",
   "/intelligence",
   "/smc-guide",

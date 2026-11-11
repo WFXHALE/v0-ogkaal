@@ -915,16 +915,16 @@ export default function ClientDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           <Link
             href="/trade-dashboard"
-            className="flex items-center gap-4 rounded-2xl border border-border bg-card hover:border-[#FCD535]/50 hover:bg-[#FCD535]/5 transition-colors px-5 py-4 group"
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card hover:border-[#2F80FF]/50 hover:bg-[#2F80FF]/5 transition-colors px-5 py-4 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#FCD535]/10 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-5 h-5 text-[#FCD535]" />
+            <div className="w-10 h-10 rounded-xl bg-[#2F80FF]/10 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-5 h-5 text-[#2F80FF]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground group-hover:text-[#FCD535] transition-colors">Trade Dashboard</p>
+              <p className="text-sm font-bold text-foreground group-hover:text-[#2F80FF] transition-colors">Trade Dashboard</p>
               <p className="text-xs text-muted-foreground">Live signals, performance & analysis</p>
             </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[#FCD535] group-hover:translate-x-0.5 transition-all shrink-0" />
+            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[#2F80FF] group-hover:translate-x-0.5 transition-all shrink-0" />
           </Link>
           <Link
             href="/profile"

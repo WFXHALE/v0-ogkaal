@@ -299,6 +299,14 @@ export default function VipGroupPage() {
               >
                 Join VIP Group
               </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="font-semibold text-foreground"
+              >
+                <a href="/vip-signals">View VIP Signals</a>
+              </Button>
             </div>
           </div>
         </section>

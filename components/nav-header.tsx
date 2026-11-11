@@ -14,22 +14,11 @@ import { LanguagePicker } from "@/components/language-picker"
 interface NavItem { label: string; href: string }
 
 const MORE_ITEMS: NavItem[] = [
-  { label: "Home", href: "/home" },
   { label: "Mentorship", href: "/mentorship" },
-  { label: "VIP Group", href: "/vip-group" },
-  { label: "Intelligence", href: "/intelligence" },
-  { label: "Indicators", href: "/indicators" },
+  { label: "Resources", href: "/resources" },
   { label: "Prop Firms", href: "/prop-firms" },
-  { label: "Community", href: "/community" },
-  { label: "Blog", href: "/blog" },
+  { label: "VIP Services", href: "/vip-group" },
   { label: "Contact", href: "/contact" },
-  { label: "Trade Dashboard", href: "/trade-dashboard" },
-  { label: "SMC Guide", href: "/smc-guide" },
-  { label: "Material", href: "/material" },
-  { label: "Performance", href: "/performance" },
-  { label: "VIP Signals", href: "/vip-signals" },
-  { label: "About", href: "/about" },
-  { label: "My Profile", href: "/profile" },
 ]
 
 export function Header() {
@@ -83,7 +72,7 @@ export function Header() {
           <div className="flex items-center gap-2 shrink-0">
             <BackButton inline />
             <Link href="/" onClick={handleLogoClick} aria-label="OG KAAL TRADER — USDT P2P">
-              <div className="relative w-9 h-9 rounded-lg bg-[#FCD535] flex items-center justify-center overflow-hidden">
+              <div className="relative w-9 h-9 rounded-lg bg-[#2F80FF] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 24 24" className="w-5 h-5 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="5" y="10" width="4" height="8" fill="#0B0E11" rx="0.5" />
                   <rect x="6.5" y="7" width="1" height="3" fill="#0B0E11" />
@@ -96,7 +85,7 @@ export function Header() {
               </div>
             </Link>
             <Link href="/" className="hidden xl:block text-base font-bold text-foreground whitespace-nowrap">
-              OG <span className="text-[#FCD535]">KAAL</span> TRADER
+              OG <span className="text-[#2F80FF]">KAAL</span> TRADER
             </Link>
           </div>
 
