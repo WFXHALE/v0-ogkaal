@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized. Please log in again." }, { status: 401 })
 
   const data = await queryOne(
-    "SELECT id, user_id, email, full_name, avatar_url, phone, username, created_at FROM dashboard_users WHERE user_id = $1",
+    "SELECT id, user_id, email, full_name, avatar_url, phone, username, created_at, is_verified FROM dashboard_users WHERE user_id = $1",
     [session.sub]
   )
   if (!data) return NextResponse.json({ error: "User not found" }, { status: 404 })
