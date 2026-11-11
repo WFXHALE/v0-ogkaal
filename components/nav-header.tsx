@@ -16,7 +16,6 @@ interface NavItem { label: string; href: string }
 const MORE_ITEMS: NavItem[] = [
   { label: "Mentorship", href: "/mentorship" },
   { label: "Resources", href: "/resources" },
-  { label: "Watch-only Wallet", href: "/wallet" },
   { label: "Prop Firms", href: "/prop-firms" },
   { label: "VIP Services", href: "/vip-group" },
   { label: "Contact", href: "/contact" },
