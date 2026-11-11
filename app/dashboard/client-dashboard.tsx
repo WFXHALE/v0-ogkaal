@@ -22,6 +22,9 @@ import { signInWithGoogle } from "@/lib/google-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
 import type { VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { BackButton } from "@/components/back-button"
+import { LanguagePicker } from "@/components/language-picker"
+import { useLanguage } from "@/contexts/language-context"
+import { translateDashboardText as td } from "@/lib/dashboard-i18n"
 import { createClient } from "@/lib/supabase/client"
 import { PushNotificationBell } from "@/components/push-notification-bell"
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel"
@@ -67,6 +70,7 @@ function Card({
   badge?: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const { language } = useLanguage()
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <button
@@ -75,7 +79,7 @@ function Card({
       >
         <div className="flex items-center gap-3">
           {icon}
-          <span className="font-semibold text-foreground text-sm">{title}</span>
+          <span className="font-semibold text-foreground text-sm">{td(language, title)}</span>
           {badge}
         </div>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
@@ -220,7 +224,7 @@ function AuthScreen({
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <Shield className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground font-sans">Client Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground font-sans">{td(language, "Client Dashboard")}</h1>
           <p className="text-muted-foreground text-sm mt-1">Secure member access portal</p>
         </div>
 
@@ -653,6 +657,7 @@ function MembershipBlock({
 // ── Main Dashboard ─────��──────────────────────────────────────────────────────
 
 export default function ClientDashboard() {
+  const { language } = useLanguage()
   const [session, setSessionState]          = useState<DashboardSession | null>(null)
 
   const [booting, setBooting]               = useState(true)
@@ -811,10 +816,11 @@ export default function ClientDashboard() {
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground font-sans">Client Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, <span className="text-foreground font-medium">{session.fullName}</span></p>
+            <p className="text-sm text-muted-foreground mt-0.5">{td(language, "Welcome back,")} <span className="text-foreground font-medium">{session.fullName}</span></p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-mono hidden sm:inline">ID: {session.userId}</span>
+            <LanguagePicker />
             <PushNotificationBell userId={session.id} />
             <button onClick={() => loadData(session)}
               className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Refresh">
@@ -822,7 +828,7 @@ export default function ClientDashboard() {
             </button>
             <button onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <LogOut className="w-4 h-4" /><span className="hidden sm:inline">Sign Out</span>
+              <LogOut className="w-4 h-4" /><span className="hidden sm:inline">{td(language, "Sign Out")}</span>
             </button>
           </div>
         </div>
