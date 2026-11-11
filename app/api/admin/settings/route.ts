@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query, queryOne } from "@/lib/db"
+import { verifyAdminSessionToken } from "@/lib/admin-session"
 
 /**
  * GET  /api/admin/settings  — returns { system_config, pricing, admin_profile }
@@ -15,7 +16,10 @@ export const dynamic = "force-dynamic"
 const ALLOWED_KEYS = ["system_config", "pricing", "admin_profile"] as const
 type SettingKey = (typeof ALLOWED_KEYS)[number]
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!(await verifyAdminSessionToken(req.cookies.get("admin_session")?.value))) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+  }
   try {
     const rows = await query<{ key: string; value: unknown }>(
       "SELECT key, value FROM admin_settings WHERE key = ANY($1::text[])",
@@ -37,6 +41,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await verifyAdminSessionToken(req.cookies.get("admin_session")?.value))) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+  }
   try {
     const body = await req.json()
     const key: string = body.key
