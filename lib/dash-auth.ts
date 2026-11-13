@@ -95,7 +95,10 @@ export function setSession(session: DashboardSession | null): void {
 
 export function logout(): void {
   setSession(null)
+  clearStoredBackupCode()
   if (typeof window !== "undefined") {
+    // The HttpOnly cookie is authoritative; localStorage is only UI profile state.
+    fetch("/api/dashboard/logout", { method: "POST", keepalive: true }).catch(() => {})
     import("./analytics").then(({ Analytics }) => Analytics.logout()).catch(() => {})
   }
 }

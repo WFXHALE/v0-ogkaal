@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 import { query, queryOne } from "@/lib/db"
+import { timingSafeEqual } from "node:crypto"
 
 const OTP_TTL_MINUTES  = 15
 const MAX_OTP_PER_DAY  = 5
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     await query(
       `UPDATE dashboard_users
-       SET otp_hash = $1, otp_expires_at = $2, otp_attempts_today = $3, otp_attempts_reset_at = $4
+       SET otp_hash = $1, otp_expires_at = $2, otp_attempts_today = $3, otp_attempts_reset_at = $4, otp_failed_attempts = 0
        WHERE id = $5`,
       [otpHash, expiresAt, attemptsToday + 1, newResetAt, user.id]
     )
@@ -133,8 +134,11 @@ export async function PUT(req: NextRequest) {
   try {
     const { email, otp, newPassword } = await req.json()
 
-    if (!email || !otp || !newPassword) {
+    if (typeof email !== "string" || typeof otp !== "string" || typeof newPassword !== "string") {
       return NextResponse.json({ error: "Email, OTP and new password are required." }, { status: 400 })
+    }
+    if (!/^\d{6}$/.test(otp.trim())) {
+      return NextResponse.json({ error: "Enter the six-digit code sent to your email." }, { status: 400 })
     }
     if (newPassword.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 })
@@ -146,8 +150,9 @@ export async function PUT(req: NextRequest) {
       id: string
       otp_hash: string | null
       otp_expires_at: string | null
+      otp_failed_attempts: number | null
     }>(
-      "SELECT id, otp_hash, otp_expires_at FROM dashboard_users WHERE email = $1",
+      "SELECT id, otp_hash, otp_expires_at, otp_failed_attempts FROM dashboard_users WHERE email = $1",
       [normalised]
     )
 
@@ -159,9 +164,29 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "OTP has expired. Please request a new code." }, { status: 400 })
     }
 
+    if ((user.otp_failed_attempts ?? 0) >= 5) {
+      return NextResponse.json({ error: "Too many incorrect attempts. Request a new code." }, { status: 429 })
+    }
+
     const inputHash = await hashOtp(otp.trim())
-    if (inputHash !== user.otp_hash) {
-      return NextResponse.json({ error: "Incorrect code. Please check and try again." }, { status: 400 })
+    const expectedHash = Buffer.from(user.otp_hash, "hex")
+    const submittedHash = Buffer.from(inputHash, "hex")
+    const validOtp = expectedHash.length === submittedHash.length && timingSafeEqual(expectedHash, submittedHash)
+    if (!validOtp) {
+      const attempts = await queryOne<{ otp_failed_attempts: number }>(
+        `UPDATE dashboard_users
+         SET otp_failed_attempts = COALESCE(otp_failed_attempts, 0) + 1,
+             otp_hash = CASE WHEN COALESCE(otp_failed_attempts, 0) + 1 >= 5 THEN NULL ELSE otp_hash END,
+             otp_expires_at = CASE WHEN COALESCE(otp_failed_attempts, 0) + 1 >= 5 THEN NULL ELSE otp_expires_at END
+         WHERE id = $1
+         RETURNING otp_failed_attempts`,
+        [user.id]
+      )
+      const locked = (attempts?.otp_failed_attempts ?? 0) >= 5
+      return NextResponse.json(
+        { error: locked ? "Too many incorrect attempts. Request a new code." : "Incorrect code. Please check and try again.", attemptsRemaining: Math.max(0, 5 - (attempts?.otp_failed_attempts ?? 0)) },
+        { status: locked ? 429 : 400 }
+      )
     }
 
     // Hash using EXACT same logic as hashPassword() in dash-auth.ts
@@ -169,7 +194,7 @@ export async function PUT(req: NextRequest) {
     const pwHash = Array.from(new Uint8Array(pwBuf)).map(b => b.toString(16).padStart(2, "0")).join("")
 
     await query(
-      "UPDATE dashboard_users SET password_hash = $1, otp_hash = NULL, otp_expires_at = NULL WHERE id = $2",
+      "UPDATE dashboard_users SET password_hash = $1, otp_hash = NULL, otp_expires_at = NULL, otp_failed_attempts = 0 WHERE id = $2",
       [pwHash, user.id]
     )
 

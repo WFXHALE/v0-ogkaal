@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const todayStart      = new Date(); todayStart.setHours(0, 0, 0, 0)
     const todayIso        = todayStart.toISOString()

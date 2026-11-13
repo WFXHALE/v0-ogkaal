@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query, queryOne } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 function normalize(r: Record<string, unknown>) {
   return {
@@ -30,6 +31,18 @@ function normalize(r: Record<string, unknown>) {
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json()
+    const submittedUtr = String(b.utr ?? "").trim()
+    let duplicateUtr = false
+    if (submittedUtr) {
+      const existing = await queryOne(
+        `SELECT id FROM admin_submissions WHERE LOWER(TRIM(utr)) = LOWER(TRIM($1))
+         UNION ALL SELECT id FROM usdt_buy_requests WHERE LOWER(TRIM(transaction_id)) = LOWER(TRIM($1))
+         UNION ALL SELECT id FROM usdt_sell_requests WHERE LOWER(TRIM(transaction_id)) = LOWER(TRIM($1))
+         LIMIT 1`,
+        [submittedUtr],
+      )
+      duplicateUtr = Boolean(existing)
+    }
     await query(
       `INSERT INTO admin_submissions
         (type, name, email, phone, telegram, details, status,
@@ -58,14 +71,16 @@ export async function POST(req: NextRequest) {
         b.user_id        ?? b.userId ?? null,
       ],
     )
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, duplicateUtr, status: "pending" })
   } catch (err) {
     console.error("[submissions POST] error:", err)
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query(
       "SELECT * FROM admin_submissions ORDER BY created_at DESC LIMIT 500",
@@ -78,6 +93,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id, status, notification_status } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
@@ -111,6 +128,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })

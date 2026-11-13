@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 function inferSection(type: string): string {
   if (type === "usdt_buy")       return "usdt-buy"
@@ -14,6 +15,8 @@ function inferSection(type: string): string {
 
 // POST — insert a new notification
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     await query(
@@ -28,7 +31,9 @@ export async function POST(req: NextRequest) {
 }
 
 // GET — list all admin notifications newest first
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query(
       "SELECT * FROM admin_notifications ORDER BY created_at DESC LIMIT 200",
@@ -52,6 +57,8 @@ export async function GET() {
 
 // PATCH — mark one or all notifications read
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const body = await req.json()
     if (body.markAll) {
@@ -69,6 +76,8 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE — remove a notification permanently
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })

@@ -250,16 +250,31 @@ export async function loginWithSecretKey(key: string): Promise<{
 
   let data: Record<string, unknown> = {}
   let status = 0
+  let responseText = ""
+  let res: Response
   try {
-    const res = await fetch("/api/admin/verify-key", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ key: key.trim(), deviceId }),
+    res = await fetch("/api/admin/verify-key", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ key: key.trim(), deviceId }),
     })
-    status = res.status
-    data   = await res.json()
-  } catch {
-    return { success: false, error: "Network error — could not reach the server. Please try again." }
+  } catch (error) {
+    console.error("[admin-auth] verification request failed:", error)
+    return { success: false, error: "Could not connect to the verification service. Check your connection and try again." }
+  }
+
+  status = res.status
+  try {
+    responseText = await res.text()
+    data = responseText ? JSON.parse(responseText) as Record<string, unknown> : {}
+  } catch (error) {
+    console.error("[admin-auth] verification returned a non-JSON response:", status, responseText.slice(0, 300), error)
+    if (status === 401 || status === 403) {
+      return { success: false, error: "Preview access was denied by deployment protection. Open the preview directly and sign in to Vercel if prompted." }
+    }
+    return { success: false, error: `Verification service returned an invalid response (HTTP ${status}). Check the Vercel function logs.` }
   }
 
   if (status === 500) {

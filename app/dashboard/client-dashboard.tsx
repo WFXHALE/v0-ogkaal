@@ -22,6 +22,9 @@ import { signInWithGoogle } from "@/lib/google-auth"
 import { getVipSignals, getPerformanceStats } from "@/lib/membership-store"
 import type { VipSignal, PerformanceStat } from "@/lib/membership-store"
 import { BackButton } from "@/components/back-button"
+import { LanguagePicker } from "@/components/language-picker"
+import { useLanguage } from "@/contexts/language-context"
+import { translateDashboardText as td } from "@/lib/dashboard-i18n"
 import { createClient } from "@/lib/supabase/client"
 import { PushNotificationBell } from "@/components/push-notification-bell"
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel"
@@ -67,6 +70,7 @@ function Card({
   badge?: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const { language } = useLanguage()
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <button
@@ -75,7 +79,7 @@ function Card({
       >
         <div className="flex items-center gap-3">
           {icon}
-          <span className="font-semibold text-foreground text-sm">{title}</span>
+          <span className="font-semibold text-foreground text-sm">{td(language, title)}</span>
           {badge}
         </div>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
@@ -220,7 +224,7 @@ function AuthScreen({
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <Shield className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground font-sans">Client Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground font-sans">{td(language, "Client Dashboard")}</h1>
           <p className="text-muted-foreground text-sm mt-1">Secure member access portal</p>
         </div>
 
@@ -653,6 +657,7 @@ function MembershipBlock({
 // ── Main Dashboard ─────��──────────────────────────────────────────────────────
 
 export default function ClientDashboard() {
+  const { language } = useLanguage()
   const [session, setSessionState]          = useState<DashboardSession | null>(null)
 
   const [booting, setBooting]               = useState(true)
@@ -681,28 +686,65 @@ export default function ClientDashboard() {
   const [signals, setSignals]               = useState<VipSignal[]>([])
   const [perfStats, setPerfStats]           = useState<PerformanceStat[]>([])
 
-  // Check existing session on mount and load stored backup code
+  // Validate the server-issued HttpOnly cookie before restoring local UI state.
   useEffect(() => {
-    const s = getSession()
-    if (s) {
-      // Redirect admin to admin panel silently
-      if (s.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
-        window.location.href = "/admin"
-        return
-      }
-      setSessionState(s)
-      // Check email verification status via server-side API
-      fetch(`/api/dashboard/profile?userId=${encodeURIComponent(s.userId)}`)
-        .then(r => r.json())
-        .then(d => { if (d.ok && d.data) setIsVerified(Boolean(d.data.is_verified)) })
-        .catch(() => {})
-      // Always fetch backup code fresh from DB so it is always available
-      fetchBackupCode(s.id).then(code => {
-        if (code) { setStoredBackup(code); storeBackupCode(code) }
-        else setStoredBackup(getStoredBackupCode())
-      })
+    const cached = getSession()
+    if (!cached) {
+      setBooting(false)
+      return
     }
-    setBooting(false)
+
+    let cancelled = false
+    fetch("/api/dashboard/session", { cache: "no-store" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Session expired")
+        const payload = await response.json()
+        if (!payload?.ok || !payload?.user) throw new Error("Invalid session")
+        return payload.user as Record<string, unknown>
+      })
+      .then(user => {
+        if (cancelled) return
+        const session: DashboardSession = {
+          ...cached,
+          id: String(user.id),
+          userId: String(user.user_id),
+          email: String(user.email),
+          fullName: String(user.full_name),
+          createdAt: String(user.created_at),
+          numericUid: user.numeric_uid ? Number(user.numeric_uid) : undefined,
+          tradingLevel: user.trading_level ? String(user.trading_level) : undefined,
+          marketType: user.market_type ? String(user.market_type) : undefined,
+          tradingType: user.trading_type ? String(user.trading_type) : undefined,
+          yearsExperience: user.years_experience ? String(user.years_experience) : undefined,
+          isVerified: Boolean(user.is_verified),
+          kycStatus: (user.kyc_status as DashboardSession["kycStatus"]) ?? "none",
+          avatarUrl: user.avatar_url ? String(user.avatar_url) : undefined,
+        }
+
+        if (session.email.trim().toLowerCase() === "sheikhahmed2724@gmail.com") {
+          window.location.href = "/admin"
+          return
+        }
+
+        setSessionState(session)
+        setIsVerified(session.isVerified)
+        fetchBackupCode(session.id).then(code => {
+          if (cancelled) return
+          if (code) { setStoredBackup(code); storeBackupCode(code) }
+          else setStoredBackup(getStoredBackupCode())
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          logout()
+          setSessionState(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false)
+      })
+
+    return () => { cancelled = true }
   }, [])
 
   const loadData = useCallback(async (s: DashboardSession) => {
@@ -811,10 +853,11 @@ export default function ClientDashboard() {
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground font-sans">Client Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, <span className="text-foreground font-medium">{session.fullName}</span></p>
+            <p className="text-sm text-muted-foreground mt-0.5">{td(language, "Welcome back,")} <span className="text-foreground font-medium">{session.fullName}</span></p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-mono hidden sm:inline">ID: {session.userId}</span>
+            <LanguagePicker />
             <PushNotificationBell userId={session.id} />
             <button onClick={() => loadData(session)}
               className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Refresh">
@@ -822,7 +865,7 @@ export default function ClientDashboard() {
             </button>
             <button onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <LogOut className="w-4 h-4" /><span className="hidden sm:inline">Sign Out</span>
+              <LogOut className="w-4 h-4" /><span className="hidden sm:inline">{td(language, "Sign Out")}</span>
             </button>
           </div>
         </div>

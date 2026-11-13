@@ -19,6 +19,7 @@ const MORE_ITEMS: NavItem[] = [
   { label: "Prop Firms", href: "/prop-firms" },
   { label: "VIP Services", href: "/vip-group" },
   { label: "Contact", href: "/contact" },
+  { label: "Wallet", href: "/wallet" },
 ]
 
 export function Header() {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
 
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id, status } = await req.json()
     if (!id || !status) {
@@ -69,6 +72,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })

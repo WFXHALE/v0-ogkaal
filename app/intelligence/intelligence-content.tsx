@@ -782,9 +782,9 @@ export function IntelligenceContent() {
                         )
                       })}
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {Array.from({ length: 5 }).map((_, i) => (
+                  ) : newsLoading ? (
+                    <div className="space-y-3" aria-label="Loading live news">
+                      {Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="flex gap-3 animate-pulse">
                           <div className="w-8 h-8 rounded-full bg-muted" />
                           <div className="flex-1">
@@ -794,6 +794,10 @@ export function IntelligenceContent() {
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      Live market news is temporarily unavailable. No placeholder headlines are displayed.
+                    </p>
                   )}
                 </div>
               </section>

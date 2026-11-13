@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { timingSafeEqual } from "node:crypto"
 import { query, queryOne } from "@/lib/db"
 import { createAdminSessionToken, ADMIN_SESSION_MAX_AGE } from "@/lib/admin-session"
 
@@ -123,12 +124,16 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Fetch current record for this IP
     const existing = await queryOne<{
+      id: string
       failure_count: number
       locked_until:  string | null
       device_id:     string | null
     }>(
-      `SELECT failure_count, locked_until, device_id FROM admin_login_attempts WHERE ip_address = $1`,
-      [ip]
+      `SELECT id, failure_count, locked_until, device_id FROM admin_login_attempts
+       WHERE ip_address = $1 OR device_id = $2
+       ORDER BY (ip_address = $1) DESC
+       LIMIT 1`,
+      [ip, deviceId]
     )
 
     const failureCount = existing?.failure_count ?? 0
@@ -160,17 +165,18 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Verify the key (constant-time compare via padded string)
-    const correctKey = secret.trim()
-    const isValid    = key === correctKey
+    const correctKey = Buffer.from(secret.trim(), "utf8")
+    const submittedKey = Buffer.from(key, "utf8")
+    const isValid = submittedKey.length === correctKey.length && timingSafeEqual(submittedKey, correctKey)
 
     if (isValid) {
       // Reset on success
       if (existing) {
         await query(
           `UPDATE admin_login_attempts
-           SET failure_count=0, locked_until=NULL, last_attempt_at=$1
-           WHERE ip_address=$2`,
-          [now.toISOString(), ip]
+           SET failure_count=0, locked_until=NULL, last_attempt_at=$1, updated_at=$1
+           WHERE id=$2`,
+          [now.toISOString(), existing.id]
         )
       }
       query(
@@ -196,9 +202,9 @@ export async function POST(req: NextRequest) {
     if (existing) {
       await query(
         `UPDATE admin_login_attempts
-         SET failure_count=$1, locked_until=$2, last_attempt_at=$3, device_id=$4
-         WHERE ip_address=$5`,
-        [newFailureCount, newLockedUntil, now.toISOString(), deviceId, ip]
+         SET failure_count=$1, locked_until=$2, last_attempt_at=$3, updated_at=$3
+         WHERE id=$4`,
+        [newFailureCount, newLockedUntil, now.toISOString(), existing.id]
       )
     } else {
       await query(
@@ -237,7 +243,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[verify-key POST] db error:", err)
     // On DB error, still verify the key but skip lockout tracking
-    const isValid = key === secret.trim()
+    const correctKey = Buffer.from(secret.trim(), "utf8")
+    const submittedKey = Buffer.from(key, "utf8")
+    const isValid = submittedKey.length === correctKey.length && timingSafeEqual(submittedKey, correctKey)
     if (isValid) {
       const token = await createAdminSessionToken()
       if (!token) return NextResponse.json({ ok: false, error: "Admin session configuration error." }, { status: 500 })
@@ -246,8 +254,8 @@ export async function POST(req: NextRequest) {
       return response
     }
     return NextResponse.json(
-      { ok: false, error: "Verification failed. Please try again." },
-      { status: 401 }
+      { ok: false, error: "Incorrect key. Login-attempt tracking is temporarily unavailable; please try again shortly." },
+      { status: 503 }
     )
   }
 }
