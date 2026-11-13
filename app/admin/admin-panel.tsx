@@ -1475,7 +1475,7 @@ export default function AdminPanel() {
 
     const tabOrders = orders.filter(r => {
       if (historyTab === "pending")   return r.status === "pending" || r.status === "accepted" || r.status === "processing"
-      if (historyTab === "completed") return r.status === "completed" || r.status === "approved"
+      if (historyTab === "completed") return r.status === "completed"
       if (historyTab === "cancelled") return r.status === "cancelled" || r.status === "rejected"
       return true
     }).filter(r => {
