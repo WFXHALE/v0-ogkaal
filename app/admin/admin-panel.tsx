@@ -711,7 +711,7 @@ export default function AdminPanel() {
     // Telegram notification to user
     if (order?.telegram) {
       const tgMsg = status === "accepted"
-        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.amountUsdt ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
         : status === "completed"
         ? `<b>USDT Order Completed</b>\n\nPayment confirmed. Your USDT has been sent to your wallet.\n\n<i>— OG KAAL TRADER</i>`
         : status === "rejected" || status === "cancelled"
