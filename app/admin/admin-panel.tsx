@@ -3478,24 +3478,14 @@ export default function AdminPanel() {
           <button
             onClick={() => {
               setUsersLoading(true)
-              import("@/lib/supabase/client").then(({ createClient }) =>
-                createClient()
-                  .from("dashboard_users")
-                  .select("user_id, full_name, email, phone, username, created_at, is_verified, kyc_status, kyc_doc_pan, kyc_doc_aadhaar_front, kyc_doc_aadhaar_back")
-                  .order("created_at", { ascending: false })
-                  .limit(500)
-                  .then(({ data }) => {
-                    if (data) setDashboardUsers(data.map((u: Record<string, unknown>) => ({
-                      userId: String(u.user_id ?? ""), fullName: String(u.full_name ?? "—"),
-                      email: String(u.email ?? ""), phone: u.phone as string | null,
-                      username: u.username as string | null, createdAt: String(u.created_at ?? ""),
-                      isVerified: Boolean(u.is_verified), kycStatus: u.kyc_status as string | null,
-                      kycDocPan: u.kyc_doc_pan as string | null,
-                      kycDocAadhaarFront: u.kyc_doc_aadhaar_front as string | null,
-                      kycDocAadhaarBack: u.kyc_doc_aadhaar_back as string | null,
-                    })))
-                  })
-              ).catch(() => {}).finally(() => setUsersLoading(false))
+              fetch("/api/admin/dashboard-users?limit=500", { cache: "no-store" })
+                .then(async (response) => {
+                  if (!response.ok) throw new Error("Unable to load dashboard users")
+                  const result = await response.json()
+                  if (result?.ok && Array.isArray(result.data)) setDashboardUsers(result.data)
+                })
+                .catch((error) => console.error("[admin users] load failed:", error))
+                .finally(() => setUsersLoading(false))
             }}
             disabled={usersLoading}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
