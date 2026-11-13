@@ -482,7 +482,7 @@ export default function AdminPanel() {
         fetch("/api/admin/usdt-sell").then(r => r.json()),
         fetch("/api/admin/broker-verifications").then(r => r.json()),
         fetch("/api/admin/dashboard-users?fields=user_id,full_name,email,created_at,kyc_doc_pan,kyc_doc_aadhaar_front,kyc_doc_aadhaar_back").then(r => r.json()),
-      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }]) => {
+      ]).then(([sub, buy, sell, brkr, kyc]: [{ ok: boolean; data?: Submission[] }, { ok: boolean; data?: USDTBuyRequest[] }, { ok: boolean; data?: USDTSellRequest[] }, { ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }]) => {
         if (sub.ok)  setSubmissions(sub.data ?? [])
         if (buy.ok)  setUsdtBuy(buy.data ?? [])
         if (sell.ok) setUsdtSell(sell.data ?? [])
