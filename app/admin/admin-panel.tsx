@@ -569,7 +569,7 @@ export default function AdminPanel() {
     })
     // Session countdown display only — no redirect on expiry
     const sessionInterval = setInterval(() => {
-      setSessionSecsLeft(s => Math.max(0, s - 1))
+      setSessionSecsLeft(s => Math.max(0, (s ?? 0) - 1))
     }, 1000)
 
     // Pre-fetch dashboard DB stats
