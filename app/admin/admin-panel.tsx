@@ -1401,7 +1401,7 @@ export default function AdminPanel() {
 
         {/* Action buttons — contextual by status, locked when final */}
         <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-          {(r.status === "completed" || r.status === "approved") ? (
+          {(r.status === "completed") ? (
             <span className="flex-1 text-center text-xs text-green-400 font-semibold py-1.5">Order Completed</span>
           ) : (r.status === "cancelled" || r.status === "rejected") ? (
             <span className="flex-1 text-center text-xs text-red-400 font-semibold py-1.5">Order Cancelled</span>
@@ -1475,7 +1475,7 @@ export default function AdminPanel() {
 
     const tabOrders = orders.filter(r => {
       if (historyTab === "pending")   return r.status === "pending" || r.status === "accepted" || r.status === "processing"
-      if (historyTab === "completed") return r.status === "completed" || r.status === "approved"
+      if (historyTab === "completed") return r.status === "completed"
       if (historyTab === "cancelled") return r.status === "cancelled" || r.status === "rejected"
       return true
     }).filter(r => {
@@ -1655,7 +1655,7 @@ export default function AdminPanel() {
   const renderUSDTBuy = () => {
     const pending   = usdtBuy.filter(r => r.status === "pending")
     const accepted  = usdtBuy.filter(r => r.status === "accepted")
-    const completed = usdtBuy.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtBuy.filter(r => r.status === "completed")
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
@@ -1698,7 +1698,7 @@ export default function AdminPanel() {
   const renderUSDTSell = () => {
     const pending   = usdtSell.filter(r => r.status === "pending")
     const accepted  = usdtSell.filter(r => r.status === "accepted")
-    const completed = usdtSell.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtSell.filter(r => r.status === "completed")
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
