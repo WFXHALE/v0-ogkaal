@@ -21,9 +21,9 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getVipSignals, addVipSignal, deleteVipSignal,
-  getMemberships, approveMembership, revokeMembership,
-  getPerformanceStats, addPerformanceStat, deletePerformanceStat,
+  getVipSignals, createSignal, deleteSignal,
+  getMemberships, approveMembership,
+  getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
 import {
   loadAllSettings, saveSystemConfig, savePricing, saveAdminProfile,
@@ -2754,9 +2754,8 @@ export default function AdminPanel() {
             setSignalSaving(true)
             const s = await createSignal({
               pair: signalForm.pair, entry: signalForm.entry, stopLoss: signalForm.sl,
-              takeProfit1: signalForm.tp1, takeProfit2: signalForm.tp2 || undefined,
-              takeProfit3: signalForm.tp3 || undefined, direction: signalForm.direction,
-              status: "active", notes: signalForm.notes || undefined, postedAt: new Date().toISOString(), result: undefined,
+              takeProfit: signalForm.tp1, direction: signalForm.direction,
+              status: "active", notes: signalForm.notes || undefined, result: undefined,
             })
             if (s) { setSignals(prev => [s, ...prev]); setSignalForm({ pair: "", entry: "", sl: "", tp1: "", tp2: "", tp3: "", direction: "BUY", notes: "" }) }
             setSignalSaving(false)
@@ -2931,12 +2930,12 @@ export default function AdminPanel() {
             if (!perfForm.month || !perfForm.monthLabel) return
             setPerfSaving(true)
             const ok = await upsertPerformanceStat({
-              month: perfForm.month, monthLabel: perfForm.monthLabel,
+              month: perfForm.month, year: new Date().getFullYear(),
               profitPercent: Number(perfForm.profitPercent) || 0,
               winRate: Number(perfForm.winRate) || 0,
               totalTrades: Number(perfForm.totalTrades) || 0,
-              winningTrades: Number(perfForm.winningTrades) || 0,
-              losingTrades: Number(perfForm.losingTrades) || 0,
+              wins: Number(perfForm.winningTrades) || 0,
+              losses: Number(perfForm.losingTrades) || 0,
             })
             if (ok) {
               const updated = await getPerformanceStats()
