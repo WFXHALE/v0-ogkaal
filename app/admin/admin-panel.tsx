@@ -1655,7 +1655,7 @@ export default function AdminPanel() {
   const renderUSDTBuy = () => {
     const pending   = usdtBuy.filter(r => r.status === "pending")
     const accepted  = usdtBuy.filter(r => r.status === "accepted")
-    const completed = usdtBuy.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtBuy.filter(r => r.status === "completed")
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
@@ -1698,7 +1698,7 @@ export default function AdminPanel() {
   const renderUSDTSell = () => {
     const pending   = usdtSell.filter(r => r.status === "pending")
     const accepted  = usdtSell.filter(r => r.status === "accepted")
-    const completed = usdtSell.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtSell.filter(r => r.status === "completed")
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
