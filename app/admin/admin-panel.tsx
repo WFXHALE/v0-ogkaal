@@ -2373,7 +2373,7 @@ export default function AdminPanel() {
   )
 
   const renderSecurity = () => {
-    const failedLogins = securityLogs.filter(l => !l.success).length
+    const failedLogins = securityLogs.filter(l => l.type === "login_failed").length
     const activeSessions = isSessionValid() ? 1 : 0
 
     const handleSecSave = async () => {
@@ -2492,8 +2492,8 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground">{log.email} · {log.ipAddress || "—"}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                    {log.success ? "Success" : "Failed"}
+                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
+                    {log.type === "login_success" ? "Success" : "Failed"}
                   </span>
                   <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(log.timestamp)}</p>
                 </div>
@@ -2528,8 +2528,8 @@ export default function AdminPanel() {
                     <td className="py-3 px-4 text-xs text-muted-foreground">{log.email}</td>
                     <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{log.ipAddress || "—"}</td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                        {log.success ? "Success" : "Failed"}
+                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
+                        {log.type === "login_success" ? "Success" : "Failed"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(log.timestamp)}</td>
