@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
+import { getDashboardSession } from "@/lib/dashboard-session"
+
+export const runtime = "nodejs"
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = getDashboardSession(req)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const rawLimit = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "30", 10)
   const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 30
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from("notifications")
     .select("*")
-    .eq("recipient_id", user.id)
+    .eq("recipient_id", session.sub)
     .order("created_at", { ascending: false })
     .limit(limit)
 
@@ -20,9 +23,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = getDashboardSession(req)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let body: Record<string, unknown>
   try { body = await req.json() } catch {
@@ -35,14 +37,15 @@ export async function POST(req: NextRequest) {
       typeof actor_avatar !== "string") {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
-  if (recipient_id === user.id) return NextResponse.json({ data: null })
+  if (recipient_id === session.sub) return NextResponse.json({ data: null })
 
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from("notifications")
     .insert({
       type: type.trim(),
       recipient_id,
-      actor_id: user.id,
+      actor_id: session.sub,
       actor_name: actor_name.trim().slice(0, 120),
       actor_avatar: actor_avatar.slice(0, 2048),
       post_id: typeof post_id === "string" ? post_id : null,
