@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, ChevronDown, ChevronUp,
   CheckCircle, XCircle, Clock, Download, Trash2, Image as ImageIcon,
   ArrowDownLeft, ArrowUpRight, Users, FileText,
-  UserCheck, Filter, X,
+  UserCheck, Filter, X, ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
