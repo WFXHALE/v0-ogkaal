@@ -433,9 +433,9 @@ export default function AdminPanel() {
       Promise.all([
         fetch("/api/admin/submissions").then(r => r.json()).catch(() => ({ ok: false })),
         fetch("/api/admin/dashboard-users").then(r => r.json()).catch(() => ({ ok: false })),
-      ]).then(([sub, users]: [{ ok: boolean; data?: unknown[] }, { ok: boolean; data?: unknown[] }]) => {
-        if (sub.ok)   setSubmissions(sub.data ?? [])
-        if (users.ok) setDashboardUsers((users.data ?? []) as DashboardUser[])
+      ]).then(([sub, users]: [{ ok: boolean; data?: Submission[] }, { ok: boolean; data?: DashboardUser[] }]) => {
+        if (sub.ok && Array.isArray(sub.data)) setSubmissions(sub.data)
+        if (users.ok && Array.isArray(users.data)) setDashboardUsers(users.data)
       }).catch(() => {}).finally(() => setUsersLoading(false))
     } else if (activeSection === "broker-verifications") {
       fetch("/api/admin/broker-verifications")
