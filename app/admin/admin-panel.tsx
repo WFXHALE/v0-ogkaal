@@ -2524,7 +2524,7 @@ export default function AdminPanel() {
                 ? <tr><td colSpan={5} className="py-12 text-center text-muted-foreground text-sm">No logs found</td></tr>
                 : securityLogs.map(log => (
                   <tr key={log.id} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="py-3 px-4 text-sm text-foreground">{log.action}</td>
+                    <td className="py-3 px-4 text-sm text-foreground">{(log.details || log.type.replace(/_/g, " "))}</td>
                     <td className="py-3 px-4 text-xs text-muted-foreground">{log.email}</td>
                     <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{log.ipAddress || "—"}</td>
                     <td className="py-3 px-4">
