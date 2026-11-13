@@ -2488,7 +2488,7 @@ export default function AdminPanel() {
             {securityLogs.slice(0, 15).map(log => (
               <div key={log.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="text-sm text-foreground">{log.action}</p>
+                  <p className="text-sm text-foreground">{log.details || log.type.replace(/_/g, " ")}</p>
                   <p className="text-xs text-muted-foreground">{log.email} · {log.ipAddress || "—"}</p>
                 </div>
                 <div className="text-right">
