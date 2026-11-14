@@ -22,7 +22,7 @@ import {
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
   getVipSignals, createSignal, updateSignalStatus, deleteSignal,
-  getMemberships, approveMembership,
+  getMemberships, approveMembership, updateMembershipStatus,
   getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
 import {
