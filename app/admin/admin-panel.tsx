@@ -2780,7 +2780,7 @@ export default function AdminPanel() {
               <div className="flex items-center gap-4 flex-wrap">
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${s.direction === "BUY" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{s.direction}</span>
                 <span className="font-bold text-foreground">{s.pair}</span>
-                <span className="text-xs text-muted-foreground">Entry: {s.entry} | SL: {s.stopLoss} | TP: {s.takeProfit1}</span>
+                <span className="text-xs text-muted-foreground">Entry: {s.entry} | SL: {s.stopLoss} | TP: {s.takeProfit}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full border ${s.status === "active" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : s.status === "hit_tp" ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>{s.status}</span>
               </div>
               <div className="flex gap-2 flex-wrap">
