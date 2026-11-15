@@ -59,9 +59,10 @@ export default function ContactPage() {
     e.preventDefault()
     setSubmitting(true)
     await saveSubmission({
-      type: "contact",
+      type: "other",
       name: formData.name,
       details: {
+        category: "contact",
         email: formData.email,
         message: formData.message,
       },
