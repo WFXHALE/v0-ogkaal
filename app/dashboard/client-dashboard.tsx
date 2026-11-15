@@ -100,6 +100,7 @@ function AuthScreen({
   onAuth: (s: DashboardSession) => void
   onBackupCode: (code: string) => void
 }) {
+  const { language } = useLanguage()
   const [mode, setMode]                   = useState<AuthMode>("login")
   const [showPw, setShowPw]               = useState(false)
   const [loading, setLoading]             = useState(false)
