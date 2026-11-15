@@ -79,7 +79,6 @@ async function fetchForexFactoryCalendar() {
         rawDate: e.date,
         forecast: e.forecast || undefined,
         previous: e.previous || undefined,
-        rawDate: e.date,
       }
     })
     .sort((a, b) => {
