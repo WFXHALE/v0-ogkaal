@@ -728,7 +728,7 @@ export default function ClientDashboard() {
         }
 
         setSessionState(session)
-        setIsVerified(session.isVerified)
+        setIsVerified(session.isVerified ?? null)
         fetchBackupCode(session.id).then(code => {
           if (cancelled) return
           if (code) { setStoredBackup(code); storeBackupCode(code) }
