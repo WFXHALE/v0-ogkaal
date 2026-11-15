@@ -1070,7 +1070,7 @@ export default function ClientDashboard() {
                       <span className="font-bold text-foreground text-sm">{s.pair}</span>
                       <span className="text-xs text-muted-foreground">Entry: {s.entry}</span>
                       <span className="text-xs text-muted-foreground">SL: {s.stopLoss}</span>
-                      <span className="text-xs text-muted-foreground">TP: {s.takeProfit1}</span>
+                      <span className="text-xs text-muted-foreground">TP: {s.takeProfit}</span>
                     </div>
                   ))}
                   <Link href="/vip-signals" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
