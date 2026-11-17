@@ -76,8 +76,9 @@ export function PushNotificationBell({ userId }: { userId: string }) {
           table:  "push_notifications",
           filter: `recipient_id=eq.${userId}`,
         },
-        (payload) => {
-          setItems(prev => [payload.new as PushNotification, ...prev])
+        (payload: unknown) => {
+          const notification = (payload as { new: PushNotification }).new
+          setItems(prev => [notification, ...prev])
         }
       )
       .subscribe()
