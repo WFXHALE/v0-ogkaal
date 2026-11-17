@@ -505,3 +505,41 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Contrast and profile-menu corrections — Nov 2026 */
+.site-header .text-muted-foreground { color: #AEB3BB !important; }
+.site-header nav a, .site-header nav button { color: #C8CCD2; }
+.site-header [aria-label="Sign in or create account"] {
+  width: 36px !important; height: 36px !important;
+  padding: 0 !important; border: 1px solid rgba(242,200,75,.34) !important;
+  border-radius: 50% !important; background: rgba(242,200,75,.08) !important;
+  color: #F2C84B !important; box-shadow: none !important;
+}
+.site-header [aria-label="Sign in or create account"] svg { color: #F2C84B !important; }
+.site-header .absolute.right-0.top-full {
+  background: #202328 !important; color: #E5E6E8 !important;
+  border: 1px solid rgba(229,230,232,.16) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,.38) !important;
+}
+.site-header .absolute.right-0.top-full .text-muted-foreground { color: #AEB3BB !important; }
+.site-header .absolute.right-0.top-full input {
+  color: #F1F2F3 !important; background: #17191D !important;
+  border-color: #4A5059 !important;
+}
+.site-header .absolute.right-0.top-full input::placeholder { color: #9299A3 !important; opacity: 1; }
+.site-header .absolute.right-0.top-full .bg-secondary\/20,
+.site-header .absolute.right-0.top-full .bg-secondary\/30 { background: #292D33 !important; }
+.site-header .absolute.right-0.top-full .bg-secondary\/40 { background: #343941 !important; }
+.site-header .absolute.right-0.top-full .border-border { border-color: #414751 !important; }
+.site-header .absolute.right-0.top-full .text-foreground { color: #E5E6E8 !important; }
+.site-header .absolute.right-0.top-full .text-primary { color: #F2C84B !important; }
+.site-header .absolute.right-0.top-full .bg-popover { background: #202328 !important; }
+
+:not(.dark) .premium-hero .institutional-hero-copy p { color: #555B64 !important; }
+:not(.dark) .premium-hero .institutional-eyebrow { color: #8A6812 !important; }
+:not(.dark) .premium-hero .text-muted-foreground { color: #555B64 !important; }
+:not(.dark) .premium-shell > section:last-of-type p,
+:not(.dark) .premium-shell > section:last-of-type li { color: #AEB3BB !important; }
+:not(.dark) .premium-shell .bg-secondary:not(.institutional-rate-panel) { color: #25282D; }
+:not(.dark) .premium-shell .bg-secondary\/30 { color: #343941; }
