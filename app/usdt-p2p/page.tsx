@@ -323,21 +323,21 @@ export default function UsdtP2PPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="premium-shell min-h-screen bg-background flex flex-col">
       <Header />
 
       <NoticeTicker />
 
       <main className="flex-1 mt-20">
         {/* Hero Section */}
-        <section className="pt-12 pb-16 sm:pb-24">
+        <section className="premium-hero pt-12 pb-16 sm:pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
                 <Shield className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-primary">Verified & Secure</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 tracking-tight">
                 SAFE <span className="text-primary">USDT P2P</span> EXCHANGE
               </h1>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
@@ -347,7 +347,7 @@ export default function UsdtP2PPage() {
 
             {/* Buy/Sell/History Tabs */}
             <div className="max-w-2xl mx-auto mb-8">
-              <div className="flex rounded-xl bg-secondary p-1">
+              <div className="premium-tabs flex rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
