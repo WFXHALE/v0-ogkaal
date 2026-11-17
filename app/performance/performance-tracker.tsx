@@ -147,7 +147,7 @@ export default function PerformanceTracker() {
   }, [])
 
   const chartData = stats.map(s => ({
-    name: s.monthLabel.split(" ")[0].slice(0, 3),
+    name: s.month.split(" ")[0].slice(0, 3),
     profit: s.profitPercent,
     winRate: s.winRate,
   }))
@@ -205,7 +205,7 @@ export default function PerformanceTracker() {
               <StatCard
                 label="Best Month"
                 value={bestMonth ? `+${bestMonth.profitPercent}%` : "—"}
-                sub={bestMonth?.monthLabel ?? ""}
+                sub={bestMonth?.month ?? ""}
                 positive={true}
                 icon={Award}
               />
@@ -259,16 +259,16 @@ export default function PerformanceTracker() {
                   <tbody>
                     {[...stats].reverse().map(s => (
                       <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                        <td className="py-3 font-medium text-foreground">{s.monthLabel}</td>
+                        <td className="py-3 font-medium text-foreground">{s.month}</td>
                         <td className={`py-3 text-right font-bold ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>
                           {s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%
                         </td>
                         <td className="py-3 text-right text-foreground">{s.winRate}%</td>
                         <td className="py-3 text-right text-foreground">{s.totalTrades}</td>
                         <td className="py-3 text-right">
-                          <span className="text-green-400">{s.winningTrades}W</span>
+                          <span className="text-green-400">{s.wins}W</span>
                           <span className="text-muted-foreground"> / </span>
-                          <span className="text-red-400">{s.losingTrades}L</span>
+                          <span className="text-red-400">{s.losses}L</span>
                         </td>
                       </tr>
                     ))}
