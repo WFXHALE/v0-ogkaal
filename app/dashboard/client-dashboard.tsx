@@ -1112,11 +1112,11 @@ export default function ClientDashboard() {
                         <tbody>
                           {[...perfStats].reverse().map(s => (
                             <tr key={s.id} className="border-b border-border/40 hover:bg-secondary/20">
-                              <td className="px-3 py-2 text-xs font-medium text-foreground whitespace-nowrap">{s.monthLabel}</td>
+                              <td className="px-3 py-2 text-xs font-medium text-foreground whitespace-nowrap">{s.month}</td>
                               <td className={`px-3 py-2 font-bold text-xs ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>{s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%</td>
                               <td className="px-3 py-2 text-xs text-foreground">{s.winRate}%</td>
                               <td className="px-3 py-2 text-xs text-foreground">{s.totalTrades}</td>
-                              <td className="px-3 py-2 text-xs"><span className="text-green-400">{s.winningTrades}W</span> / <span className="text-red-400">{s.losingTrades}L</span></td>
+                              <td className="px-3 py-2 text-xs"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></td>
                             </tr>
                           ))}
                         </tbody>
