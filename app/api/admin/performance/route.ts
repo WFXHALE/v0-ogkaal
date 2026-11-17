@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdminApi } from "@/lib/require-admin-api"
 import { query } from "@/lib/db"
 
 function normalize(r: Record<string, unknown>) {
@@ -17,7 +18,9 @@ function normalize(r: Record<string, unknown>) {
 }
 
 /** GET /api/admin/performance — list all performance stats */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query(
       "SELECT * FROM performance_stats ORDER BY year ASC, created_at ASC",
@@ -30,6 +33,8 @@ export async function GET() {
 
 /** POST /api/admin/performance — upsert a performance stat */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     if (!b.month || !b.year) {
@@ -84,6 +89,8 @@ export async function POST(req: NextRequest) {
 
 /** DELETE /api/admin/performance — remove a stat */
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
