@@ -312,7 +312,7 @@ export default function MentorshipPage() {
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
                         flowStep === s
                           ? "bg-primary text-primary-foreground border-primary"
-                          : flowStep === "success" || (s === "contact" && flowStep === "payment")
+                          : (s === "contact" && flowStep === "payment")
                           ? "bg-primary/20 text-primary border-primary/50"
                           : "bg-secondary text-muted-foreground border-border"
                       }`}
