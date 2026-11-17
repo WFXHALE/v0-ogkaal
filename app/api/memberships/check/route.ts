@@ -42,15 +42,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       membership: {
-        id:         membership.id,
-        userId:     membership.user_id   ?? "",
-        userEmail:  membership.email     ?? "",
-        userName:   membership.name      ?? "",
-        plan:       membership.plan      ?? "Free",
-        status:     membership.status    ?? "none",
-        joinDate:   membership.joined_at ?? membership.created_at ?? "",
+        plan: membership.plan ?? "Free",
+        status: membership.status ?? "none",
         expiryDate: membership.expires_at ?? null,
-        amountPaid: membership.amount    ?? null,
       },
     })
   } catch (err) {
