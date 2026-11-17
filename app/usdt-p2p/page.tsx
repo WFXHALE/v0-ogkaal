@@ -332,17 +332,48 @@ export default function UsdtP2PPage() {
         {/* Hero Section */}
         <section className="premium-hero pt-12 pb-16 sm:pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
-                <Shield className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">Verified & Secure</span>
+            <div className="institutional-hero-grid grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)] gap-10 lg:gap-16 items-center mb-12">
+              <div className="institutional-hero-copy">
+                <div className="institutional-eyebrow inline-flex items-center gap-2 mb-6">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>OG KAAL / PRIVATE CLIENT DESK</span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 tracking-tight">
+                  USDT EXCHANGE.<br /><span className="text-primary">BUILT ON CLARITY.</span>
+                </h1>
+                <p className="text-lg text-muted-foreground leading-relaxed">
+                  A structured USDT buy and sell desk for the OG KAAL TRADER community. Review the current site rates, follow each verification step and track your requests from one account.
+                </p>
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 tracking-tight">
-                SAFE <span className="text-primary">USDT P2P</span> EXCHANGE
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                Buy or sell USDT with clear rates and a guided request process. Rates may change with market conditions.
-              </p>
+
+              <aside className="institutional-rate-panel" aria-label="Current USDT exchange rates">
+                <div className="flex items-center justify-between gap-3 mb-7">
+                  <div>
+                    <p className="institutional-rate-heading">Exchange desk</p>
+                    <p className="text-xs text-muted-foreground mt-1">USDT / INR</p>
+                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-sm border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-primary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    {ratesLoaded ? "Rates loaded" : "Updating"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <p className="institutional-rate-heading mb-2">Buy USDT</p>
+                    <p className="institutional-rate-value">₹{buyRate.toFixed(2)}</p>
+                    <p className="institutional-rate-unit mt-1">INR per USDT</p>
+                  </div>
+                  <div className="border-l border-white/10 pl-5">
+                    <p className="institutional-rate-heading mb-2">Sell USDT</p>
+                    <p className="institutional-rate-value">₹{sellRate.toFixed(2)}</p>
+                    <p className="institutional-rate-unit mt-1">INR per USDT</p>
+                  </div>
+                </div>
+                <div className="institutional-rate-divider" />
+                <p className="institutional-rate-foot">
+                  Site rates are configured by the administrator and refresh automatically. Final amounts are confirmed before an order is submitted.
+                </p>
+              </aside>
             </div>
 
             {/* Buy/Sell/History Tabs */}
@@ -1768,7 +1799,7 @@ export default function UsdtP2PPage() {
       <section className="border-t border-border bg-background px-4 py-10">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#2F80FF]" />
+            <Shield className="w-4 h-4 text-[#F2C84B]" />
             Payment Liability &amp; Legal Notice
           </h2>
           <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
@@ -1786,7 +1817,7 @@ export default function UsdtP2PPage() {
               "Indian Penal Code Section 468 – Forgery for the purpose of cheating",
             ].map((law) => (
               <li key={law} className="flex items-start gap-2">
-                <span className="text-[#2F80FF] mt-0.5 shrink-0">•</span>
+                <span className="text-[#F2C84B] mt-0.5 shrink-0">•</span>
                 {law}
               </li>
             ))}
@@ -1795,7 +1826,7 @@ export default function UsdtP2PPage() {
           <p className="text-xs font-semibold text-foreground mb-1">Penalty Clause</p>
           <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
             If the website owner&apos;s account or financial system is affected due to a user&apos;s transaction, the responsible user will be required to pay a penalty of{" "}
-            <span className="text-[#2F80FF] font-semibold">5x the payment amount</span>.{" "}
+            <span className="text-[#F2C84B] font-semibold">5x the payment amount</span>.{" "}
             Example: If the payment amount is ₹1,000, the penalty will be ₹5,000.
           </p>
 

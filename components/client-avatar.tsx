@@ -236,7 +236,7 @@ function LoggedOutPopup({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Sign in or create account"
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-muted border-2 border-border hover:border-primary transition-colors focus:outline-none"
+        className="flex items-center justify-center w-9 h-9 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <User className="w-4 h-4 text-muted-foreground" />
       </button>
