@@ -776,7 +776,7 @@ export default function ClientDashboard() {
     const combined: Record<string, unknown>[] = [
       ...(buyData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Buy" })),
       ...(sellData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Sell" })),
-    ].sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
+    ].sort((a: Record<string, unknown>, b: Record<string, unknown>) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     setUsdtOrders(combined)
 
     const [sigs, stats] = await Promise.all([getVipSignals(), getPerformanceStats()])
