@@ -256,3 +256,252 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* ── OG KAAL TRADER / Institutional design system ───────────────────── */
+:root {
+  --brand-gold: #F2C84B;
+  --brand-ink: #17191D;
+  color-scheme: light;
+  --background: #E6E7E8;
+  --foreground: #202226;
+  --card: #F2F3F4;
+  --card-foreground: #202226;
+  --popover: #F2F3F4;
+  --popover-foreground: #202226;
+  --primary: #C99D25;
+  --primary-foreground: #17191D;
+  --secondary: #D9DBDE;
+  --secondary-foreground: #25282D;
+  --muted: #DDE0E3;
+  --muted-foreground: #666B73;
+  --accent: #F2C84B;
+  --accent-foreground: #17191D;
+  --border: #C6C9CE;
+  --input: #C6C9CE;
+  --ring: #C99D25;
+  --sidebar: #DDE0E3;
+  --sidebar-foreground: #202226;
+  --sidebar-primary: #C99D25;
+  --sidebar-primary-foreground: #17191D;
+  --sidebar-accent: #D1D4D8;
+  --sidebar-accent-foreground: #25282D;
+  --sidebar-border: #C6C9CE;
+  --sidebar-ring: #C99D25;
+}
+.dark {
+  color-scheme: dark;
+  --background: #17191D;
+  --foreground: #E5E6E8;
+  --card: #202328;
+  --card-foreground: #E5E6E8;
+  --popover: #24272D;
+  --popover-foreground: #E5E6E8;
+  --primary: #F2C84B;
+  --primary-foreground: #17191D;
+  --secondary: #292D33;
+  --secondary-foreground: #E5E6E8;
+  --muted: #292D33;
+  --muted-foreground: #A4A9B1;
+  --accent: #F2C84B;
+  --accent-foreground: #17191D;
+  --border: #383D45;
+  --input: #41464F;
+  --ring: #F2C84B;
+  --chart-1: #F2C84B;
+  --chart-2: #D7DADF;
+  --chart-3: #9299A3;
+  --chart-4: #B68C25;
+  --chart-5: #F7D978;
+  --sidebar: #141619;
+  --sidebar-foreground: #E5E6E8;
+  --sidebar-primary: #F2C84B;
+  --sidebar-primary-foreground: #17191D;
+  --sidebar-accent: #24272D;
+  --sidebar-accent-foreground: #E5E6E8;
+  --sidebar-border: #383D45;
+  --sidebar-ring: #F2C84B;
+}
+.grey {
+  color-scheme: light;
+  --background: #E6E7E8;
+  --foreground: #202226;
+  --card: #F2F3F4;
+  --card-foreground: #202226;
+  --popover: #F2F3F4;
+  --popover-foreground: #202226;
+  --primary: #C99D25;
+  --primary-foreground: #17191D;
+  --secondary: #D9DBDE;
+  --secondary-foreground: #25282D;
+  --muted: #DDE0E3;
+  --muted-foreground: #666B73;
+  --accent: #F2C84B;
+  --accent-foreground: #17191D;
+  --border: #C6C9CE;
+  --input: #C6C9CE;
+  --ring: #C99D25;
+}
+html { background: var(--background); }
+body {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 44px 44px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.dark body { background-color: #17191D; }
+::selection { background: rgba(242,200,75,.28); color: var(--foreground); }
+:focus-visible { outline-color: var(--brand-gold); }
+.site-header {
+  min-height: 68px;
+  background: rgba(23,25,29,.94) !important;
+  border-bottom: 1px solid rgba(229,230,232,.10) !important;
+  box-shadow: 0 10px 32px rgba(0,0,0,.24);
+  backdrop-filter: blur(18px);
+}
+.site-header .brand-wordmark { letter-spacing: .12em; font-size: .78rem; }
+.site-header nav a, .site-header nav button { letter-spacing: .045em; }
+.site-header nav a:hover, .site-header nav button:hover { color: #F2C84B; }
+.brand-mark {
+  border-radius: 9px !important;
+  background: linear-gradient(145deg,#F8DA7A 0%,#F2C84B 52%,#B88C1D 100%) !important;
+  box-shadow: 0 0 0 1px rgba(242,200,75,.32), 0 7px 22px rgba(242,200,75,.14) !important;
+}
+.premium-shell { isolation: isolate; }
+.premium-hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: clamp(2.5rem,5vw,4.5rem) !important;
+  padding-bottom: clamp(3.5rem,7vw,6rem) !important;
+  background:
+    radial-gradient(ellipse at 82% 12%, rgba(242,200,75,.075), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.018), transparent 62%);
+}
+.premium-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: .32;
+  background-image: linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(90deg,transparent,#000 55%,#000);
+  pointer-events: none;
+}
+.institutional-hero-grid { max-width: 1180px; margin-left: auto; margin-right: auto; }
+.institutional-hero-copy { text-align: left; margin-bottom: 0 !important; }
+.institutional-hero-copy h1 {
+  max-width: 760px;
+  font-size: clamp(2.6rem,5.6vw,5.35rem) !important;
+  line-height: .98 !important;
+  letter-spacing: -.065em !important;
+  font-weight: 750 !important;
+  text-wrap: balance;
+}
+.institutional-hero-copy p { max-width: 610px; margin-left: 0; font-size: 1rem; line-height: 1.8; color: #A4A9B1; }
+.institutional-eyebrow {
+  border: 1px solid rgba(242,200,75,.30) !important;
+  background: rgba(242,200,75,.07) !important;
+  color: #F2C84B !important;
+  border-radius: 5px !important;
+  padding: 8px 12px !important;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  font-size: .68rem !important;
+}
+.institutional-rate-panel {
+  position: relative;
+  border: 1px solid rgba(229,230,232,.13);
+  border-radius: 12px;
+  padding: 24px;
+  background: linear-gradient(145deg,rgba(39,43,49,.98),rgba(27,30,35,.98));
+  box-shadow: 0 24px 70px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.045);
+}
+.institutional-rate-panel::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 24px; right: 24px;
+  height: 2px;
+  background: linear-gradient(90deg,transparent,#F2C84B,transparent);
+}
+.institutional-rate-heading {
+  color: #A4A9B1;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.institutional-rate-value {
+  color: #F1F2F3;
+  font-size: clamp(1.65rem,3vw,2.15rem);
+  font-weight: 700;
+  letter-spacing: -.055em;
+  font-variant-numeric: tabular-nums;
+}
+.institutional-rate-unit { color: #9DA3AC; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.institutional-rate-divider { height: 1px; background: rgba(229,230,232,.10); margin: 18px 0; }
+.institutional-rate-foot { color: #858C96; font-size: .7rem; line-height: 1.6; }
+.premium-tabs {
+  max-width: 760px;
+  margin-left: auto; margin-right: auto;
+  border: 1px solid rgba(229,230,232,.12) !important;
+  background: #202328 !important;
+  padding: 5px !important;
+  border-radius: 9px !important;
+  box-shadow: 0 14px 38px rgba(0,0,0,.20);
+}
+.premium-tabs button {
+  min-height: 48px;
+  border-radius: 6px !important;
+  font-size: .76rem !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.premium-tabs button.bg-primary {
+  background: #F2C84B !important;
+  color: #17191D !important;
+  box-shadow: 0 4px 14px rgba(242,200,75,.15);
+}
+.premium-shell .rounded-2xl.bg-card,
+.premium-shell .rounded-xl.bg-card {
+  border-color: rgba(229,230,232,.12);
+  background: #202328;
+  box-shadow: 0 18px 48px rgba(0,0,0,.17);
+}
+.premium-shell input, .premium-shell select, .premium-shell textarea {
+  border-radius: 7px;
+  background-color: #191C20;
+  border-color: #3B4048;
+}
+.premium-shell input:focus, .premium-shell select:focus, .premium-shell textarea:focus {
+  border-color: #F2C84B;
+  box-shadow: 0 0 0 3px rgba(242,200,75,.12);
+}
+.premium-shell button:not(:disabled):active { transform: translateY(1px); }
+.premium-shell button:disabled { cursor: not-allowed; }
+.premium-shell .bg-primary { background-color: #F2C84B; color: #17191D; }
+.premium-shell .text-primary { color: #F2C84B; }
+.premium-shell .border-primary\/20, .premium-shell .border-primary\/30 { border-color: rgba(242,200,75,.22); }
+.premium-shell a { transition: color .18s ease, border-color .18s ease, background-color .18s ease; }
+.premium-shell main { position: relative; }
+.premium-shell > section:last-of-type {
+  background: #141619 !important;
+  border-color: rgba(229,230,232,.10) !important;
+}
+.premium-shell > section:last-of-type h2 { color: #DDE0E3; }
+.premium-shell > section:last-of-type p,
+.premium-shell > section:last-of-type li { color: #8E959F; }
+@media (max-width: 767px) {
+  .premium-hero { padding-top: 2rem !important; }
+  .institutional-hero-grid { gap: 28px; }
+  .institutional-hero-copy h1 { font-size: clamp(2.35rem,11vw,3.5rem) !important; }
+  .institutional-rate-panel { padding: 20px; }
+  .premium-tabs button { min-height: 44px; padding-left: 8px; padding-right: 8px; font-size: .66rem !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
