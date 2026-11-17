@@ -56,7 +56,7 @@ export function PushNotificationBell({ userId }: { userId: string }) {
       .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(40)
-      .then(({ data }) => {
+      .then(({ data }: { data: unknown }) => {
         setItems((data as PushNotification[]) ?? [])
         setLoading(false)
       })
