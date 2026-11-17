@@ -74,10 +74,14 @@ export async function POST(req: NextRequest) {
         b.user_id        ?? b.userId ?? null,
       ],
     )
-    return NextResponse.json({ ok: true, duplicateUtr, status: "pending" })
+    return NextResponse.json({ ok: true, status: "pending" })
   } catch (err) {
+    const pgError = err as { code?: string; constraint?: string }
+    if (pgError.code === "23505" && pgError.constraint === "submitted_utr_registry_pkey") {
+      return NextResponse.json({ ok: false, error: "This payment reference has already been submitted." }, { status: 409 })
+    }
     console.error("[submissions POST] error:", err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, error: "Could not submit this request." }, { status: 500 })
   }
 }
 
