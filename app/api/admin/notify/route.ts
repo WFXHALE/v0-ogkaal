@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 // Status → user-facing message map
 const STATUS_MESSAGES: Record<string, string> = {
@@ -8,6 +9,8 @@ const STATUS_MESSAGES: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   const { status, userName, userEmail, userTelegram, requestType, amount } =
     await req.json() as {
       status:        string
