@@ -11,7 +11,7 @@ interface KycModalProps {
 }
 
 export function KycModal({ session, onClose, onSubmitted }: KycModalProps) {
-  const [phone,     setPhone]     = useState(session.phone ?? "")
+  const [phone,     setPhone]     = useState("")
   const [telegram,  setTelegram]  = useState("")
   const [instagram, setInstagram] = useState("")
   const [address,   setAddress]   = useState("")
