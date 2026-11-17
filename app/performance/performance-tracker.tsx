@@ -283,11 +283,11 @@ export default function PerformanceTracker() {
           <Section title="Funded Account Progress" icon={DollarSign}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-2">
               {[
-                { icon: CheckCircle, label: "Funded Accounts Passed", value: String(override.fundedAccountsPassed), color: "text-green-400", bg: "bg-green-500/10" },
-                { icon: XCircle,     label: "Accounts Breached",       value: String(override.fundedAccountsBreached), color: "text-red-400",   bg: "bg-red-500/10"   },
+                { icon: CheckCircle, label: "Funded Accounts Passed", value: String(override.fundedPassed), color: "text-green-400", bg: "bg-green-500/10" },
+                { icon: XCircle,     label: "Accounts Breached",       value: String(override.fundedBreached), color: "text-red-400",   bg: "bg-red-500/10"   },
                 { icon: DollarSign,  label: "Total Payouts",           value: `$${override.totalPayouts.toLocaleString()}`, color: "text-foreground", bg: "bg-primary/10" },
                 { icon: Percent,     label: "Total Return",            value: `${override.totalReturn >= 0 ? "+" : ""}${override.totalReturn}%`, color: override.totalReturn >= 0 ? "text-green-400" : "text-red-400", bg: "bg-primary/10" },
-                { icon: Target,      label: "Win Rate",                value: `${override.winRate}%`, color: "text-foreground", bg: "bg-primary/10" },
+                { icon: Target,      label: "Win Rate",                value: `${override.avgWinRate}%`, color: "text-foreground", bg: "bg-primary/10" },
                 { icon: BarChart2,   label: "Total Trades",            value: String(override.totalTrades), color: "text-foreground", bg: "bg-primary/10" },
               ].map(({ icon: Icon, label, value, color, bg }) => (
                 <div key={label} className="rounded-xl border border-border bg-secondary/30 p-4 flex items-center gap-4">
