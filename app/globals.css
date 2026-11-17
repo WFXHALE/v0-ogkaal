@@ -179,3 +179,80 @@ html {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+
+/* OG KAAL TRADER — premium interface layer */
+:root { --brand-gold: #FFC93C; --brand-ink: #2B2D31; }
+html { scroll-behavior: smooth; }
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-image: radial-gradient(ellipse at 50% -18%, rgba(255,201,60,.075), transparent 48%);
+}
+::selection { background: rgba(255,201,60,.28); color: var(--foreground); }
+:focus-visible { outline-color: var(--brand-gold); }
+.site-header {
+  background: color-mix(in srgb, var(--background) 88%, transparent) !important;
+  border-bottom-color: color-mix(in srgb, var(--brand-gold) 16%, var(--border)) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+}
+.site-header a, .site-header button { transition: color .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.brand-mark {
+  background: linear-gradient(145deg, #FFD86B 0%, #FFC93C 52%, #D89A12 100%) !important;
+  box-shadow: 0 5px 18px rgba(255,201,60,.18), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.brand-wordmark { letter-spacing: .075em; }
+.premium-shell { isolation: isolate; }
+.premium-hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: clamp(3.5rem, 7vw, 6.5rem) !important;
+}
+.premium-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: min(70vw, 760px);
+  aspect-ratio: 1;
+  top: -48%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,201,60,.105), transparent 68%);
+  pointer-events: none;
+}
+.premium-hero h1 {
+  letter-spacing: -.055em;
+  line-height: .99;
+  text-wrap: balance;
+}
+.premium-hero p { text-wrap: pretty; }
+.premium-tabs {
+  border: 1px solid color-mix(in srgb, var(--brand-gold) 18%, var(--border));
+  background: color-mix(in srgb, var(--card) 72%, var(--background)) !important;
+  padding: 5px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+}
+.premium-tabs button { border-radius: 12px !important; min-height: 46px; }
+.premium-tabs button[aria-selected="true"],
+.premium-tabs button:focus-visible { box-shadow: 0 4px 14px rgba(255,201,60,.18); }
+.premium-shell .rounded-2xl.bg-card,
+.premium-shell .rounded-xl.bg-card {
+  border-color: color-mix(in srgb, var(--brand-gold) 13%, var(--border));
+  box-shadow: 0 16px 44px rgba(0,0,0,.10);
+}
+.premium-shell input, .premium-shell select, .premium-shell textarea {
+  border-radius: 10px;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.premium-shell input:focus, .premium-shell select:focus, .premium-shell textarea:focus {
+  border-color: var(--brand-gold);
+  box-shadow: 0 0 0 3px rgba(255,201,60,.13);
+}
+.premium-shell button:not(:disabled):active { transform: translateY(1px); }
+.premium-shell button:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
