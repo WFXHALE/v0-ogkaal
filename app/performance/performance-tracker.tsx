@@ -127,17 +127,17 @@ export default function PerformanceTracker() {
   const [override, setOverride] = useState<UserPerformanceOverride | null>(null)
   const [certs, setCerts] = useState<Certificate[]>([])
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const session = getSession()
-    const uid = session?.id ?? null
-    setUserId(uid)
+    const email = session?.email ?? null
+    setUserEmail(email)
 
     Promise.all([
       getPerformanceStats(),
-      uid ? getUserPerformanceOverride(uid) : Promise.resolve(null),
-      uid ? getCertificates(uid) : Promise.resolve([]),
+      email ? getUserPerformanceOverride(email) : Promise.resolve(null),
+      email ? getCertificates(email) : Promise.resolve([]),
     ]).then(([s, o, c]) => {
       setStats(s)
       setOverride(o)
@@ -312,7 +312,7 @@ export default function PerformanceTracker() {
           </Section>
         )}
 
-        {!userId && (
+        {!userEmail && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Image className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-semibold mb-1">Sign in to view your personal stats</p>
