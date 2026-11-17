@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
       )
       duplicateUtr = Boolean(existing)
     }
+    if (duplicateUtr) {
+      return NextResponse.json({ ok: false, error: "This payment reference has already been submitted." }, { status: 409 })
+    }
     await query(
       `INSERT INTO admin_submissions
         (type, name, email, phone, telegram, details, status,
