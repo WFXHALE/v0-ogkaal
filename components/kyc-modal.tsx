@@ -66,7 +66,7 @@ export function KycModal({ session, onClose, onSubmitted }: KycModalProps) {
   }: {
     label: string; hint: string
     file: File | null; onFile: (f: File) => void
-    inputRef: React.RefObject<HTMLInputElement>
+    inputRef: React.RefObject<HTMLInputElement | null>
   }) => (
     <div>
       <p className="text-xs font-semibold text-foreground mb-1.5">{label}</p>
