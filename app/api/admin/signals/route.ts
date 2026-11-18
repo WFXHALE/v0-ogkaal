@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireAdminApi } from "@/lib/require-admin-api"
 
 function normalize(r: Record<string, unknown>) {
   return {
@@ -32,6 +33,8 @@ export async function GET() {
 
 /** POST /api/admin/signals — create a new signal */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     if (!b.pair || !b.entry) {
@@ -63,6 +66,8 @@ export async function POST(req: NextRequest) {
 
 /** PATCH /api/admin/signals — update status/result */
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     if (!b.id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
@@ -95,6 +100,8 @@ export async function PATCH(req: NextRequest) {
 
 /** DELETE /api/admin/signals — delete signal permanently */
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })

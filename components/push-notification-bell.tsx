@@ -56,7 +56,7 @@ export function PushNotificationBell({ userId }: { userId: string }) {
       .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(40)
-      .then(({ data }) => {
+      .then(({ data }: { data: unknown }) => {
         setItems((data as PushNotification[]) ?? [])
         setLoading(false)
       })
@@ -76,8 +76,9 @@ export function PushNotificationBell({ userId }: { userId: string }) {
           table:  "push_notifications",
           filter: `recipient_id=eq.${userId}`,
         },
-        (payload) => {
-          setItems(prev => [payload.new as PushNotification, ...prev])
+        (payload: any) => {
+          const notification = (payload as { new: PushNotification }).new
+          setItems(prev => [notification, ...prev])
         }
       )
       .subscribe()

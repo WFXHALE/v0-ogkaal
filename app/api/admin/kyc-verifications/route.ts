@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdminApi } from "@/lib/require-admin-api"
 import { query } from "@/lib/db"
 
 // GET – list all KYC submissions
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query(
       `SELECT k.*, u.numeric_uid
@@ -19,6 +22,8 @@ export async function GET() {
 
 // PATCH – approve / dismiss / ban
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id, action } = await req.json() as { id: string; action: "approve" | "dismiss" | "ban" }
     if (!id || !action) {

@@ -67,13 +67,13 @@ export function Header() {
   const moreHasActive = MORE_ITEMS.some(item => isActive(item.href))
 
   return (
-    <header suppressHydrationWarning className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-b border-border/50">
+    <header suppressHydrationWarning className="site-header fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-b border-border/50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
         <div className="flex items-center h-16 gap-3">
           <div className="flex items-center gap-2 shrink-0">
             <BackButton inline />
             <Link href="/" onClick={handleLogoClick} aria-label="OG KAAL TRADER — USDT P2P">
-              <div className="relative w-9 h-9 rounded-lg bg-[#2F80FF] flex items-center justify-center overflow-hidden">
+              <div className="brand-mark relative w-9 h-9 rounded-lg bg-primary flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 24 24" className="w-5 h-5 relative z-10" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="5" y="10" width="4" height="8" fill="#0B0E11" rx="0.5" />
                   <rect x="6.5" y="7" width="1" height="3" fill="#0B0E11" />
@@ -85,8 +85,8 @@ export function Header() {
                 <span className="absolute inset-0 z-20 pointer-events-none" style={{ background: "linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)", backgroundSize: "200% 100%", animation: "logo-shine 3.5s linear infinite" }} />
               </div>
             </Link>
-            <Link href="/" className="hidden xl:block text-base font-bold text-foreground whitespace-nowrap">
-              OG <span className="text-[#2F80FF]">KAAL</span> TRADER
+            <Link href="/" className="brand-wordmark hidden xl:block text-base font-bold text-foreground whitespace-nowrap">
+              OG <span className="text-primary">KAAL</span> TRADER
             </Link>
           </div>
 

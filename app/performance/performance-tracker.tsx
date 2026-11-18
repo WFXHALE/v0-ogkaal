@@ -127,17 +127,17 @@ export default function PerformanceTracker() {
   const [override, setOverride] = useState<UserPerformanceOverride | null>(null)
   const [certs, setCerts] = useState<Certificate[]>([])
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const session = getSession()
-    const uid = session?.id ?? null
-    setUserId(uid)
+    const email = session?.email ?? null
+    setUserEmail(email)
 
     Promise.all([
       getPerformanceStats(),
-      uid ? getUserPerformanceOverride(uid) : Promise.resolve(null),
-      uid ? getCertificates(uid) : Promise.resolve([]),
+      email ? getUserPerformanceOverride(email) : Promise.resolve(null),
+      email ? getCertificates(email) : Promise.resolve([]),
     ]).then(([s, o, c]) => {
       setStats(s)
       setOverride(o)
@@ -147,7 +147,7 @@ export default function PerformanceTracker() {
   }, [])
 
   const chartData = stats.map(s => ({
-    name: s.monthLabel.split(" ")[0].slice(0, 3),
+    name: s.month.split(" ")[0].slice(0, 3),
     profit: s.profitPercent,
     winRate: s.winRate,
   }))
@@ -205,7 +205,7 @@ export default function PerformanceTracker() {
               <StatCard
                 label="Best Month"
                 value={bestMonth ? `+${bestMonth.profitPercent}%` : "—"}
-                sub={bestMonth?.monthLabel ?? ""}
+                sub={bestMonth?.month ?? ""}
                 positive={true}
                 icon={Award}
               />
@@ -259,16 +259,16 @@ export default function PerformanceTracker() {
                   <tbody>
                     {[...stats].reverse().map(s => (
                       <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                        <td className="py-3 font-medium text-foreground">{s.monthLabel}</td>
+                        <td className="py-3 font-medium text-foreground">{s.month}</td>
                         <td className={`py-3 text-right font-bold ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>
                           {s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%
                         </td>
                         <td className="py-3 text-right text-foreground">{s.winRate}%</td>
                         <td className="py-3 text-right text-foreground">{s.totalTrades}</td>
                         <td className="py-3 text-right">
-                          <span className="text-green-400">{s.winningTrades}W</span>
+                          <span className="text-green-400">{s.wins}W</span>
                           <span className="text-muted-foreground"> / </span>
-                          <span className="text-red-400">{s.losingTrades}L</span>
+                          <span className="text-red-400">{s.losses}L</span>
                         </td>
                       </tr>
                     ))}
@@ -283,11 +283,11 @@ export default function PerformanceTracker() {
           <Section title="Funded Account Progress" icon={DollarSign}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-2">
               {[
-                { icon: CheckCircle, label: "Funded Accounts Passed", value: String(override.fundedAccountsPassed), color: "text-green-400", bg: "bg-green-500/10" },
-                { icon: XCircle,     label: "Accounts Breached",       value: String(override.fundedAccountsBreached), color: "text-red-400",   bg: "bg-red-500/10"   },
+                { icon: CheckCircle, label: "Funded Accounts Passed", value: String(override.fundedPassed), color: "text-green-400", bg: "bg-green-500/10" },
+                { icon: XCircle,     label: "Accounts Breached",       value: String(override.fundedBreached), color: "text-red-400",   bg: "bg-red-500/10"   },
                 { icon: DollarSign,  label: "Total Payouts",           value: `$${override.totalPayouts.toLocaleString()}`, color: "text-foreground", bg: "bg-primary/10" },
                 { icon: Percent,     label: "Total Return",            value: `${override.totalReturn >= 0 ? "+" : ""}${override.totalReturn}%`, color: override.totalReturn >= 0 ? "text-green-400" : "text-red-400", bg: "bg-primary/10" },
-                { icon: Target,      label: "Win Rate",                value: `${override.winRate}%`, color: "text-foreground", bg: "bg-primary/10" },
+                { icon: Target,      label: "Win Rate",                value: `${override.avgWinRate}%`, color: "text-foreground", bg: "bg-primary/10" },
                 { icon: BarChart2,   label: "Total Trades",            value: String(override.totalTrades), color: "text-foreground", bg: "bg-primary/10" },
               ].map(({ icon: Icon, label, value, color, bg }) => (
                 <div key={label} className="rounded-xl border border-border bg-secondary/30 p-4 flex items-center gap-4">
@@ -312,7 +312,7 @@ export default function PerformanceTracker() {
           </Section>
         )}
 
-        {!userId && (
+        {!userEmail && (
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Image className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
             <p className="text-foreground font-semibold mb-1">Sign in to view your personal stats</p>

@@ -100,6 +100,7 @@ function AuthScreen({
   onAuth: (s: DashboardSession) => void
   onBackupCode: (code: string) => void
 }) {
+  const { language } = useLanguage()
   const [mode, setMode]                   = useState<AuthMode>("login")
   const [showPw, setShowPw]               = useState(false)
   const [loading, setLoading]             = useState(false)
@@ -192,7 +193,7 @@ function AuthScreen({
     const res = await signInWithGoogle()
     setLoading(false)
     if (!res.success) { setError(res.error ?? "Google sign-in failed."); return }
-    setSession(res.user)
+    onAuth(res.user)
   }
 
   const handleForgotSend = async (e: React.FormEvent) => {
@@ -727,7 +728,7 @@ export default function ClientDashboard() {
         }
 
         setSessionState(session)
-        setIsVerified(session.isVerified)
+        setIsVerified(session.isVerified ?? null)
         fetchBackupCode(session.id).then(code => {
           if (cancelled) return
           if (code) { setStoredBackup(code); storeBackupCode(code) }
@@ -772,10 +773,10 @@ export default function ClientDashboard() {
       supabase.from("usdt_buy_requests").select("*").or(`email.eq.${s.email},user_id.eq.${s.userId}`).order("created_at", { ascending: false }),
       supabase.from("usdt_sell_requests").select("*").or(`email.eq.${s.email},user_id.eq.${s.userId}`).order("created_at", { ascending: false }),
     ])
-    const combined = [
+    const combined: Record<string, unknown>[] = [
       ...(buyData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Buy" })),
       ...(sellData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Sell" })),
-    ].sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
+    ].sort((a: Record<string, unknown>, b: Record<string, unknown>) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     setUsdtOrders(combined)
 
     const [sigs, stats] = await Promise.all([getVipSignals(), getPerformanceStats()])
@@ -1069,7 +1070,7 @@ export default function ClientDashboard() {
                       <span className="font-bold text-foreground text-sm">{s.pair}</span>
                       <span className="text-xs text-muted-foreground">Entry: {s.entry}</span>
                       <span className="text-xs text-muted-foreground">SL: {s.stopLoss}</span>
-                      <span className="text-xs text-muted-foreground">TP: {s.takeProfit1}</span>
+                      <span className="text-xs text-muted-foreground">TP: {s.takeProfit}</span>
                     </div>
                   ))}
                   <Link href="/vip-signals" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
@@ -1111,11 +1112,11 @@ export default function ClientDashboard() {
                         <tbody>
                           {[...perfStats].reverse().map(s => (
                             <tr key={s.id} className="border-b border-border/40 hover:bg-secondary/20">
-                              <td className="px-3 py-2 text-xs font-medium text-foreground whitespace-nowrap">{s.monthLabel}</td>
+                              <td className="px-3 py-2 text-xs font-medium text-foreground whitespace-nowrap">{s.month}</td>
                               <td className={`px-3 py-2 font-bold text-xs ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>{s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%</td>
                               <td className="px-3 py-2 text-xs text-foreground">{s.winRate}%</td>
                               <td className="px-3 py-2 text-xs text-foreground">{s.totalTrades}</td>
-                              <td className="px-3 py-2 text-xs"><span className="text-green-400">{s.winningTrades}W</span> / <span className="text-red-400">{s.losingTrades}L</span></td>
+                              <td className="px-3 py-2 text-xs"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></td>
                             </tr>
                           ))}
                         </tbody>

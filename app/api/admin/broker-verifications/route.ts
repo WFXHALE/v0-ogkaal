@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { requireAdminApi } from "@/lib/require-admin-api"
 import { query } from "@/lib/db"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query<Record<string, unknown>>(
       `SELECT id, user_id, username, broker, trader_id, screenshot_url, status, created_at
@@ -18,6 +21,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const denied = await requireAdminApi(request)
+  if (denied) return denied
   try {
     const { id, status } = await request.json()
     if (!id || !status) {
@@ -39,6 +44,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const denied = await requireAdminApi(request)
+  if (denied) return denied
   try {
     const { id } = await request.json()
     if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })

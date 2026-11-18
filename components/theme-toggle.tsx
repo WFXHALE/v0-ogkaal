@@ -26,7 +26,7 @@ export function ThemeToggle() {
       aria-pressed={isDark}
       title={nextLabel}
     >
-      {isDark ? <Sun className="w-4 h-4 text-[#2F80FF]" /> : <Moon className="w-4 h-4 text-[#2F80FF]" />}
+      {isDark ? <Sun className="w-4 h-4 text-[#FFC93C]" /> : <Moon className="w-4 h-4 text-[#FFC93C]" />}
     </button>
   )
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdminApi } from "@/lib/require-admin-api"
 import { query } from "@/lib/db"
 
 function normalize(r: Record<string, unknown>) {
@@ -22,7 +23,9 @@ function normalize(r: Record<string, unknown>) {
 }
 
 /** GET /api/admin/coupons — list all coupons */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const rows = await query(
       "SELECT * FROM discount_campaigns ORDER BY created_at DESC",
@@ -35,6 +38,8 @@ export async function GET() {
 
 /** POST /api/admin/coupons — create coupon */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     const code = String(b.code ?? "").trim().toUpperCase()
@@ -70,6 +75,8 @@ export async function POST(req: NextRequest) {
 
 /** PATCH /api/admin/coupons — update coupon */
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     if (!b.id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
@@ -109,6 +116,8 @@ export async function PATCH(req: NextRequest) {
 
 /** DELETE /api/admin/coupons — delete coupon */
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })

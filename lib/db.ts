@@ -66,17 +66,20 @@ export function getDb(): Pool {
   }
 
   if (!g._pgPool) {
-    g._pgPool = new Pool({
+    // pg forwards this socket lookup override at runtime, but its PoolConfig
+    // declaration omits the option, so keep the narrow compatibility cast here.
+    const poolConfig = {
       connectionString: connStr,
       ssl:  { rejectUnauthorized: false },
       max:  5,
       idleTimeoutMillis: 30_000,
       // Force IPv4: prevents ENETUNREACH when the host resolves to an IPv6 address
       // in environments that only have IPv4 outbound connectivity (e.g. Vercel).
-      lookup: (hostname, options, callback) => {
+      lookup: (hostname: string, options: any, callback: any) => {
         dns.lookup(hostname, { ...options, family: 4 }, callback)
       },
-    })
+    }
+    g._pgPool = new Pool(poolConfig as any)
     g._pgPoolKey = connStr
 
     g._pgPool.on("error", () => {

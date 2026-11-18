@@ -142,7 +142,7 @@ interface EconomicEvent {
 
 // ── Market Correlations ────────────────────────────────────────────────────────
 
-type CorrelationType = "positive" | "inverse"
+type CorrelationType = "positive" | "inverse" | "mixed"
 
 interface Correlation {
   pair: [string, string]

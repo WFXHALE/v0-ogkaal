@@ -323,31 +323,99 @@ export default function UsdtP2PPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="premium-shell min-h-screen bg-background flex flex-col">
       <Header />
 
       <NoticeTicker />
 
-      <main className="flex-1 mt-20">
+      <main className="flex-1">
         {/* Hero Section */}
-        <section className="pt-12 pb-16 sm:pb-24">
+        <section className="premium-hero pt-12 pb-16 sm:pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
-                <Shield className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">Verified & Secure</span>
+            <div className="premium-hero-grid">
+              <div className="premium-hero-copy">
+                <div className="hero-kicker">
+                  <span className="hero-kicker-dot" />
+                  <span>OG KAAL / PRIVATE EXCHANGE</span>
+                  <span className="hero-kicker-divider" />
+                  <span>P2P DESK · 01</span>
+                </div>
+                <h1 className="hero-title">
+                  USDT exchange,
+                  <span>with a clearer process.</span>
+                </h1>
+                <p className="hero-lede">
+                  A structured exchange desk for members. Review the admin-set INR rates, submit a guided buy or sell request, and keep your order history in one place.
+                </p>
+                <div className="hero-actions">
+                  <button
+                    type="button"
+                    aria-controls="exchange-actions"
+                    onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
+                    className="hero-primary"
+                  >
+                    Buy USDT <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-controls="exchange-actions"
+                    onClick={() => { setActiveTab("sell"); setSellStep(-1); }}
+                    className="hero-secondary"
+                  >
+                    Sell USDT
+                  </button>
+                </div>
+                <div className="hero-proof-grid">
+                  <div><span>01 / PRICING</span><strong>Admin-set rates</strong></div>
+                  <div><span>02 / ACCESS</span><strong>Member account</strong></div>
+                  <div><span>03 / RECORDS</span><strong>Order history</strong></div>
+                </div>
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6">
-                SAFE <span className="text-primary">USDT P2P</span> EXCHANGE
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                Buy or sell USDT with clear rates and a guided request process. Rates may change with market conditions.
-              </p>
+
+              <aside className="exchange-quote-card" aria-label="Current USDT exchange rates">
+                <div className="quote-card-head">
+                  <div>
+                    <span className="quote-overline">OG KAAL / EXCHANGE DESK</span>
+                    <h2>Today’s rate board</h2>
+                  </div>
+                  <span className="quote-status"><span className="quote-status-dot" />{ratesLoaded ? "RATE BOARD" : "SYNCING"}</span>
+                </div>
+
+                <div className="quote-row">
+                  <div className="quote-side">
+                    <span className="quote-label">YOU BUY</span>
+                    <strong>USDT</strong>
+                    <span className="quote-sub">Pay in INR</span>
+                  </div>
+                  <div className="quote-price" aria-live="polite">
+                    {ratesLoaded ? <>₹{buyRate.toFixed(2)}<span>/ USDT</span></> : <span className="quote-price-skeleton" />}
+                  </div>
+                </div>
+
+                <div className="quote-row">
+                  <div className="quote-side">
+                    <span className="quote-label">YOU SELL</span>
+                    <strong>USDT</strong>
+                    <span className="quote-sub">Receive INR</span>
+                  </div>
+                  <div className="quote-price" aria-live="polite">
+                    {ratesLoaded ? <>₹{sellRate.toFixed(2)}<span>/ USDT</span></> : <span className="quote-price-skeleton" />}
+                  </div>
+                </div>
+
+                <div className="quote-card-bottom">
+                  <div><span>Order range</span><strong>50–5,000 USDT</strong></div>
+                  <div><span>Rate control</span><strong>Admin configured</strong></div>
+                </div>
+                <p className="quote-disclaimer">
+                  Rates are read from the site pricing settings and refresh automatically. Confirm the final amount in your request before proceeding.
+                </p>
+              </aside>
             </div>
 
             {/* Buy/Sell/History Tabs */}
-            <div className="max-w-2xl mx-auto mb-8">
-              <div className="flex rounded-xl bg-secondary p-1">
+            <div id="exchange-actions" className="max-w-2xl mx-auto mb-8">
+              <div className="premium-tabs flex rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => { setActiveTab("buy"); setStep(0); setIsComplete(false); }}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-colors ${
@@ -507,45 +575,7 @@ export default function UsdtP2PPage() {
             {/* Buy USDT Section */}
             {activeTab === "buy" && (
               <>
-                {/* Rate Display */}
-                <div className="max-w-2xl mx-auto mb-12">
-                  <div className="p-6 rounded-2xl bg-card border border-border">
-                    <div className="flex items-center justify-center gap-2 mb-6">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      <h3 className="text-lg font-semibold text-foreground">Live USDT Buy Rates</h3>
-                    </div>
-                    
-                    <div className="mb-6 rounded-xl border border-primary/30 bg-primary/10 p-5 text-center">
-                      <p className="mb-1 text-sm text-primary">Current buy rate</p>
-                      {ratesLoaded ? (
-                        <p className="text-3xl font-bold text-primary transition-all duration-500">₹{buyRate} <span className="text-base font-medium">/ USDT</span></p>
-                      ) : (
-                        <div className="mx-auto h-9 w-28 rounded bg-primary/20 animate-pulse" />
-                      )}
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-secondary/30 border border-border">
-                      <p className="text-sm text-muted-foreground text-center mb-3">
-                        Our rates include tax, transaction cost, and margin.
-                      </p>
-                      <div className="flex items-center justify-center gap-2 text-primary">
-                        <span className="text-sm font-medium">Minimum Order:</span>
-                        <span className="font-bold">50 USDT</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                        <p className="text-sm text-amber-200">
-                          Today’s buy rate is set by the admin and stays between ₹105 and ₹107 per USDT.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA Button or Form */}
+                                {/* CTA Button or Form */}
                 {step === 0 && !isComplete && (
                   <div className="flex flex-col items-center gap-3">
                     <Button
@@ -986,12 +1016,12 @@ export default function UsdtP2PPage() {
                           // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            userId: currentUser?.id,
                             email: currentUser?.email,
                             name: sellFormData.name || currentUser?.fullName || "Sell Request",
                             telegram: sellFormData.telegram,
                             phone: sellFormData.phone,
                             details: {
+                              userId: currentUser?.id,
                               action: "sell",
                               amount: `${sellAmount} USDT`,
                               rate: `₹${sellRate} per USDT`,

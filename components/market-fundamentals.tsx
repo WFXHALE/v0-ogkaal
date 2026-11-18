@@ -130,9 +130,9 @@ export function MarketFundamentals() {
   }, [])
 
   // ── Fetch user alerts ───────────────────────────────────────────────────
-  const fetchAlerts = useCallback(async (uid: string) => {
+  const fetchAlerts = useCallback(async () => {
     try {
-      const res = await fetch(`/api/calendar-alerts?user_id=${uid}`)
+      const res = await fetch("/api/calendar-alerts", { cache: "no-store" })
       const data = await res.json()
       if (data.alerts) setAlerts(data.alerts)
     } catch { /* silent */ }
@@ -145,7 +145,7 @@ export function MarketFundamentals() {
     setAlertLoading(event.id)
     try {
       if (existing) {
-        await fetch(`/api/calendar-alerts?user_id=${userId}&event_id=${event.id}`, { method: "DELETE" })
+        await fetch(`/api/calendar-alerts?event_id=${encodeURIComponent(event.id)}`, { method: "DELETE" })
         setAlerts(prev => prev.filter(a => a.event_id !== event.id))
         showToast("Alert removed")
       } else {
@@ -154,7 +154,6 @@ export function MarketFundamentals() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            user_id: userId,
             event_id: event.id,
             event_title: event.event,
             event_date: event.rawDate ?? event.date,
@@ -185,7 +184,7 @@ export function MarketFundamentals() {
         const session = JSON.parse(raw)
         if (session?.id) {
           setUserId(session.id)
-          fetchAlerts(session.id)
+          fetchAlerts()
         }
       }
     } catch { /* no session */ }
