@@ -293,6 +293,7 @@ export default function AdminPanel() {
   const [p2pRatesError, setP2pRatesError]        = useState<string | null>(null)
   const [systemSaving,  setSystemSaving]        = useState(false)
   const [systemSaved,   setSystemSaved]         = useState(false)
+  const [systemError,   setSystemError]         = useState<string | null>(null)
 
   // ── DB stats for Dashboard (from analytics API) ──────��───────────────────────
   const [dbStats, setDbStats]                   = useState<{
