@@ -5,12 +5,11 @@ import { requireAdminApi } from "@/lib/require-admin-api"
 const VALID_STATUSES = ["pending", "accepted", "processing", "completed", "cancelled", "rejected"]
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
-    const userId = req.nextUrl.searchParams.get("userId")
-    if (!userId) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 })
     const rows = await query(
-      "SELECT * FROM usdt_buy_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500",
-      [userId],
+      "SELECT * FROM usdt_buy_requests ORDER BY created_at DESC LIMIT 500",
     )
     const normalized = rows.map(r => ({
       id:            r.id,
@@ -36,6 +35,8 @@ export async function GET(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     const b = await req.json()
     if (!b.userId || !b.name || !b.amountUsdt) {
