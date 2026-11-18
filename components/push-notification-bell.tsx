@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Bell, X, CheckCheck, Megaphone, GraduationCap, Tag,
   ShieldCheck, ArrowLeftRight, Users, TrendingUp, Loader2,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 
 export type PushNotifType =
   | "announcement" | "mentorship" | "discount" | "kyc"
@@ -44,46 +43,31 @@ export function PushNotificationBell({ userId }: { userId: string }) {
   const [items, setItems]     = useState<PushNotification[]>([])
   const [loading, setLoading] = useState(true)
   const panelRef              = useRef<HTMLDivElement>(null)
-  const supabase              = createClient()
   const unread                = items.filter(n => !n.read).length
 
-  // Initial fetch
-  useEffect(() => {
-    if (!userId) return
-    supabase
-      .from("push_notifications")
-      .select("*")
-      .eq("recipient_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(40)
-      .then(({ data }) => {
-        setItems((data as PushNotification[]) ?? [])
-        setLoading(false)
-      })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await fetch("/api/dashboard/push-notifications", { cache: "no-store" })
+      if (!response.ok) throw new Error("Could not load notifications")
+      const payload = await response.json()
+      setItems(Array.isArray(payload.data) ? payload.data as PushNotification[] : [])
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  // Real-time subscription
   useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel(`push_notifs_${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event:  "INSERT",
-          schema: "public",
-          table:  "push_notifications",
-          filter: `recipient_id=eq.${userId}`,
-        },
-        (payload) => {
-          setItems(prev => [payload.new as PushNotification, ...prev])
-        }
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+    if (!userId) {
+      setItems([])
+      setLoading(false)
+      return
+    }
+    void loadNotifications()
+    const interval = setInterval(() => { void loadNotifications() }, 60_000)
+    return () => clearInterval(interval)
+  }, [userId, loadNotifications])
 
   // Close on outside click
   useEffect(() => {
@@ -95,17 +79,23 @@ export function PushNotificationBell({ userId }: { userId: string }) {
   }, [open])
 
   const markAllRead = async () => {
-    await supabase
-      .from("push_notifications")
-      .update({ read: true })
-      .eq("recipient_id", userId)
-      .eq("read", false)
+    const response = await fetch("/api/dashboard/push-notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    })
+    if (!response.ok) return
     setItems(prev => prev.map(n => ({ ...n, read: true })))
   }
 
   const markRead = async (id: string) => {
     if (items.find(n => n.id === id)?.read) return
-    await supabase.from("push_notifications").update({ read: true }).eq("id", id)
+    const response = await fetch("/api/dashboard/push-notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationId: id }),
+    })
+    if (!response.ok) return
     setItems(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
@@ -126,7 +116,6 @@ export function PushNotificationBell({ userId }: { userId: string }) {
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 max-h-[480px] flex flex-col rounded-2xl border border-border bg-card shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <span className="font-semibold text-sm text-foreground">Notifications</span>
             <div className="flex items-center gap-2">
@@ -144,7 +133,6 @@ export function PushNotificationBell({ userId }: { userId: string }) {
             </div>
           </div>
 
-          {/* List */}
           <div className="overflow-y-auto flex-1 divide-y divide-border/50">
             {loading ? (
               <div className="flex items-center justify-center py-10">
