@@ -11,3 +11,5 @@ CREATE POLICY push_notifications_server_only_guard
   TO public
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
+
+REVOKE ALL PRIVILEGES ON TABLE public.push_notifications FROM PUBLIC, anon, authenticated;
