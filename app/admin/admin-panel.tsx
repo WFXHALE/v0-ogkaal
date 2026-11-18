@@ -294,7 +294,7 @@ export default function AdminPanel() {
   const [signalForm, setSignalForm]         = useState({ pair: "", entry: "", sl: "", tp1: "", tp2: "", tp3: "", direction: "BUY" as "BUY" | "SELL", notes: "" })
   const [signalSaving, setSignalSaving]     = useState(false)
   const [membershipSearch, setMembershipSearch] = useState("")
-  const [perfForm, setPerfForm]             = useState({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+  const [perfForm, setPerfForm]             = useState({ month: "", year: String(new Date().getFullYear()), profitPercent: "", winRate: "", totalTrades: "", wins: "", losses: "" })
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
 
@@ -2919,13 +2919,13 @@ export default function AdminPanel() {
         <h3 className="font-semibold text-foreground">Add / Update Monthly Stat</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {([
-            { key: "month",          label: "Month (YYYY-MM)", ph: "2025-01" },
-            { key: "monthLabel",     label: "Label",           ph: "January 2025" },
+            { key: "month",          label: "Month",           ph: "Jan" },
+            { key: "year",           label: "Year",            ph: "2026" },
             { key: "profitPercent",  label: "Profit %",        ph: "18" },
             { key: "winRate",        label: "Win Rate %",      ph: "72" },
             { key: "totalTrades",    label: "Total Trades",    ph: "32" },
-            { key: "winningTrades",  label: "Winning",         ph: "23" },
-            { key: "losingTrades",   label: "Losing",          ph: "9"  },
+            { key: "wins",           label: "Winning",         ph: "23" },
+            { key: "losses",         label: "Losing",          ph: "9"  },
           ] as const).map(({ key, label, ph }) => (
             <div key={key}>
               <label className="text-xs text-muted-foreground block mb-1">{label}</label>
@@ -2940,24 +2940,24 @@ export default function AdminPanel() {
         </div>
         <Button
           onClick={async () => {
-            if (!perfForm.month || !perfForm.monthLabel) return
+            if (!perfForm.month.trim() || !perfForm.year.trim()) return
             setPerfSaving(true)
             const ok = await upsertPerformanceStat({
-              month: perfForm.month, year: new Date().getFullYear(),
+              month: perfForm.month.trim(), year: Number(perfForm.year) || new Date().getFullYear(),
               profitPercent: Number(perfForm.profitPercent) || 0,
               winRate: Number(perfForm.winRate) || 0,
               totalTrades: Number(perfForm.totalTrades) || 0,
-              wins: Number(perfForm.winningTrades) || 0,
-              losses: Number(perfForm.losingTrades) || 0,
+              wins: Number(perfForm.wins) || 0,
+              losses: Number(perfForm.losses) || 0,
             })
             if (ok) {
               const updated = await getPerformanceStats()
               setPerfStats(updated)
-              setPerfForm({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+              setPerfForm({ month: "", year: String(new Date().getFullYear()), profitPercent: "", winRate: "", totalTrades: "", wins: "", losses: "" })
             }
             setPerfSaving(false)
           }}
-          disabled={perfSaving || !perfForm.month || !perfForm.monthLabel}
+          disabled={perfSaving || !perfForm.month.trim() || !perfForm.year.trim()}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {perfSaving ? "Saving..." : "Save Stat"}
@@ -2983,11 +2983,11 @@ export default function AdminPanel() {
               <tbody>
                 {[...perfStats].reverse().map(s => (
                   <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="px-4 py-3 font-medium text-foreground">{s.monthLabel}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{s.month} {s.year}</td>
                     <td className={`px-4 py-3 font-bold ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>{s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%</td>
                     <td className="px-4 py-3 text-foreground">{s.winRate}%</td>
                     <td className="px-4 py-3 text-foreground">{s.totalTrades}</td>
-                    <td className="px-4 py-3"><span className="text-green-400">{s.winningTrades}W</span> / <span className="text-red-400">{s.losingTrades}L</span></td>
+                    <td className="px-4 py-3"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></td>
                   </tr>
                 ))}
               </tbody>
