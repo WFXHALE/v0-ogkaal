@@ -68,17 +68,17 @@ function AvatarCircle({
   const initials = getInitials(name)
   return (
     <div
-      className="rounded-full bg-[#2F80FF] flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#2F80FF]/40"
+      className="account-avatar rounded-full flex items-center justify-center overflow-hidden shrink-0 border-2"
       style={{ width: size, height: size }}
     >
       {avatarUrl ? (
         <img src={avatarUrl} alt={name} className="w-full h-full object-cover" crossOrigin="anonymous" />
       ) : initials ? (
-        <span className="font-bold text-[#0B0E11] leading-none" style={{ fontSize: size * 0.35 }}>
+        <span className="font-bold leading-none" style={{ fontSize: size * 0.35 }}>
           {initials}
         </span>
       ) : (
-        <User style={{ width: size * 0.5, height: size * 0.5 }} className="text-[#0B0E11]" />
+        <User style={{ width: size * 0.5, height: size * 0.5 }} className="text-[#24262A]" />
       )}
     </div>
   )
@@ -236,7 +236,7 @@ function LoggedOutPopup({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Sign in or create account"
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-muted border-2 border-border hover:border-primary transition-colors focus:outline-none"
+        className="account-trigger account-trigger--logged-out"
       >
         <User className="w-4 h-4 text-muted-foreground" />
       </button>
@@ -526,7 +526,7 @@ export function UserAvatar() {
   }
 
   if (!mounted) {
-    return <div className="w-8 h-8 rounded-full bg-muted border-2 border-border animate-pulse shrink-0" />
+    return <div className="account-avatar-skeleton w-9 h-9 rounded-full animate-pulse shrink-0" />
   }
 
   if (!session) {
@@ -569,12 +569,9 @@ export function UserAvatar() {
         onClick={() => setOpen((v) => !v)}
         aria-label="User menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-1 py-1 rounded-lg hover:bg-secondary/60 transition-colors focus:outline-none"
+        className="account-trigger"
       >
         <AvatarCircle name={name} avatarUrl={avatarUrl} size={32} />
-        <span className="hidden sm:block text-xs font-bold text-foreground tracking-wide whitespace-nowrap">
-          {name.split(" ")[0].toUpperCase()}
-        </span>
       </button>
 
       {open && (
@@ -588,7 +585,7 @@ export function UserAvatar() {
               {name}
             </p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-[#2F80FF]/40 bg-[#2F80FF]/10 text-[#2F80FF]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-primary/40 bg-primary/10 text-primary">
                 Regular
               </span>
               {session.isVerified ? (
