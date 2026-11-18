@@ -1401,7 +1401,7 @@ export default function AdminPanel() {
 
         {/* Action buttons — contextual by status, locked when final */}
         <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-          {(r.status === "completed" || r.status === "approved") ? (
+          {r.status === "completed" ? (
             <span className="flex-1 text-center text-xs text-green-400 font-semibold py-1.5">Order Completed</span>
           ) : (r.status === "cancelled" || r.status === "rejected") ? (
             <span className="flex-1 text-center text-xs text-red-400 font-semibold py-1.5">Order Cancelled</span>
