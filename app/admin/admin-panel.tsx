@@ -21,7 +21,7 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getVipSignals, createSignal, deleteSignal,
+  getVipSignals, createSignal, updateSignalStatus, deleteSignal,
   getMemberships, approveMembership,
   getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
