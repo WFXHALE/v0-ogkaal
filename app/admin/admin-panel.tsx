@@ -752,7 +752,7 @@ export default function AdminPanel() {
     // Telegram notification to user
     if (order?.telegram) {
       const tgMsg = status === "paid"
-        ? `<b>INR Payment Sent</b>\n\nYour USDT sell request has been paid. INR has been sent to your ${order.paymentMethodType === "imps" ? "bank account" : "UPI/GPay"}.\n\nAmount: ${order.usdtAmount ?? "N/A"} USDT\nUPI/Account: ${order.upiId || "—"}\n\n<i>— OG KAAL TRADER</i>`
+        ? `<b>INR Payment Sent</b>\n\nYour USDT sell request has been paid. INR has been sent to your ${order.paymentMethodType === "imps" ? "bank account" : "UPI/GPay"}.\n\nAmount: ${order.amountUsdt ?? "N/A"} USDT\nUPI/Account: ${order.upiId || "—"}\n\n<i>— OG KAAL TRADER</i>`
         : status === "accepted"
         ? `<b>USDT Sell Order Accepted</b>\n\nYour USDT sell request has been accepted. Processing your INR payout.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
         : status === "completed"
