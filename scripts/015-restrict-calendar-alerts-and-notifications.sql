@@ -24,6 +24,11 @@ CREATE POLICY calendar_alerts_update_own
   USING (auth.uid()::text = user_id)
   WITH CHECK (auth.uid()::text = user_id);
 
+-- Remove the public role's direct GraphQL/PostgREST access while retaining
+-- the authenticated owner path used by the server-authenticated alert route.
+REVOKE ALL PRIVILEGES ON TABLE public.calendar_alerts FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.calendar_alerts TO authenticated;
+
 -- Dashboard notifications are accessed only through server routes that
 -- validate the signed dashboard session and use the service-role client.
 DROP POLICY IF EXISTS notifications_server_only_guard ON public.notifications;
@@ -34,3 +39,4 @@ CREATE POLICY notifications_server_only_guard
   TO public
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
+REVOKE ALL PRIVILEGES ON TABLE public.notifications FROM PUBLIC, anon, authenticated;
