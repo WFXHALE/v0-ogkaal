@@ -2373,7 +2373,7 @@ export default function AdminPanel() {
   )
 
   const renderSecurity = () => {
-    const failedLogins = securityLogs.filter(l => !l.success).length
+    const failedLogins = securityLogs.filter(l => l.type === "login_failed").length
     const activeSessions = isSessionValid() ? 1 : 0
 
     const handleSecSave = async () => {
