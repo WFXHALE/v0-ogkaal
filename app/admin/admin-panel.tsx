@@ -165,6 +165,18 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+function securityLogLabel(type: SecurityLog["type"]) {
+  const labels: Record<SecurityLog["type"], string> = {
+    login_success: "Successful sign-in",
+    login_failed: "Failed sign-in",
+    logout: "Signed out",
+    password_reset: "Password reset",
+    password_change: "Password changed",
+  }
+  return labels[type] ?? "Security event"
+}
+
+
 function uid(index: number) { return `USER-${String(index + 1).padStart(4, "0")}` }
 
 function statusBadge(status: string) {
@@ -2488,12 +2500,12 @@ export default function AdminPanel() {
             {securityLogs.slice(0, 15).map(log => (
               <div key={log.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="text-sm text-foreground">{log.action}</p>
+                  <p className="text-sm text-foreground">{securityLogLabel(log.type)}</p>
                   <p className="text-xs text-muted-foreground">{log.email} · {log.ipAddress || "—"}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                    {log.success ? "Success" : "Failed"}
+                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_failed" ? "bg-red-500/10 text-red-400 border-red-500/30" : log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-secondary/60 text-muted-foreground border-border"}`}>
+                    {log.type === "login_failed" ? "Failed" : log.type === "login_success" ? "Success" : "Event"}
                   </span>
                   <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(log.timestamp)}</p>
                 </div>
@@ -2524,12 +2536,12 @@ export default function AdminPanel() {
                 ? <tr><td colSpan={5} className="py-12 text-center text-muted-foreground text-sm">No logs found</td></tr>
                 : securityLogs.map(log => (
                   <tr key={log.id} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="py-3 px-4 text-sm text-foreground">{log.action}</td>
+                    <td className="py-3 px-4 text-sm text-foreground">{securityLogLabel(log.type)}</td>
                     <td className="py-3 px-4 text-xs text-muted-foreground">{log.email}</td>
                     <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{log.ipAddress || "—"}</td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                        {log.success ? "Success" : "Failed"}
+                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_failed" ? "bg-red-500/10 text-red-400 border-red-500/30" : log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-secondary/60 text-muted-foreground border-border"}`}>
+                        {log.type === "login_failed" ? "Failed" : log.type === "login_success" ? "Success" : "Event"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(log.timestamp)}</td>
