@@ -1,3 +1,4 @@
+import { escapeTelegramHtml, sendAdminTelegramAlert } from "@/lib/server/telegram"
 import { NextRequest, NextResponse } from "next/server"
 import { query, queryOne } from "@/lib/db"
 
@@ -83,6 +84,13 @@ export async function POST(req: NextRequest) {
     } catch (notificationError) {
       console.error("[register] member notification insert failed:", notificationError)
     }
+    await sendAdminTelegramAlert([
+      "<b>New User Registered</b>",
+      `Name: ${escapeTelegramHtml(data.full_name ?? fullName)}`,
+      `Email: ${escapeTelegramHtml(email.trim().toLowerCase())}`,
+      `User ID: ${escapeTelegramHtml(data.user_id ?? userId)}`,
+      "<i>— OG KAAL TRADER Admin</i>",
+    ].join("\\n")).catch(error => console.error("[register] Telegram alert failed:", error))
 
     return NextResponse.json({ ok: true, data })
   } catch (err: unknown) {
