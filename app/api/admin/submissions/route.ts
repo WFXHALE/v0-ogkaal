@@ -1,3 +1,4 @@
+import { escapeTelegramHtml, sendAdminTelegramAlert } from "@/lib/server/telegram"
 import { NextRequest, NextResponse } from "next/server"
 import { query, queryOne } from "@/lib/db"
 import { requireAdminApi } from "@/lib/require-admin-api"
@@ -126,6 +127,19 @@ export async function POST(req: NextRequest) {
         userId,
       ],
     )
+
+    const telegramMessage = [
+      `<b>New ${escapeTelegramHtml(label)} Request</b>`,
+      `User: ${escapeTelegramHtml(name)}`,
+      `Email: ${escapeTelegramHtml(email || "N/A")}`,
+      `Phone: ${escapeTelegramHtml(b.phone || "N/A")}`,
+      `Amount: ${escapeTelegramHtml(b.amount ?? details.amount ?? "N/A")}`,
+      `Payment reference: ${escapeTelegramHtml(submittedUtr || "N/A")}`,
+      "<i>— OG KAAL TRADER Admin</i>",
+    ].join("\\n")
+    await sendAdminTelegramAlert(telegramMessage).catch(error => {
+      console.error("[submissions POST] Telegram alert failed:", error)
+    })
 
     const action = String(details.action ?? "buy").toLowerCase()
     const notificationType = type === "usdt_p2p"
