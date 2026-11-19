@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       `Email: ${escapeTelegramHtml(email.trim().toLowerCase())}`,
       `User ID: ${escapeTelegramHtml(data.user_id ?? userId)}`,
       "<i>— OG KAAL TRADER Admin</i>",
-    ].join("\\n")).catch(error => console.error("[register] Telegram alert failed:", error))
+    ].join("\n")).catch(error => console.error("[register] Telegram alert failed:", error))
 
     return NextResponse.json({ ok: true, data })
   } catch (err: unknown) {
