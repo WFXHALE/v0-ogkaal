@@ -39,6 +39,15 @@ export async function POST(request:NextRequest) {
     const inrEquivalent=(Number(amount)*rate).toFixed(2)
     const rows=await query(`INSERT INTO usdt_sell_requests (user_id,name,email,phone,telegram,upi_id,upi_name,payment_method_type,wallet_address,amount_usdt,rate_inr,inr_equivalent,transaction_id,screenshot_url,status,notification_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending','UNREAD') RETURNING id`,[userId,profile.full_name,profile.email,profile.phone,b.telegram??null,b.upiId??null,b.upiName??null,b.paymentMethodType??null,b.walletAddress??null,amount,rate,inrEquivalent,b.txId??b.transaction_id??null,b.screenshotUrl??null])
     await notifyAdminOfP2POrder({ id: String(rows[0]?.id ?? "N/A"), orderType: "SELL", customerName: profile.full_name, customerPhone: profile.phone, amountUsdt: amount, rateInr: rate, inrTotal: inrEquivalent })
+    try {
+      await query(
+        `INSERT INTO admin_notifications (type, title, message, is_read, ref_id)
+         VALUES ($1, $2, $3, false, $4)`,
+        ["usdt_sell", "New USDT Sell Request", `${profile.full_name} submitted a sell request for ${amount} USDT.`, String(rows[0]?.id ?? "")],
+      )
+    } catch (notificationError) {
+      console.error("[p2p/sell] admin notification insert failed:", notificationError)
+    }
     return NextResponse.json({ok:true,id:rows[0]?.id??null})
   } catch(error) {console.error("[p2p/sell POST]",error);return NextResponse.json({ok:false,error:"Could not submit your sell request."},{status:500})}
 }
