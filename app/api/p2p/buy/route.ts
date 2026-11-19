@@ -1,3 +1,4 @@
+import { escapeTelegramHtml, sendAdminTelegramAlert } from "@/lib/server/telegram"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { query, queryOne } from "@/lib/db"
@@ -39,6 +40,15 @@ export async function POST(request: NextRequest) {
     const inrEquivalent = (Number(amount) * rate).toFixed(2)
     const rows = await query(`INSERT INTO usdt_buy_requests (user_id,name,email,phone,wallet_address,amount_usdt,rate_inr,inr_equivalent,amount_paid,transaction_id,screenshot_url,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,'pending') RETURNING id`,[userId,profile.full_name,profile.email,profile.phone,b.walletAddress??null,amount,rate,inrEquivalent,b.transactionId??null,b.screenshotUrl??null])
     await notifyAdminOfP2POrder({ id: String(rows[0]?.id ?? "N/A"), orderType: "BUY", customerName: profile.full_name, customerPhone: profile.phone, amountUsdt: amount, rateInr: rate, inrTotal: inrEquivalent })
+    await sendAdminTelegramAlert([
+      "<b>New USDT BUY Request</b>",
+      `User: ${escapeTelegramHtml(profile.full_name)}`,
+      `Phone: ${escapeTelegramHtml(profile.phone)}`,
+      `Amount: ${escapeTelegramHtml(amount)} USDT`,
+      `Rate: ${escapeTelegramHtml(rate)} INR`,
+      `Total: ₹${escapeTelegramHtml(inrEquivalent)}`,
+      `Request ID: ${escapeTelegramHtml(rows[0]?.id ?? "N/A")}`,
+    ].join("\\n")).catch(error => console.error("[p2p/buy] Telegram alert failed:", error))
     try {
       await query(
         `INSERT INTO admin_notifications (type, title, message, is_read, ref_id)
