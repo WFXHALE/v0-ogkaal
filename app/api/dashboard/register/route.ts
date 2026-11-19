@@ -56,40 +56,32 @@ export async function POST(req: NextRequest) {
     const data = rows[0]
     if (!data) return NextResponse.json({ error: "Registration failed. Please try again." }, { status: 500 })
 
-    // Insert admin notification + submission record so new signup appears in admin User Profiles
+    // Create the member record and admin notification with trusted server-side writes.
     try {
-      const baseUrl = req.nextUrl.origin
+      const ipAddress = req.headers.get("x-real-ip")
+        ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+        ?? "Unknown"
       await Promise.all([
-        // Admin notification
-        fetch(`${baseUrl}/api/admin/notifications`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "member",
-            title: "New User Registered",
-            message: `${String(data.full_name ?? fullName)} (${email.trim().toLowerCase()}) just signed up.`,
-            is_read: false,
-            ref_id: String(data.user_id ?? userId),
-          }),
-        }),
-        // Submission record so the user appears in the Members / User Profiles section
-        fetch(`${baseUrl}/api/admin/submissions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "member",
-            name: String(data.full_name ?? fullName),
-            email: email.trim().toLowerCase(),
-            status: "pending",
-            ip_address: req.headers.get("x-forwarded-for") ?? "Unknown",
-            location: "",
-            user_id: String(data.user_id ?? userId),
-            details: { tradingLevel, marketType, tradingType, yearsExperience },
-          }),
-        }),
+        query(
+          `INSERT INTO admin_notifications (type, title, message, is_read, ref_id)
+           VALUES ('member', 'New User Registered', $1, false, $2)`,
+          [`${String(data.full_name ?? fullName)} (${email.trim().toLowerCase()}) just signed up.`, String(data.user_id ?? userId)],
+        ),
+        query(
+          `INSERT INTO admin_submissions
+            (type, name, email, status, ip_address, location, user_id, details)
+           VALUES ('member', $1, $2, 'pending', $3, '', $4, $5)`,
+          [
+            String(data.full_name ?? fullName),
+            email.trim().toLowerCase(),
+            ipAddress,
+            String(data.user_id ?? userId),
+            JSON.stringify({ tradingLevel, marketType, tradingType, yearsExperience }),
+          ],
+        ),
       ])
-    } catch {
-      // Fire-and-forget — never block registration response
+    } catch (notificationError) {
+      console.error("[register] member notification insert failed:", notificationError)
     }
 
     return NextResponse.json({ ok: true, data })
