@@ -74,7 +74,7 @@ export function getDb(): Pool {
       // Force IPv4: prevents ENETUNREACH when the host resolves to an IPv6 address
       // in environments that only have IPv4 outbound connectivity (e.g. Vercel).
       lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { ...options, family: 4 }, callback)
+        dns.lookup(hostname, { ...(options as dns.LookupOptions), family: 4 }, callback)
       },
     } as PoolConfig & { lookup: typeof dns.lookup }
     g._pgPool = new Pool(poolConfig)
