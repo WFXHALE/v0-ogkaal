@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       ? b.details as Record<string, unknown>
       : {}
     const userId = await getAuthenticatedSubmissionUserId(req)
-    const details = { ...rawDetails, userId }
+    const details: Record<string, unknown> = { ...rawDetails, userId }
 
     const submittedUtr = String(b.utr ?? "").trim()
     if (submittedUtr) {
