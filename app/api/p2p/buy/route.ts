@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       `Rate: ${escapeTelegramHtml(rate)} INR`,
       `Total: ₹${escapeTelegramHtml(inrEquivalent)}`,
       `Request ID: ${escapeTelegramHtml(rows[0]?.id ?? "N/A")}`,
-    ].join("\\n")).catch(error => console.error("[p2p/buy] Telegram alert failed:", error))
+    ].join("\n")).catch(error => console.error("[p2p/buy] Telegram alert failed:", error))
     try {
       await query(
         `INSERT INTO admin_notifications (type, title, message, is_read, ref_id)
