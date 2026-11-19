@@ -10,6 +10,8 @@ function inferSection(type: string): string {
   if (type === "mentorship")     return "mentorship-requests"
   if (type === "vip_membership") return "vip-requests"
   if (type === "vip_group")      return "vip-requests"
+  if (type === "member")         return "members"
+  if (type === "profile_update") return "user-profiles"
   return "payment-verification"
 }
 
