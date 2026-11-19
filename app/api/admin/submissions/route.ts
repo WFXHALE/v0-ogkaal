@@ -128,19 +128,6 @@ export async function POST(req: NextRequest) {
       ],
     )
 
-    const telegramMessage = [
-      `<b>New ${escapeTelegramHtml(label)} Request</b>`,
-      `User: ${escapeTelegramHtml(name)}`,
-      `Email: ${escapeTelegramHtml(email || "N/A")}`,
-      `Phone: ${escapeTelegramHtml(b.phone || "N/A")}`,
-      `Amount: ${escapeTelegramHtml(b.amount ?? details.amount ?? "N/A")}`,
-      `Payment reference: ${escapeTelegramHtml(submittedUtr || "N/A")}`,
-      "<i>— OG KAAL TRADER Admin</i>",
-    ].join("\\n")
-    await sendAdminTelegramAlert(telegramMessage).catch(error => {
-      console.error("[submissions POST] Telegram alert failed:", error)
-    })
-
     const action = String(details.action ?? "buy").toLowerCase()
     const notificationType = type === "usdt_p2p"
       ? (action === "sell" ? "usdt_sell" : "usdt_buy")
@@ -151,6 +138,19 @@ export async function POST(req: NextRequest) {
       : type === "mentorship" ? "Mentorship"
       : type === "support" ? "Support"
       : "Submission"
+
+    const telegramMessage = [
+      `<b>New ${escapeTelegramHtml(label)} Request</b>`,
+      `User: ${escapeTelegramHtml(name)}`,
+      `Email: ${escapeTelegramHtml(email || "N/A")}`,
+      `Phone: ${escapeTelegramHtml(b.phone || "N/A")}`,
+      `Amount: ${escapeTelegramHtml(b.amount ?? details.amount ?? "N/A")}`,
+      `Payment reference: ${escapeTelegramHtml(submittedUtr || "N/A")}`,
+      "<i>— OG KAAL TRADER Admin</i>",
+    ].join("\n")
+    await sendAdminTelegramAlert(telegramMessage).catch(error => {
+      console.error("[submissions POST] Telegram alert failed:", error)
+    })
 
     try {
       await query(
