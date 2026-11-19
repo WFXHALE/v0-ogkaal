@@ -10,7 +10,7 @@
  *   2. Individual POSTGRES_HOST/USER/PASSWORD/DATABASE vars
  *   3. POSTGRES_URL_NON_POOLING (last resort)
  */
-import { Pool } from "pg"
+import { Pool, type PoolConfig } from "pg"
 import dns from "dns"
 
 const g = globalThis as typeof globalThis & {
@@ -66,7 +66,7 @@ export function getDb(): Pool {
   }
 
   if (!g._pgPool) {
-    g._pgPool = new Pool({
+    const poolConfig = {
       connectionString: connStr,
       ssl:  { rejectUnauthorized: false },
       max:  5,
@@ -76,7 +76,8 @@ export function getDb(): Pool {
       lookup: (hostname, options, callback) => {
         dns.lookup(hostname, { ...options, family: 4 }, callback)
       },
-    })
+    } as PoolConfig & { lookup: typeof dns.lookup }
+    g._pgPool = new Pool(poolConfig)
     g._pgPoolKey = connStr
 
     g._pgPool.on("error", () => {
