@@ -192,7 +192,7 @@ function AuthScreen({
     const res = await signInWithGoogle()
     setLoading(false)
     if (!res.success) { setError(res.error ?? "Google sign-in failed."); return }
-    setSession(res.user)
+    onAuth(res.user)
   }
 
   const handleForgotSend = async (e: React.FormEvent) => {
