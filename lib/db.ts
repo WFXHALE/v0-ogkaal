@@ -73,9 +73,9 @@ export function getDb(): Pool {
       idleTimeoutMillis: 30_000,
       // Force IPv4: prevents ENETUNREACH when the host resolves to an IPv6 address
       // in environments that only have IPv4 outbound connectivity (e.g. Vercel).
-      lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { ...(options as dns.LookupOptions), family: 4 }, callback)
-      },
+      lookup: ((hostname: string, options: dns.LookupOptions, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+        dns.lookup(hostname, { ...options, family: 4, all: false }, callback)
+      }) as unknown as typeof dns.lookup,
     } as PoolConfig & { lookup: typeof dns.lookup }
     g._pgPool = new Pool(poolConfig)
     g._pgPoolKey = connStr
