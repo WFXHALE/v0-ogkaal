@@ -10,7 +10,7 @@
  *   2. Individual POSTGRES_HOST/USER/PASSWORD/DATABASE vars
  *   3. POSTGRES_URL_NON_POOLING (last resort)
  */
-import { Pool } from "pg"
+import { Pool, type PoolConfig } from "pg"
 import dns from "dns"
 
 const g = globalThis as typeof globalThis & {
@@ -66,17 +66,18 @@ export function getDb(): Pool {
   }
 
   if (!g._pgPool) {
-    g._pgPool = new Pool({
+    const poolConfig = {
       connectionString: connStr,
       ssl:  { rejectUnauthorized: false },
       max:  5,
       idleTimeoutMillis: 30_000,
       // Force IPv4: prevents ENETUNREACH when the host resolves to an IPv6 address
       // in environments that only have IPv4 outbound connectivity (e.g. Vercel).
-      lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { ...options, family: 4 }, callback)
-      },
-    })
+      lookup: ((hostname: string, options: dns.LookupOptions, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+        dns.lookup(hostname, { ...options, family: 4, all: false }, callback)
+      }) as unknown as typeof dns.lookup,
+    } as PoolConfig & { lookup: typeof dns.lookup }
+    g._pgPool = new Pool(poolConfig)
     g._pgPoolKey = connStr
 
     g._pgPool.on("error", () => {

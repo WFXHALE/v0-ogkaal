@@ -21,8 +21,8 @@ import {
 } from "@/lib/admin-auth"
 import type { SecurityLog } from "@/lib/admin-auth"
 import {
-  getVipSignals, createSignal, deleteSignal,
-  getMemberships, approveMembership,
+  getVipSignals, createSignal, updateSignalStatus, deleteSignal,
+  getMemberships, approveMembership, updateMembershipStatus,
   getPerformanceStats, upsertPerformanceStat,
 } from "@/lib/membership-store"
 import {
@@ -165,6 +165,18 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+function securityLogLabel(type: SecurityLog["type"]) {
+  const labels: Record<SecurityLog["type"], string> = {
+    login_success: "Successful sign-in",
+    login_failed: "Failed sign-in",
+    logout: "Signed out",
+    password_reset: "Password reset",
+    password_change: "Password changed",
+  }
+  return labels[type] ?? "Security event"
+}
+
+
 function uid(index: number) { return `USER-${String(index + 1).padStart(4, "0")}` }
 
 function statusBadge(status: string) {
@@ -282,7 +294,7 @@ export default function AdminPanel() {
   const [signalForm, setSignalForm]         = useState({ pair: "", entry: "", sl: "", tp1: "", tp2: "", tp3: "", direction: "BUY" as "BUY" | "SELL", notes: "" })
   const [signalSaving, setSignalSaving]     = useState(false)
   const [membershipSearch, setMembershipSearch] = useState("")
-  const [perfForm, setPerfForm]             = useState({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+  const [perfForm, setPerfForm]             = useState({ month: "", year: String(new Date().getFullYear()), profitPercent: "", winRate: "", totalTrades: "", wins: "", losses: "" })
   const [perfSaving, setPerfSaving]         = useState(false)
   const [newSectionLoading, setNewSectionLoading] = useState(false)
 
@@ -293,6 +305,7 @@ export default function AdminPanel() {
   const [p2pRatesError, setP2pRatesError]        = useState<string | null>(null)
   const [systemSaving,  setSystemSaving]        = useState(false)
   const [systemSaved,   setSystemSaved]         = useState(false)
+  const [systemError,   setSystemError]         = useState<string | null>(null)
 
   // ── DB stats for Dashboard (from analytics API) ──────��───────────────────────
   const [dbStats, setDbStats]                   = useState<{
@@ -711,7 +724,7 @@ export default function AdminPanel() {
     // Telegram notification to user
     if (order?.telegram) {
       const tgMsg = status === "accepted"
-        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.usdtAmount ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
+        ? `<b>USDT Buy Order Accepted</b>\n\nYour USDT buy request has been accepted. Please complete the payment.\n\nAmount: ${order.amountUsdt ?? "N/A"}\n\n<i>— OG KAAL TRADER</i>`
         : status === "completed"
         ? `<b>USDT Order Completed</b>\n\nPayment confirmed. Your USDT has been sent to your wallet.\n\n<i>— OG KAAL TRADER</i>`
         : status === "rejected" || status === "cancelled"
@@ -1400,7 +1413,7 @@ export default function AdminPanel() {
 
         {/* Action buttons — contextual by status, locked when final */}
         <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-          {(r.status === "completed" || r.status === "approved") ? (
+          {r.status === "completed" ? (
             <span className="flex-1 text-center text-xs text-green-400 font-semibold py-1.5">Order Completed</span>
           ) : (r.status === "cancelled" || r.status === "rejected") ? (
             <span className="flex-1 text-center text-xs text-red-400 font-semibold py-1.5">Order Cancelled</span>
@@ -1474,7 +1487,7 @@ export default function AdminPanel() {
 
     const tabOrders = orders.filter(r => {
       if (historyTab === "pending")   return r.status === "pending" || r.status === "accepted" || r.status === "processing"
-      if (historyTab === "completed") return r.status === "completed" || r.status === "approved"
+      if (historyTab === "completed") return r.status === "completed"
       if (historyTab === "cancelled") return r.status === "cancelled" || r.status === "rejected"
       return true
     }).filter(r => {
@@ -1654,7 +1667,7 @@ export default function AdminPanel() {
   const renderUSDTBuy = () => {
     const pending   = usdtBuy.filter(r => r.status === "pending")
     const accepted  = usdtBuy.filter(r => r.status === "accepted")
-    const completed = usdtBuy.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtBuy.filter(r => r.status === "completed")
     const cancelled = usdtBuy.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
@@ -1697,7 +1710,7 @@ export default function AdminPanel() {
   const renderUSDTSell = () => {
     const pending   = usdtSell.filter(r => r.status === "pending")
     const accepted  = usdtSell.filter(r => r.status === "accepted")
-    const completed = usdtSell.filter(r => r.status === "completed" || r.status === "approved")
+    const completed = usdtSell.filter(r => r.status === "completed")
     const cancelled = usdtSell.filter(r => r.status === "cancelled" || r.status === "rejected")
     return (
       <div className="space-y-6">
@@ -2372,7 +2385,7 @@ export default function AdminPanel() {
   )
 
   const renderSecurity = () => {
-    const failedLogins = securityLogs.filter(l => !l.success).length
+    const failedLogins = securityLogs.filter(l => l.type === "login_failed").length
     const activeSessions = isSessionValid() ? 1 : 0
 
     const handleSecSave = async () => {
@@ -2487,12 +2500,12 @@ export default function AdminPanel() {
             {securityLogs.slice(0, 15).map(log => (
               <div key={log.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="text-sm text-foreground">{log.action}</p>
+                  <p className="text-sm text-foreground">{securityLogLabel(log.type)}</p>
                   <p className="text-xs text-muted-foreground">{log.email} · {log.ipAddress || "—"}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                    {log.success ? "Success" : "Failed"}
+                  <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_failed" ? "bg-red-500/10 text-red-400 border-red-500/30" : log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-secondary/60 text-muted-foreground border-border"}`}>
+                    {log.type === "login_failed" ? "Failed" : log.type === "login_success" ? "Success" : "Event"}
                   </span>
                   <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(log.timestamp)}</p>
                 </div>
@@ -2523,12 +2536,12 @@ export default function AdminPanel() {
                 ? <tr><td colSpan={5} className="py-12 text-center text-muted-foreground text-sm">No logs found</td></tr>
                 : securityLogs.map(log => (
                   <tr key={log.id} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="py-3 px-4 text-sm text-foreground">{log.action}</td>
+                    <td className="py-3 px-4 text-sm text-foreground">{securityLogLabel(log.type)}</td>
                     <td className="py-3 px-4 text-xs text-muted-foreground">{log.email}</td>
                     <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{log.ipAddress || "—"}</td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.success ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}>
-                        {log.success ? "Success" : "Failed"}
+                      <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${log.type === "login_failed" ? "bg-red-500/10 text-red-400 border-red-500/30" : log.type === "login_success" ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-secondary/60 text-muted-foreground border-border"}`}>
+                        {log.type === "login_failed" ? "Failed" : log.type === "login_success" ? "Success" : "Event"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(log.timestamp)}</td>
@@ -2779,7 +2792,7 @@ export default function AdminPanel() {
               <div className="flex items-center gap-4 flex-wrap">
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${s.direction === "BUY" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>{s.direction}</span>
                 <span className="font-bold text-foreground">{s.pair}</span>
-                <span className="text-xs text-muted-foreground">Entry: {s.entry} | SL: {s.stopLoss} | TP: {s.takeProfit1}</span>
+                <span className="text-xs text-muted-foreground">Entry: {s.entry} | SL: {s.stopLoss} | TP: {s.takeProfit}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full border ${s.status === "active" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : s.status === "hit_tp" ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>{s.status}</span>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -2906,13 +2919,13 @@ export default function AdminPanel() {
         <h3 className="font-semibold text-foreground">Add / Update Monthly Stat</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {([
-            { key: "month",          label: "Month (YYYY-MM)", ph: "2025-01" },
-            { key: "monthLabel",     label: "Label",           ph: "January 2025" },
+            { key: "month",          label: "Month",           ph: "Jan" },
+            { key: "year",           label: "Year",            ph: "2026" },
             { key: "profitPercent",  label: "Profit %",        ph: "18" },
             { key: "winRate",        label: "Win Rate %",      ph: "72" },
             { key: "totalTrades",    label: "Total Trades",    ph: "32" },
-            { key: "winningTrades",  label: "Winning",         ph: "23" },
-            { key: "losingTrades",   label: "Losing",          ph: "9"  },
+            { key: "wins",           label: "Winning",         ph: "23" },
+            { key: "losses",         label: "Losing",          ph: "9"  },
           ] as const).map(({ key, label, ph }) => (
             <div key={key}>
               <label className="text-xs text-muted-foreground block mb-1">{label}</label>
@@ -2927,24 +2940,24 @@ export default function AdminPanel() {
         </div>
         <Button
           onClick={async () => {
-            if (!perfForm.month || !perfForm.monthLabel) return
+            if (!perfForm.month.trim() || !perfForm.year.trim()) return
             setPerfSaving(true)
             const ok = await upsertPerformanceStat({
-              month: perfForm.month, year: new Date().getFullYear(),
+              month: perfForm.month.trim(), year: Number(perfForm.year) || new Date().getFullYear(),
               profitPercent: Number(perfForm.profitPercent) || 0,
               winRate: Number(perfForm.winRate) || 0,
               totalTrades: Number(perfForm.totalTrades) || 0,
-              wins: Number(perfForm.winningTrades) || 0,
-              losses: Number(perfForm.losingTrades) || 0,
+              wins: Number(perfForm.wins) || 0,
+              losses: Number(perfForm.losses) || 0,
             })
             if (ok) {
               const updated = await getPerformanceStats()
               setPerfStats(updated)
-              setPerfForm({ month: "", monthLabel: "", profitPercent: "", winRate: "", totalTrades: "", winningTrades: "", losingTrades: "" })
+              setPerfForm({ month: "", year: String(new Date().getFullYear()), profitPercent: "", winRate: "", totalTrades: "", wins: "", losses: "" })
             }
             setPerfSaving(false)
           }}
-          disabled={perfSaving || !perfForm.month || !perfForm.monthLabel}
+          disabled={perfSaving || !perfForm.month.trim() || !perfForm.year.trim()}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {perfSaving ? "Saving..." : "Save Stat"}
@@ -2970,11 +2983,11 @@ export default function AdminPanel() {
               <tbody>
                 {[...perfStats].reverse().map(s => (
                   <tr key={s.id} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="px-4 py-3 font-medium text-foreground">{s.monthLabel}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{s.month} {s.year}</td>
                     <td className={`px-4 py-3 font-bold ${s.profitPercent >= 0 ? "text-green-400" : "text-red-400"}`}>{s.profitPercent >= 0 ? "+" : ""}{s.profitPercent}%</td>
                     <td className="px-4 py-3 text-foreground">{s.winRate}%</td>
                     <td className="px-4 py-3 text-foreground">{s.totalTrades}</td>
-                    <td className="px-4 py-3"><span className="text-green-400">{s.winningTrades}W</span> / <span className="text-red-400">{s.losingTrades}L</span></td>
+                    <td className="px-4 py-3"><span className="text-green-400">{s.wins}W</span> / <span className="text-red-400">{s.losses}L</span></td>
                   </tr>
                 ))}
               </tbody>

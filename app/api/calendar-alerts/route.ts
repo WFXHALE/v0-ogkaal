@@ -1,83 +1,94 @@
-import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
-  if (!supabaseUrl) throw new Error("Missing environment variable: SUPABASE_URL")
-  if (!supabaseKey) throw new Error("Missing environment variable: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY")
-
-  return createClient(supabaseUrl, supabaseKey)
+async function authenticatedClient() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return null
+  return { supabase, user }
 }
 
-// GET /api/calendar-alerts?user_id=xxx
-export async function GET(req: Request) {
-  const supabase = getSupabaseClient()
-  const { searchParams } = new URL(req.url)
-  const user_id = searchParams.get("user_id")
-  if (!user_id) return NextResponse.json({ alerts: [] })
+// Calendar alerts are always scoped to the signed-in Supabase account.
+// Any user_id supplied by the browser is deliberately ignored.
+export async function GET() {
+  const context = await authenticatedClient()
+  if (!context) return NextResponse.json({ error: "Sign in to view your alerts." }, { status: 401 })
 
-  const { data, error } = await supabase
+  const { data, error } = await context.supabase
     .from("calendar_alerts")
     .select("*")
-    .eq("user_id", user_id)
+    .eq("user_id", context.user.id)
+    .order("event_date", { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ alerts: data ?? [] })
+  if (error) return NextResponse.json({ error: "Could not load calendar alerts." }, { status: 500 })
+  return NextResponse.json(
+    { alerts: data ?? [] },
+    { headers: { "Cache-Control": "private, no-store" } },
+  )
 }
 
-// POST /api/calendar-alerts — set alert for an event
-export async function POST(req: Request) {
-  const supabase = getSupabaseClient()
-  const body = await req.json()
-  const { user_id, event_id, event_title, event_date, event_time, currency, impact, minutes_before } = body
+export async function POST(req: NextRequest) {
+  const context = await authenticatedClient()
+  if (!context) return NextResponse.json({ error: "Sign in to set an alert." }, { status: 401 })
 
-  if (!user_id || !event_id) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const eventId = typeof body.event_id === "string" ? body.event_id.trim() : ""
+  if (!eventId || eventId.length > 160) {
+    return NextResponse.json({ error: "A valid event is required." }, { status: 400 })
   }
 
-  // Upsert — one alert per user per event
-  const { data, error } = await supabase
+  const minutesBefore = Number(body.minutes_before ?? 15)
+  if (!Number.isInteger(minutesBefore) || minutesBefore < 1 || minutesBefore > 1440) {
+    return NextResponse.json({ error: "Alert timing must be between 1 and 1,440 minutes." }, { status: 400 })
+  }
+
+  const cleanText = (value: unknown, max: number) =>
+    typeof value === "string" ? value.trim().slice(0, max) : ""
+
+  const { data, error } = await context.supabase
     .from("calendar_alerts")
     .upsert(
       {
-        user_id,
-        event_id,
-        event_title,
-        event_date,
-        event_time,
-        currency,
-        impact,
-        minutes_before: minutes_before ?? 15,
+        user_id: context.user.id,
+        event_id: eventId,
+        event_title: cleanText(body.event_title, 240),
+        event_date: cleanText(body.event_date, 40),
+        event_time: cleanText(body.event_time, 40),
+        currency: cleanText(body.currency, 20),
+        impact: cleanText(body.impact, 40),
+        minutes_before: minutesBefore,
         notified: false,
       },
-      { onConflict: "user_id,event_id" }
+      { onConflict: "user_id,event_id" },
     )
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ alert: data })
+  if (error) return NextResponse.json({ error: "Could not save calendar alert." }, { status: 500 })
+  return NextResponse.json(
+    { alert: data },
+    { headers: { "Cache-Control": "private, no-store" } },
+  )
 }
 
-// DELETE /api/calendar-alerts?user_id=xxx&event_id=yyy
-export async function DELETE(req: Request) {
-  const supabase = getSupabaseClient()
-  const { searchParams } = new URL(req.url)
-  const user_id = searchParams.get("user_id")
-  const event_id = searchParams.get("event_id")
+export async function DELETE(req: NextRequest) {
+  const context = await authenticatedClient()
+  if (!context) return NextResponse.json({ error: "Sign in to remove an alert." }, { status: 401 })
 
-  if (!user_id || !event_id) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  const eventId = req.nextUrl.searchParams.get("event_id")?.trim()
+  if (!eventId || eventId.length > 160) {
+    return NextResponse.json({ error: "A valid event is required." }, { status: 400 })
   }
 
-  const { error } = await supabase
+  const { error } = await context.supabase
     .from("calendar_alerts")
     .delete()
-    .eq("user_id", user_id)
-    .eq("event_id", event_id)
+    .eq("user_id", context.user.id)
+    .eq("event_id", eventId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  if (error) return NextResponse.json({ error: "Could not remove calendar alert." }, { status: 500 })
+  return NextResponse.json({ success: true }, { headers: { "Cache-Control": "private, no-store" } })
 }

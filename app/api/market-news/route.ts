@@ -64,10 +64,10 @@ async function fetchRSSFeed(url: string, sourceName: string): Promise<RSSItem[]>
     const itemMatches = xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)
     for (const match of itemMatches) {
       const block = match[1]
-      const title = (block.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>/s) ||
-                     block.match(/<title[^>]*>(.*?)<\/title>/s))?.[1]?.trim() ?? ""
-      const link  = (block.match(/<link[^>]*>(.*?)<\/link>/s))?.[1]?.trim() ?? ""
-      const pubDate = (block.match(/<pubDate[^>]*>(.*?)<\/pubDate>/s))?.[1]?.trim() ?? ""
+      const title = (block.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ||
+                     block.match(/<title[^>]*>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? ""
+      const link  = (block.match(/<link[^>]*>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? ""
+      const pubDate = (block.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? ""
       if (title && title.length > 20) {
         items.push({ title, link, pubDate, source: sourceName })
       }

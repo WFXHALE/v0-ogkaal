@@ -986,7 +986,6 @@ export default function UsdtP2PPage() {
                           // Also save to admin_submissions + fire Telegram notification
                           await saveSubmission({
                             type: "usdt_p2p",
-                            userId: currentUser?.id,
                             email: currentUser?.email,
                             name: sellFormData.name || currentUser?.fullName || "Sell Request",
                             telegram: sellFormData.telegram,

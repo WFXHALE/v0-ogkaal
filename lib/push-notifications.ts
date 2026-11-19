@@ -1,7 +1,7 @@
 "use client"
 
 import { getMessaging, getToken, onMessage } from "firebase/messaging"
-import { getFirebaseApp } from "./firebase"
+import { app } from "./firebase"
 
 // Register the current browser's FCM token through the authenticated server API.
 export async function registerPushNotifications(_userId: string): Promise<boolean> {
@@ -10,9 +10,6 @@ export async function registerPushNotifications(_userId: string): Promise<boolea
 
     const permission = await Notification.requestPermission()
     if (permission !== "granted") return false
-
-    const app = getFirebaseApp()
-    if (!app) return false
 
     const messaging = getMessaging(app)
     const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY

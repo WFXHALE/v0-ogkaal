@@ -11,7 +11,7 @@ interface KycModalProps {
 }
 
 export function KycModal({ session, onClose, onSubmitted }: KycModalProps) {
-  const [phone,     setPhone]     = useState(session.phone ?? "")
+  const [phone,     setPhone]     = useState("")
   const [telegram,  setTelegram]  = useState("")
   const [instagram, setInstagram] = useState("")
   const [address,   setAddress]   = useState("")
@@ -66,7 +66,7 @@ export function KycModal({ session, onClose, onSubmitted }: KycModalProps) {
   }: {
     label: string; hint: string
     file: File | null; onFile: (f: File) => void
-    inputRef: React.RefObject<HTMLInputElement>
+    inputRef: React.RefObject<HTMLInputElement | null>
   }) => (
     <div>
       <p className="text-xs font-semibold text-foreground mb-1.5">{label}</p>
