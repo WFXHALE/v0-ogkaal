@@ -1,3 +1,4 @@
+import { requireAdminApi } from "@/lib/require-admin-api"
 import { NextRequest, NextResponse } from "next/server"
 
 // ── IMPORTANT: env vars MUST be read inside the handler, not at module level.
@@ -24,6 +25,8 @@ async function sendTelegramMessage(
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireAdminApi(req)
+  if (denied) return denied
   try {
     // Read env vars fresh on every request — never at module scope
     const botToken  = process.env.TELEGRAM_BOT_TOKEN
