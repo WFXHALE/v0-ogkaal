@@ -773,10 +773,10 @@ export default function ClientDashboard() {
       supabase.from("usdt_buy_requests").select("*").or(`email.eq.${s.email},user_id.eq.${s.userId}`).order("created_at", { ascending: false }),
       supabase.from("usdt_sell_requests").select("*").or(`email.eq.${s.email},user_id.eq.${s.userId}`).order("created_at", { ascending: false }),
     ])
-    const combined = [
+    const combined: Record<string, unknown>[] = [
       ...(buyData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Buy" })),
       ...(sellData ?? []).map((o: Record<string, unknown>) => ({ ...o, _type: "Sell" })),
-    ].sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
+    ].sort((a: Record<string, unknown>, b: Record<string, unknown>) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     setUsdtOrders(combined)
 
     const [sigs, stats] = await Promise.all([getVipSignals(), getPerformanceStats()])
