@@ -4,7 +4,6 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   // Never expose server-only secrets through Next.js public environment variables.
   reactStrictMode: true,
-  swcMinify: true,
   compress: true,
   poweredByHeader: false,
   images: {
